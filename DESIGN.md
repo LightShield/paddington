@@ -146,16 +146,50 @@ struct Partial {
 - Serialization format dependencies
 - Memory-mapped structures
 - External API contracts
+- Hot/cold cache optimization (intentional member ordering for runtime performance)
 
 ## Reporting
 
-### Success Report
+### Verbosity Levels
+
+**Minimal (`-v`):**
 ```
-[OPTIMIZED] struct UserData: 24 bytes -> 16 bytes (8 bytes saved)
-  - Reordered 5 members
+[OPTIMIZED] struct UserData: 24 bytes -> 16 bytes (8 bytes saved per instance)
+```
+
+**Standard (`-vv`, default):**
+```
+[OPTIMIZED] struct UserData: 24 bytes -> 16 bytes (8 bytes saved per instance)
+  Before: char name[16], int id, char flag, double score
+  After:  double score, char name[16], int id, char flag
   - Updated 3 constructors
   - Updated 12 call sites
 ```
+
+**Detailed (`-vvv`):**
+```
+[OPTIMIZED] struct UserData: 24 bytes -> 16 bytes (8 bytes saved per instance, ~47 instances found)
+  Before: char name[16], int id, char flag, double score
+  After:  double score, char name[16], int id, char flag
+  
+  Constructors updated:
+    - src/user.cpp:15: UserData(const char*, int, char, double)
+    - src/user.cpp:23: UserData(const UserData&)
+    - src/user.h:42: UserData() = default
+  
+  Call sites updated (12 total):
+    - src/main.cpp:45: UserData user("Alice", 1, 'A', 3.14)
+    - src/main.cpp:67: auto ptr = std::make_unique<UserData>(...)
+    - src/factory.cpp:12: return UserData{name, id, flag, score}
+    ... (9 more)
+  
+  Estimated memory savings: ~376 bytes (8 bytes × 47 instances)
+```
+
+**Instance counting:**
+- Static analysis counts visible instantiations (stack, heap, smart pointers)
+- Marked as estimate (~) since dynamic allocations may vary at runtime
+- Requires full codebase analysis (may miss instances in unanalyzed files)
 
 ### Skip Report
 ```
@@ -186,8 +220,23 @@ This approach:
 ### Git Integration
 
 Each optimization unit (struct/tree/depth-level) generates:
-- Individual patch file
+- Individual patch file with naming: `<tree_id>_<order>_<struct_name>.patch`
+  - `tree_id`: Identifies independent dependency tree (e.g., `tree_001`, `tree_002`)
+  - `order`: Application order within tree (e.g., `01`, `02`, `03`)
+  - Example: `tree_001_01_UserSettings.patch`, `tree_001_02_UserProfile.patch`
 - Suggested commit message following Conventional Commits
+- `APPLY_ORDER.txt` file listing patches in correct application order
+
+```bash
+# Generated patch structure
+patches/
+  APPLY_ORDER.txt
+  tree_001_01_UserSettings.patch
+  tree_001_02_UserProfile.patch
+  tree_001_03_UserData.patch
+  tree_002_01_ConfigData.patch
+  tree_002_02_Config.patch
+```
 
 ```bash
 # Generate patches
@@ -272,16 +321,19 @@ For each optimization:
 
 ## Open Questions
 
-1. How to handle platform-specific alignment differences?
+1. ~~How to handle platform-specific alignment differences?~~ 
+   - libclang provides this via `Type.get_align()` for target platform
+   
 2. Should we support custom alignment attributes (`alignas`)?
+   - Initial approach: Skip structs with custom alignment (add to skip report)
+   - Reason: Target use case is unmanaged structs, custom alignment is uncommon
+   - Future: Could handle if alignment doesn't conflict with optimization
+   
 3. How to detect ABI boundaries automatically?
+   - Open question - needs investigation
+   
 4. Should we generate before/after memory layout visualizations?
-5. Integration with existing refactoring tools (clang-tidy)?
-
-## Future Enhancements
-
-- IDE integration (VS Code extension)
-- CI/CD checks (fail if padding waste exceeds threshold)
-- Memory layout visualization
-- Performance impact estimation
-- Support for C structs (not just C++)
+   - Yes, good for understanding changes
+   - Question: Does this require runtime profiling to show actual instance counts?
+   - Or can we do static visualization showing padding layout per struct?
+   - Needs design: ASCII art in terminal? HTML report? Graphviz?
