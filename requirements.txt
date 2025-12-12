@@ -1,0 +1,2 @@
+pytest>=7.0.0
+libclang>=16.0.0
