@@ -48,6 +48,7 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
     from ..utils.compilation_database import (
         find_compilation_database,
         get_files_from_compilation_database,
+        get_compile_args_for_file,
     )
     
     compile_db = find_compilation_database(path)
@@ -65,7 +66,13 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
     for file in files:
         try:
             log.debug(f"Parsing {file}")
-            structs = parse_file(file)
+            
+            # Get compile args from database if available
+            compile_args = None
+            if compile_db:
+                compile_args = get_compile_args_for_file(compile_db, file)
+            
+            structs = parse_file(file, compile_args)
             all_structs.extend(structs)
         except Exception as e:
             log.error(f"Error parsing {file}: {e}")

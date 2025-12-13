@@ -100,7 +100,14 @@ def optimize_files(
     for file in files:
         try:
             log.debug(f"Parsing {file}")
-            structs = parse_file(file)
+            
+            # Get compile args from database if available
+            compile_args = None
+            if compile_db:
+                from ..utils.compilation_database import get_compile_args_for_file
+                compile_args = get_compile_args_for_file(compile_db, file)
+            
+            structs = parse_file(file, compile_args)
 
             for struct in structs:
                 if struct.file_path not in file_structs:

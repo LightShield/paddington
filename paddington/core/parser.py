@@ -154,19 +154,30 @@ def find_structs(translation_unit: clang.TranslationUnit, main_file: str) -> Lis
     return structs
 
 
-def parse_file(file_path: Path) -> List[StructInfo]:
+def parse_file(file_path: Path, compile_args: Optional[List[str]] = None) -> List[StructInfo]:
     """Parse a single C++ file and return struct definitions.
     
     Args:
         file_path: Path to C++ file to parse
+        compile_args: Optional compile arguments from compilation database
         
     Returns:
         List of structs defined in this file (excludes system/third-party includes)
     """
     index = clang.Index.create()
-    include_dir = f"-I{file_path.parent}"
+    
+    # Use provided compile args or default
+    if compile_args:
+        args = compile_args
+    else:
+        include_dir = f"-I{file_path.parent}"
+        args = ["-std=c++17", include_dir]
 
-    tu = index.parse(str(file_path), args=["-std=c++17", include_dir])
+    try:
+        tu = index.parse(str(file_path), args=args)
+    except clang.TranslationUnitLoadError:
+        # Some files (especially headers) may not parse standalone
+        return []
 
     # Check for parse errors (but allow missing includes if structs are parseable)
     if tu.diagnostics:
