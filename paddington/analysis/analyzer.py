@@ -1,6 +1,7 @@
 """Main analysis orchestration."""
 
 from pathlib import Path
+from typing import Optional, List
 from ..utils import find_cpp_files, Logger
 from ..utils.validation import (
     validate_path_exists,
@@ -11,11 +12,18 @@ from ..core import init_libclang, parse_file
 from .reporter import report_analysis
 
 
-def analyze_files(path: Path, verbosity: int = 1) -> None:
+def analyze_files(
+    path: Path,
+    include_patterns: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
+    verbosity: int = 1,
+) -> None:
     """Analyze C++ files for struct padding.
 
     Args:
         path: File or directory path to analyze
+        include_patterns: Only process files matching these patterns
+        exclude_patterns: Skip files matching these patterns
         verbosity: Logging verbosity level (1=WARNING, 2=INFO, 3=DEBUG)
         
     Raises:
@@ -58,6 +66,17 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
         if db_files:
             files = db_files
             log.debug(f"Using {len(files)} files from compilation database")
+    
+    # Apply include/exclude filters
+    if include_patterns or exclude_patterns:
+        from ..utils.file_filter import filter_files
+        original_count = len(files)
+        files = filter_files(files, include_patterns, exclude_patterns)
+        log.info(f"Filtered {original_count} files to {len(files)} files")
+        if include_patterns:
+            log.debug(f"Include patterns: {include_patterns}")
+        if exclude_patterns:
+            log.debug(f"Exclude patterns: {exclude_patterns}")
 
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()

@@ -16,6 +16,18 @@ def main():
     )
     analyze_parser.add_argument("path", type=Path, help="File or directory to analyze")
     analyze_parser.add_argument(
+        "--include",
+        type=str,
+        action="append",
+        help="Only process files matching pattern (can be used multiple times)",
+    )
+    analyze_parser.add_argument(
+        "--exclude",
+        type=str,
+        action="append",
+        help="Skip files matching pattern (can be used multiple times)",
+    )
+    analyze_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -69,7 +81,12 @@ def main():
     args = parser.parse_args()
 
     if args.command == "analyze":
-        analyze_files(args.path, verbosity=args.verbose)
+        analyze_files(
+            args.path,
+            include_patterns=args.include,
+            exclude_patterns=args.exclude,
+            verbosity=args.verbose,
+        )
     elif args.command == "optimize":
         optimize_files(
             args.path,
