@@ -17,6 +17,10 @@ def get_test_files(test_case):
 @pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda x: x.name)
 def test_optimization(test_case):
     """Test that optimization produces expected output."""
+    import tempfile
+    import shutil
+    from pathlib import Path
+    
     input_files, expected_files = get_test_files(test_case)
     
     assert input_files, f"No input files in {test_case.name}"
@@ -24,9 +28,38 @@ def test_optimization(test_case):
     assert len(input_files) == len(expected_files), \
         f"Mismatch: {len(input_files)} input files, {len(expected_files)} expected files"
     
-    # TODO: Run paddington optimize on input_files
-    # TODO: Compare output with expected_files
-    pytest.skip("Implementation pending")
+    # Create temp directory and copy input files
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        
+        # Copy input files
+        for input_file in input_files:
+            shutil.copy(input_file, tmpdir_path / input_file.name.replace('input', 'test'))
+        
+        # Run paddington optimize
+        test_files = list(tmpdir_path.glob("test*"))
+        for test_file in test_files:
+            result = subprocess.run(
+                ["python3", "-m", "paddington", "optimize", str(test_file), "--apply", "--force"],
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent.parent
+            )
+            
+            assert result.returncode == 0, f"Optimization failed: {result.stderr}"
+        
+        # Compare with expected
+        for expected_file in expected_files:
+            test_file = tmpdir_path / expected_file.name.replace('expected', 'test')
+            
+            with open(expected_file, 'r') as f:
+                expected_content = f.read()
+            
+            with open(test_file, 'r') as f:
+                actual_content = f.read()
+            
+            assert actual_content == expected_content, \
+                f"Output mismatch for {expected_file.name}\nExpected:\n{expected_content}\n\nActual:\n{actual_content}"
 
 @pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda x: x.name)
 def test_compilation(test_case):

@@ -3,9 +3,9 @@ struct Point {
     int x;
     char label;
     char marker;
-    
+
     Point() = default;
-    Point(char l, int px, char m, double py) : y(py), x(px), label(l), marker(m) {}
+    Point(char l, int px, char m, double py) : y(py), x(px), label(l), marker(m){}
 };
 
 int main() {

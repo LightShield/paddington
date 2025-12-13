@@ -3,8 +3,8 @@ struct Container {
     int count;
     char flag;
     T value;
-    
-    Container(char f, T v, int c) : count(c), flag(f), value(v) {}
+
+    Container(char f, T v, int c) : count(c), flag(f), value(v){}
 };
 
 int main() {

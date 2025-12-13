@@ -2,12 +2,12 @@
 
 // Struct used with smart pointers
 struct Config {
-    double threshold;
-    int timeout;
     char enabled;
+    int timeout;
     char debug;
+    double threshold;
     
-    Config(char e, int t, char d, double th) : threshold(th), timeout(t), enabled(e), debug(d) {}
+    Config(char e, int t, char d, double th) : enabled(e), timeout(t), debug(d), threshold(th) {}
 };
 
 int main() {

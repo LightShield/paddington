@@ -2,10 +2,10 @@
 #define USER_H
 
 struct User {
-    double balance;
-    int id;
     char active;
+    int id;
     char role;
+    double balance;
     
     User(char a, int i, char r, double b);
 };
