@@ -26,6 +26,7 @@ def optimize_files(
     force: bool = False,
     update_signatures: bool = False,
     patch_dir: Optional[Path] = None,
+    build_command: Optional[str] = None,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding in C++ files.
@@ -36,6 +37,7 @@ def optimize_files(
         force: If True, reorder even if no size savings
         update_signatures: If True, update constructor signatures and call sites
         patch_dir: If provided, generate patches instead of modifying files
+        build_command: If provided, run after each optimization to verify build
         verbosity: Logging verbosity level
     """
     log = Logger()
@@ -183,6 +185,18 @@ def optimize_files(
                 write_file(file_path, content)
 
                 log.info(f"Updated {file_path}")
+                
+                # Verify build if command provided
+                if build_command:
+                    from ..utils.build_verifier import run_build_command
+                    
+                    build_dir = Path(file_path).parent
+                    if not run_build_command(build_command, build_dir):
+                        log.error(f"Build failed after optimizing {struct.name}")
+                        log.error("Rolling back changes...")
+                        # TODO: Implement rollback
+                        return
+                        
             except Exception as e:
                 log.error(f"Error optimizing {struct.name}: {e}")
                 import traceback

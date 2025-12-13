@@ -41,6 +41,11 @@ def main():
         help="Generate git patches instead of modifying files",
     )
     optimize_parser.add_argument(
+        "--build-command",
+        type=str,
+        help="Command to run after each optimization to verify build (e.g., 'make test')",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -55,6 +60,7 @@ def main():
             force=args.force,
             update_signatures=args.update_signatures,
             patch_dir=args.patch_dir,
+            build_command=args.build_command,
             verbosity=args.verbose,
         )
 
