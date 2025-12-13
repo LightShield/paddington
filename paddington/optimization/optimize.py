@@ -28,6 +28,8 @@ def optimize_files(
     patch_dir: Optional[Path] = None,
     build_command: Optional[str] = None,
     verify: bool = False,
+    include_patterns: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding in C++ files.
@@ -40,6 +42,8 @@ def optimize_files(
         patch_dir: If provided, generate patches instead of modifying files
         build_command: If provided, run after each optimization to verify build
         verify: If True, use compilation database to verify each file
+        include_patterns: Only process files matching these patterns
+        exclude_patterns: Skip files matching these patterns
         verbosity: Logging verbosity level
     """
     log = Logger()
@@ -86,6 +90,17 @@ def optimize_files(
         if db_files:
             files = db_files
             log.debug(f"Using {len(files)} files from compilation database")
+    
+    # Apply include/exclude filters
+    if include_patterns or exclude_patterns:
+        from ..utils.file_filter import filter_files
+        original_count = len(files)
+        files = filter_files(files, include_patterns, exclude_patterns)
+        log.info(f"Filtered {original_count} files to {len(files)} files")
+        if include_patterns:
+            log.debug(f"Include patterns: {include_patterns}")
+        if exclude_patterns:
+            log.debug(f"Exclude patterns: {exclude_patterns}")
 
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()

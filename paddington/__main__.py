@@ -51,6 +51,18 @@ def main():
         help="Use compilation database to verify each file compiles (requires compile_commands.json)",
     )
     optimize_parser.add_argument(
+        "--include",
+        type=str,
+        action="append",
+        help="Only process files matching pattern (can be used multiple times)",
+    )
+    optimize_parser.add_argument(
+        "--exclude",
+        type=str,
+        action="append",
+        help="Skip files matching pattern (can be used multiple times)",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -67,6 +79,8 @@ def main():
             patch_dir=args.patch_dir,
             build_command=args.build_command,
             verify=args.verify,
+            include_patterns=args.include,
+            exclude_patterns=args.exclude,
             verbosity=args.verbose,
         )
 
