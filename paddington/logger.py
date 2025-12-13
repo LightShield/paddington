@@ -1,3 +1,7 @@
+"""
+Thread-safe singleton logger with colored output.
+Source: https://github.com/LightShield/logger_python
+"""
 import sys
 import threading
 import datetime
