@@ -4,6 +4,15 @@ from typing import List
 
 @dataclass
 class MemberInfo:
+    """Information about a struct/class member field.
+    
+    Attributes:
+        name: Member variable name
+        type_name: C++ type name (e.g., 'int', 'double', 'MyClass')
+        size: Size in bytes
+        alignment: Alignment requirement in bytes
+        offset: Byte offset from start of struct
+    """
     name: str
     type_name: str
     size: int
@@ -12,16 +21,31 @@ class MemberInfo:
 
 @dataclass
 class StructInfo:
+    """Information about a struct/class definition.
+    
+    Attributes:
+        name: Struct/class name
+        file_path: Source file path
+        line: Line number where defined
+        members: List of member fields
+        total_size: Total size in bytes
+        is_class: True for class, False for struct
+        is_template: True for template definitions
+    """
     name: str
     file_path: str
     line: int
     members: List[MemberInfo]
     total_size: int
-    is_class: bool = False  # True for class, False for struct
-    is_template: bool = False  # True for template definitions
+    is_class: bool = False
+    is_template: bool = False
     
     def calculate_padding(self) -> int:
-        """Calculate total padding bytes in struct."""
+        """Calculate total padding bytes in struct.
+        
+        Returns:
+            Total padding in bytes (includes internal padding and trailing padding)
+        """
         if not self.members:
             return 0
         
@@ -43,7 +67,11 @@ class StructInfo:
         return padding
     
     def calculate_optimal_size(self) -> int:
-        """Calculate size if members were optimally ordered (largest to smallest)."""
+        """Calculate size if members were optimally ordered (largest to smallest).
+        
+        Returns:
+            Optimal size in bytes with members ordered by size descending
+        """
         if not self.members:
             return 0
         
