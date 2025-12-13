@@ -39,7 +39,8 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
         file_path=str(cursor.location.file),
         line=cursor.location.line,
         members=members,
-        total_size=cursor.type.get_size()
+        total_size=cursor.type.get_size(),
+        is_class=(cursor.kind == clang.CursorKind.CLASS_DECL)
     )
 
 def has_ignore_annotation(cursor: clang.Cursor) -> bool:

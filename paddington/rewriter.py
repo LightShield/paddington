@@ -42,7 +42,9 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
     
     # Extract member declarations with their full lines (including comments)
     # Also track non-member lines (constructors, methods, etc.)
+    # Track access specifiers separately
     member_lines = {}
+    access_specifiers = []
     other_lines = []
     
     for i in range(brace_line + 1, closing_brace - 1):
@@ -51,6 +53,11 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
         # Skip empty lines
         stripped = line.strip()
         if not stripped:
+            continue
+        
+        # Check for access specifiers
+        if stripped in ['public:', 'private:', 'protected:']:
+            access_specifiers.append((i, line))
             continue
         
         # Check if this is a member declaration
@@ -66,8 +73,17 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
         if not is_member:
             other_lines.append(line)
     
-    # Build new struct body with reordered members followed by other content
+    # Build new struct body
+    # For classes: access specifier, then members, then blank line, then methods
+    # For structs: members, then blank line, then methods
     new_body = []
+    
+    # Add access specifiers before members (for classes)
+    if access_specifiers:
+        for _, spec_line in access_specifiers:
+            new_body.append(spec_line)
+    
+    # Add reordered members
     for member in new_order:
         if member.name in member_lines:
             new_body.append(member_lines[member.name])

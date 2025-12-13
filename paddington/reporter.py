@@ -22,8 +22,10 @@ def report_analysis(structs: List[StructInfo], verbosity: int = 1):
             optimizable_count += 1
             total_savings += savings
             
+            type_name = "class" if struct.is_class else "struct"
+            
             if verbosity >= 1:
-                print(f"[PADDING] struct {struct.name}: {struct.total_size} bytes "
+                print(f"[PADDING] {type_name} {struct.name}: {struct.total_size} bytes "
                       f"({padding} bytes padding, {savings} bytes savable)")
             
             if verbosity >= 2:
@@ -31,8 +33,9 @@ def report_analysis(structs: List[StructInfo], verbosity: int = 1):
                 log.info(f"Optimal size: {optimal_size} bytes")
                 log.info(f"Members: {', '.join(m.name for m in struct.members)}")
         elif verbosity >= 3:
-            log.debug(f"struct {struct.name}: {struct.total_size} bytes (already optimal)")
+            type_name = "class" if struct.is_class else "struct"
+            log.debug(f"{type_name} {struct.name}: {struct.total_size} bytes (already optimal)")
     
-    print(f"\nTotal: {len(structs)} structs analyzed, {optimizable_count} can be optimized")
+    print(f"\nTotal: {len(structs)} struct(s)/class(es) analyzed, {optimizable_count} can be optimized")
     print(f"Total padding: {total_padding} bytes")
     print(f"Potential savings: {total_savings} bytes")

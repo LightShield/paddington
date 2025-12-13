@@ -61,7 +61,8 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
             optimal_size = struct.calculate_optimal_size()
             savings = struct.total_size - optimal_size
             
-            log.info(f"Optimizing struct {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
+            type_name = "class" if struct.is_class else "struct"
+            log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
             
             if not dry_run:
                 try:
@@ -89,7 +90,7 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
             total_savings += savings
     
     mode = "Would optimize" if dry_run else "Optimized"
-    print(f"\n{mode} {optimized_count} structs")
+    print(f"\n{mode} {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
     
     if dry_run:
