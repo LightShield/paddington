@@ -31,6 +31,28 @@ pip install -r requirements-dev.txt
 
 ## Quick Start
 
+### Generate Compilation Database (Recommended)
+
+For best results, generate `compile_commands.json` for your project:
+
+**CMake:**
+```bash
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .
+```
+
+**Make:**
+```bash
+# Install Bear: https://github.com/rizsotto/Bear
+bear -- make
+```
+
+**Ninja:**
+```bash
+ninja -t compdb > compile_commands.json
+```
+
+See [COMPILE_COMMANDS.md](COMPILE_COMMANDS.md) for detailed explanation.
+
 ### Analyze
 
 Find structs with padding waste:
