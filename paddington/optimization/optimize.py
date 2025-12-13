@@ -1,7 +1,7 @@
 """Optimization orchestration."""
 
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from ..utils import find_cpp_files, Logger
 from ..core import init_libclang, parse_file
 from ..core.dependency_analyzer import topological_sort, has_circular_dependency
@@ -14,8 +14,9 @@ def optimize_files(
     dry_run: bool = True,
     force: bool = False,
     update_signatures: bool = False,
+    patch_dir: Optional[Path] = None,
     verbosity: int = 1,
-):
+) -> None:
     """Optimize struct padding in C++ files.
 
     Args:
@@ -23,6 +24,7 @@ def optimize_files(
         dry_run: If True, only report what would be done
         force: If True, reorder even if no size savings
         update_signatures: If True, update constructor signatures and call sites
+        patch_dir: If provided, generate patches instead of modifying files
         verbosity: Logging verbosity level
     """
     log = Logger()
@@ -34,6 +36,12 @@ def optimize_files(
         log.set_level("INFO")
     else:
         log.set_level("WARNING")
+
+    # Patch mode implies not dry-run
+    if patch_dir:
+        dry_run = False
+        patch_dir.mkdir(parents=True, exist_ok=True)
+        log.info(f"Generating patches in {patch_dir}")
 
     files = find_cpp_files(path)
 

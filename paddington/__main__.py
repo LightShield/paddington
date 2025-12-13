@@ -36,6 +36,11 @@ def main():
         help="Update constructor signatures and call sites (default: only update initializer lists)",
     )
     optimize_parser.add_argument(
+        "--patch-dir",
+        type=Path,
+        help="Generate git patches instead of modifying files",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -49,6 +54,7 @@ def main():
             dry_run=not args.apply,
             force=args.force,
             update_signatures=args.update_signatures,
+            patch_dir=args.patch_dir,
             verbosity=args.verbose,
         )
 
