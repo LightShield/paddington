@@ -17,6 +17,7 @@ def main():
     optimize_parser = subparsers.add_parser('optimize', help='Optimize struct padding')
     optimize_parser.add_argument('path', type=Path, help='File or directory to optimize')
     optimize_parser.add_argument('--apply', action='store_true', help='Apply changes (default: dry-run)')
+    optimize_parser.add_argument('--force', action='store_true', help='Reorder even if no size savings')
     optimize_parser.add_argument('-v', '--verbose', action='count', default=1, help='Increase verbosity')
     
     args = parser.parse_args()
@@ -24,7 +25,7 @@ def main():
     if args.command == 'analyze':
         analyze_files(args.path, verbosity=args.verbose)
     elif args.command == 'optimize':
-        optimize_files(args.path, dry_run=not args.apply, verbosity=args.verbose)
+        optimize_files(args.path, dry_run=not args.apply, force=args.force, verbosity=args.verbose)
 
 if __name__ == '__main__':
     main()

@@ -7,8 +7,15 @@ from ..core.dependency_analyzer import topological_sort, has_circular_dependency
 from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
 
-def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
-    """Optimize struct padding in C++ files."""
+def optimize_files(path: Path, dry_run: bool = True, force: bool = False, verbosity: int = 1):
+    """Optimize struct padding in C++ files.
+    
+    Args:
+        path: File or directory to optimize
+        dry_run: If True, only report what would be done
+        force: If True, reorder even if no size savings
+        verbosity: Logging verbosity level
+    """
     log = Logger()
     
     # Map verbosity to log level
@@ -68,7 +75,10 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
         if not is_leaf_struct(struct, all_struct_names):
             log.debug(f"Processing nested struct {struct.name}")
         
-        if not needs_optimization(struct):
+        # Check if optimization is needed
+        has_savings = needs_optimization(struct)
+        
+        if not has_savings and not force:
             log.debug(f"Skipping {struct.name}: already optimal")
             continue
         
@@ -77,7 +87,10 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
         savings = struct.total_size - optimal_size
         
         type_name = "class" if struct.is_class else "struct"
-        log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
+        if savings > 0:
+            log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
+        else:
+            log.info(f"Normalizing {type_name} {struct.name}: {struct.total_size} bytes (no size change, reordering for consistency)")
         
         if not dry_run:
             try:
