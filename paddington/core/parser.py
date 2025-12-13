@@ -151,9 +151,14 @@ def parse_file(file_path: Path) -> List[StructInfo]:
 
     tu = index.parse(str(file_path), args=["-std=c++17", include_dir])
 
-    # Check for parse errors
+    # Check for parse errors (but allow missing includes if structs are parseable)
     if tu.diagnostics:
-        errors = [d for d in tu.diagnostics if d.severity >= clang.Diagnostic.Error]
+        errors = [
+            d
+            for d in tu.diagnostics
+            if d.severity >= clang.Diagnostic.Error
+            and "file not found" not in d.spelling.lower()
+        ]
         if errors:
             return []
 

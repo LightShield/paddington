@@ -156,10 +156,15 @@ def optimize_files(
 
                 # Step 3: Rewrite aggregate initializations (reads updated file)
                 from .aggregate_rewriter import rewrite_aggregate_initializations
+                from .smart_pointer_rewriter import rewrite_smart_pointer_calls
 
                 content = rewrite_aggregate_initializations(
                     file_path, struct, new_order
                 )
+                write_file(file_path, content)
+
+                # Step 4: Check smart pointer calls (currently no-op)
+                content = rewrite_smart_pointer_calls(file_path, struct, new_order)
                 write_file(file_path, content)
 
                 log.info(f"Updated {file_path}")
