@@ -1,11 +1,10 @@
 """Optimization orchestration."""
 from pathlib import Path
 from typing import List, Dict
-from .file_utils import find_cpp_files
-from .parser import init_libclang, parse_file
+from ..utils import find_cpp_files, Logger
+from ..core import init_libclang, parse_file
 from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
-from .logger import Logger
 
 def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
     """Optimize struct padding in C++ files."""

@@ -1,6 +1,6 @@
 """Struct optimization logic."""
 from typing import List, Tuple
-from .models import StructInfo, MemberInfo
+from ..core import StructInfo, MemberInfo
 
 def get_optimal_member_order(struct: StructInfo) -> List[MemberInfo]:
     """Return members in optimal order (largest to smallest)."""

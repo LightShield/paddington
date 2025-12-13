@@ -1,7 +1,7 @@
 """Reporting utilities for analysis results."""
 from typing import List
-from .models import StructInfo
-from .logger import Logger
+from ..core import StructInfo
+from ..utils import Logger
 
 def report_analysis(structs: List[StructInfo], verbosity: int = 1):
     """Report analysis results."""

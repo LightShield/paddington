@@ -1,8 +1,8 @@
 import sys
 import argparse
 from pathlib import Path
-from .analyzer import analyze_files
-from .optimize import optimize_files
+from .analysis import analyze_files
+from .optimization import optimize_files
 
 def main():
     parser = argparse.ArgumentParser(description='paddingTON - padding Trimming Optimization eNgine')

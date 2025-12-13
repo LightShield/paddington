@@ -2,8 +2,8 @@
 from pathlib import Path
 from typing import List, Dict
 import re
-from .models import StructInfo, MemberInfo
-from .logger import Logger
+from ..core import StructInfo, MemberInfo
+from ..utils import Logger
 
 def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: List[MemberInfo]) -> str:
     """Rewrite struct definition with new member order."""
