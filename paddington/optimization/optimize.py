@@ -4,9 +4,14 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from ..utils import find_cpp_files, Logger
 from ..core import init_libclang, parse_file
-from ..core.dependency_analyzer import topological_sort, has_circular_dependency
+from ..core.dependency_analyzer import (
+    topological_sort,
+    has_circular_dependency,
+    identify_dependency_trees,
+)
 from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
+from .patch_generator import create_patch, generate_commit_message, write_apply_order
 
 
 def optimize_files(
@@ -84,6 +89,11 @@ def optimize_files(
             "Circular dependencies detected - some structs may not be optimized"
         )
 
+    # Identify dependency trees for patch generation
+    tree_assignment = identify_dependency_trees(all_structs)
+    tree_order = {}  # Track order within each tree
+    patch_files = []  # Track generated patches
+
     # Build set of all struct names for leaf detection
     all_struct_names = {s.name for s in all_structs}
 
@@ -160,12 +170,39 @@ def optimize_files(
                 log.debug(traceback.format_exc())
                 continue
 
+        # Generate patch if in patch mode
+        if patch_dir and not dry_run:
+            tree_id = tree_assignment.get(struct.name, 0)
+            tree_key = f"tree_{tree_id:03d}"
+            
+            # Track order within tree
+            if tree_key not in tree_order:
+                tree_order[tree_key] = 0
+            tree_order[tree_key] += 1
+            
+            patch_file = create_patch(
+                file_path, struct, patch_dir, tree_key, tree_order[tree_key]
+            )
+            
+            if patch_file:
+                patch_files.append(patch_file)
+                
+                # Write commit message
+                commit_msg_file = patch_file.with_suffix(".msg")
+                with open(commit_msg_file, "w") as f:
+                    f.write(generate_commit_message(struct, savings))
+
         optimized_count += 1
         total_savings += savings
 
     mode = "Would optimize" if dry_run else "Optimized"
     print(f"\n{mode} {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
+
+    if patch_dir and patch_files:
+        write_apply_order(patch_dir, patch_files)
+        print(f"\nGenerated {len(patch_files)} patches in {patch_dir}")
+        print(f"See {patch_dir}/APPLY_ORDER.txt for application sequence")
 
     if dry_run:
         print("\nRun with --apply to make changes")
