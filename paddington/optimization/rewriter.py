@@ -164,9 +164,14 @@ def find_constructor_initializers(content: str, struct_name: str) -> List[tuple]
     return matches
 
 def reorder_initializer_list(init_list: str, new_order: List[MemberInfo]) -> str:
-    """Reorder constructor initializer list to match new member order."""
+    """Reorder constructor initializer list to match new member order.
+    
+    Preserves base class initializers (e.g., Base(x, y)) at the beginning.
+    """
     # Parse initializers: member(value) or member{value}
     initializers = {}
+    base_class_inits = []  # Store base class initializers
+    member_names = {m.name for m in new_order}
     
     # Split by comma, handling nested parentheses
     parts = []
@@ -191,11 +196,16 @@ def reorder_initializer_list(init_list: str, new_order: List[MemberInfo]) -> str
     for part in parts:
         match = re.match(r'(\w+)\s*[\(\{]', part)
         if match:
-            member_name = match.group(1)
-            initializers[member_name] = part
+            name = match.group(1)
+            # Check if this is a member or base class initializer
+            if name in member_names:
+                initializers[name] = part
+            else:
+                # Likely a base class initializer
+                base_class_inits.append(part)
     
-    # Rebuild in new order
-    new_inits = []
+    # Rebuild: base class initializers first, then reordered members
+    new_inits = base_class_inits.copy()
     for member in new_order:
         if member.name in initializers:
             new_inits.append(initializers[member.name])
