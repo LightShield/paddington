@@ -1,5 +1,5 @@
 """Struct optimization logic."""
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from ..core import StructInfo, MemberInfo
 
 def get_optimal_member_order(struct: StructInfo) -> List[MemberInfo]:
@@ -17,7 +17,7 @@ def get_optimal_member_order(struct: StructInfo) -> List[MemberInfo]:
     # Template parameters go last
     return known_size + unknown_size
 
-def is_leaf_struct(struct: StructInfo, all_struct_names: set = None) -> bool:
+def is_leaf_struct(struct: StructInfo, all_struct_names: Optional[set] = None) -> bool:
     """Check if struct contains only native types (no other structs).
     
     If all_struct_names is provided, checks against known structs.
