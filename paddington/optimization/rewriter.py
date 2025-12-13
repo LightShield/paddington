@@ -1,9 +1,62 @@
 """Source code rewriting utilities."""
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 import re
 from ..core import StructInfo, MemberInfo
 from ..utils import Logger
+
+def find_struct_start_line(lines: List[str], struct_line: int) -> int:
+    """Find the line where struct/class keyword appears.
+    
+    Args:
+        lines: Source file lines
+        struct_line: Line number from libclang (1-indexed)
+        
+    Returns:
+        0-indexed line number where struct/class keyword is found
+    """
+    struct_start = struct_line - 1
+    while struct_start > 0 and 'struct' not in lines[struct_start] and 'class' not in lines[struct_start]:
+        struct_start -= 1
+    return struct_start
+
+def find_opening_brace(lines: List[str], start_line: int) -> Optional[int]:
+    """Find opening brace of struct/class definition.
+    
+    Args:
+        lines: Source file lines
+        start_line: Line to start searching from
+        
+    Returns:
+        Line number of opening brace, or None if not found
+    """
+    brace_line = start_line
+    while brace_line < len(lines) and '{' not in lines[brace_line]:
+        brace_line += 1
+    
+    return brace_line if brace_line < len(lines) else None
+
+def find_closing_brace(lines: List[str], opening_brace_line: int) -> Optional[int]:
+    """Find matching closing brace.
+    
+    Args:
+        lines: Source file lines
+        opening_brace_line: Line number of opening brace
+        
+    Returns:
+        Line number after closing brace, or None if not found
+    """
+    closing_brace = opening_brace_line + 1
+    brace_count = 1
+    
+    while closing_brace < len(lines) and brace_count > 0:
+        if '{' in lines[closing_brace]:
+            brace_count += 1
+        if '}' in lines[closing_brace]:
+            brace_count -= 1
+        closing_brace += 1
+    
+    return closing_brace if brace_count == 0 else None
 
 def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: List[MemberInfo]) -> str:
     """Rewrite struct definition with new member order."""
@@ -12,31 +65,17 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
     with open(file_path, 'r') as f:
         lines = f.readlines()
     
-    # Find struct keyword line (may be before struct.line)
-    struct_start = struct.line - 1  # Convert to 0-indexed
-    while struct_start > 0 and 'struct' not in lines[struct_start] and 'class' not in lines[struct_start]:
-        struct_start -= 1
+    # Find struct boundaries
+    struct_start = find_struct_start_line(lines, struct.line)
+    brace_line = find_opening_brace(lines, struct_start)
     
-    # Find opening brace
-    brace_line = struct_start
-    while brace_line < len(lines) and '{' not in lines[brace_line]:
-        brace_line += 1
-    
-    if brace_line >= len(lines):
+    if brace_line is None:
         log.error(f"Could not find opening brace for struct {struct.name}")
         return ''.join(lines)
     
-    # Find closing brace
-    closing_brace = brace_line + 1
-    brace_count = 1
-    while closing_brace < len(lines) and brace_count > 0:
-        if '{' in lines[closing_brace]:
-            brace_count += 1
-        if '}' in lines[closing_brace]:
-            brace_count -= 1
-        closing_brace += 1
+    closing_brace = find_closing_brace(lines, brace_line)
     
-    if brace_count != 0:
+    if closing_brace is None:
         log.error(f"Could not find closing brace for struct {struct.name}")
         return ''.join(lines)
     
