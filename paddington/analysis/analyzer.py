@@ -4,8 +4,13 @@ from ..utils import find_cpp_files, Logger
 from ..core import init_libclang, parse_file
 from .reporter import report_analysis
 
-def analyze_files(path: Path, verbosity: int = 1):
-    """Analyze C++ files for struct padding."""
+def analyze_files(path: Path, verbosity: int = 1) -> None:
+    """Analyze C++ files for struct padding.
+    
+    Args:
+        path: File or directory path to analyze
+        verbosity: Logging verbosity level (1=WARNING, 2=INFO, 3=DEBUG)
+    """
     log = Logger()
     
     # Map verbosity to log level

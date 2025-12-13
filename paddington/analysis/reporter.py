@@ -3,8 +3,13 @@ from typing import List
 from ..core import StructInfo
 from ..utils import Logger
 
-def report_analysis(structs: List[StructInfo], verbosity: int = 1):
-    """Report analysis results."""
+def report_analysis(structs: List[StructInfo], verbosity: int = 1) -> None:
+    """Report analysis results.
+    
+    Args:
+        structs: List of analyzed struct/class definitions
+        verbosity: Logging verbosity level (1=minimal, 2=detailed, 3=debug)
+    """
     log = Logger()
     
     total_padding = 0
