@@ -40,12 +40,13 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
         log.error(f"Could not find closing brace for struct {struct.name}")
         return ''.join(lines)
     
-    # Extract member declarations with their full lines (including comments)
-    # Also track non-member lines (constructors, methods, etc.)
-    # Track access specifiers separately
+    # Extract member declarations with their access specifiers
+    # Track which access specifier each member belongs to
     member_lines = {}
-    access_specifiers = []
+    member_access = {}  # member_name -> access_specifier
+    current_access = None  # Track current access level
     other_lines = []
+    other_access = {}  # line_index -> access_specifier for non-members
     
     for i in range(brace_line + 1, closing_brace - 1):
         line = lines[i]
@@ -57,7 +58,7 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
         
         # Check for access specifiers
         if stripped in ['public:', 'private:', 'protected:']:
-            access_specifiers.append((i, line))
+            current_access = stripped
             continue
         
         # Check if this is a member declaration
@@ -66,33 +67,62 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
             # Look for member name followed by semicolon
             if re.search(rf'\b{member.name}\b.*;', line):
                 member_lines[member.name] = line
+                member_access[member.name] = current_access
                 is_member = True
                 break
         
         # If not a member, it's a constructor/method/comment
         if not is_member:
             other_lines.append(line)
+            other_access[len(other_lines) - 1] = current_access
     
-    # Build new struct body
-    # For classes: access specifier, then members, then blank line, then methods
-    # For structs: members, then blank line, then methods
+    # Build new struct body preserving access control
+    # Group members by access specifier while maintaining optimal order
     new_body = []
     
-    # Add access specifiers before members (for classes)
-    if access_specifiers:
-        for _, spec_line in access_specifiers:
-            new_body.append(spec_line)
-    
-    # Add reordered members
+    # Group members by access specifier
+    access_groups = {}
     for member in new_order:
         if member.name in member_lines:
-            new_body.append(member_lines[member.name])
+            access = member_access.get(member.name)
+            if access not in access_groups:
+                access_groups[access] = []
+            access_groups[access].append(member)
     
-    # Add blank line before constructors/methods if we have both
-    if new_body and other_lines:
-        new_body.append('\n')
+    # Group other lines by access specifier
+    other_groups = {}
+    for idx, line in enumerate(other_lines):
+        access = other_access.get(idx)
+        if access not in other_groups:
+            other_groups[access] = []
+        other_groups[access].append(line)
     
-    new_body.extend(other_lines)
+    # Output in order: preserve the original access specifier order
+    seen_access = []
+    for member in struct.members:
+        access = member_access.get(member.name)
+        if access and access not in seen_access:
+            seen_access.append(access)
+    
+    # Add None (no access specifier) at the beginning if it exists
+    if None in access_groups or None in other_groups:
+        seen_access.insert(0, None)
+    
+    for access in seen_access:
+        # Add access specifier
+        if access:
+            new_body.append(f'{access}\n')
+        
+        # Add members in optimal order
+        if access in access_groups:
+            for member in access_groups[access]:
+                new_body.append(member_lines[member.name])
+        
+        # Add methods/constructors for this access level
+        if access in other_groups:
+            if access in access_groups:
+                new_body.append('\n')
+            new_body.extend(other_groups[access])
     
     # Reconstruct file
     new_lines = (
