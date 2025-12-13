@@ -68,21 +68,24 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
                     # Get optimal order
                     new_order = get_optimal_member_order(struct)
                     
-                    # Rewrite struct definition
+                    # Step 1: Rewrite struct definition
                     content = rewrite_struct_definition(file_path, struct, new_order)
+                    write_file(file_path, content)
                     
-                    # Rewrite constructors in the updated content
-                    with open(file_path, 'w') as f:
-                        f.write(content)
-                    
+                    # Step 2: Rewrite constructors (reads updated file)
                     content = rewrite_constructors(file_path, struct, new_order)
+                    write_file(file_path, content)
                     
-                    # Write back
+                    # Step 3: Rewrite aggregate initializations (reads updated file)
+                    from .aggregate_rewriter import rewrite_aggregate_initializations
+                    content = rewrite_aggregate_initializations(file_path, struct, new_order)
                     write_file(file_path, content)
                     
                     log.info(f"Updated {file_path}")
                 except Exception as e:
                     log.error(f"Error optimizing {struct.name}: {e}")
+                    import traceback
+                    log.debug(traceback.format_exc())
                     continue
             
             optimized_count += 1
