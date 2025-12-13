@@ -39,40 +39,42 @@ def build_dependency_graph(structs: List[StructInfo]) -> Dict[str, Set[str]]:
     return graph
 
 def topological_sort(structs: List[StructInfo]) -> List[StructInfo]:
-    """Sort structs in dependency order (leaves first, roots last)."""
+    """Sort structs in dependency order (leaves first, roots last).
+    
+    Simple approach: Repeatedly find and process structs with no dependencies.
+    
+    Args:
+        structs: List of struct definitions
+        
+    Returns:
+        Structs sorted with leaves first (no dependencies on other structs)
+    """
     graph = build_dependency_graph(structs)
     struct_map = {s.name: s for s in structs}
     
-    # Kahn's algorithm for topological sort
-    in_degree = {name: 0 for name in graph}
-    for deps in graph.values():
-        for dep in deps:
-            if dep in in_degree:
-                in_degree[dep] += 1
-    
-    # Start with nodes that have no dependencies
-    queue = [name for name, degree in in_degree.items() if degree == 0]
     result = []
+    remaining = set(graph.keys())
     
-    while queue:
-        # Sort for deterministic output
-        queue.sort()
-        current = queue.pop(0)
-        result.append(struct_map[current])
+    while remaining:
+        # Find structs with no dependencies (or all dependencies already processed)
+        leaves = []
+        for name in remaining:
+            deps = graph[name]
+            # Check if all dependencies are already processed
+            if all(dep not in remaining for dep in deps):
+                leaves.append(name)
         
-        # Reduce in-degree for dependents
-        for name, deps in graph.items():
-            if current in deps:
-                in_degree[name] -= 1
-                if in_degree[name] == 0:
-                    queue.append(name)
-    
-    # Check for cycles
-    if len(result) != len(structs):
-        # Some structs have circular dependencies
-        # Add remaining structs (they won't be optimized)
-        remaining = [s for s in structs if s.name not in {r.name for r in result}]
-        result.extend(remaining)
+        if not leaves:
+            # Circular dependency - add remaining in arbitrary order
+            leaves = list(remaining)
+        
+        # Sort for deterministic output
+        leaves.sort()
+        
+        # Add leaves to result and remove from remaining
+        for leaf in leaves:
+            result.append(struct_map[leaf])
+            remaining.remove(leaf)
     
     return result
 

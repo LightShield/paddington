@@ -1,6 +1,8 @@
 struct Base {
     char a;
     int b;
+    
+    Base(char x, int y) : a(x), b(y) {}
 };
 
 template<typename T>
