@@ -1,9 +1,12 @@
 """Reporting utilities for analysis results."""
 from typing import List
 from .models import StructInfo
+from .logger import Logger
 
 def report_analysis(structs: List[StructInfo], verbosity: int = 1):
     """Report analysis results."""
+    log = Logger()
+    
     total_padding = 0
     total_savings = 0
     optimizable_count = 0
@@ -24,11 +27,11 @@ def report_analysis(structs: List[StructInfo], verbosity: int = 1):
                       f"({padding} bytes padding, {savings} bytes savable)")
             
             if verbosity >= 2:
-                print(f"  Location: {struct.file_path}:{struct.line}")
-                print(f"  Optimal size: {optimal_size} bytes")
-                print(f"  Members: {', '.join(m.name for m in struct.members)}")
+                log.info(f"Location: {struct.file_path}:{struct.line}")
+                log.info(f"Optimal size: {optimal_size} bytes")
+                log.info(f"Members: {', '.join(m.name for m in struct.members)}")
         elif verbosity >= 3:
-            print(f"[OK] struct {struct.name}: {struct.total_size} bytes (already optimal)")
+            log.debug(f"struct {struct.name}: {struct.total_size} bytes (already optimal)")
     
     print(f"\nTotal: {len(structs)} structs analyzed, {optimizable_count} can be optimized")
     print(f"Total padding: {total_padding} bytes")
