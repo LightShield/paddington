@@ -3,8 +3,19 @@ from typing import List, Tuple
 from ..core import StructInfo, MemberInfo
 
 def get_optimal_member_order(struct: StructInfo) -> List[MemberInfo]:
-    """Return members in optimal order (largest to smallest)."""
-    return sorted(struct.members, key=lambda m: (m.size, m.alignment), reverse=True)
+    """Return members in optimal order (largest to smallest).
+    
+    For templates, template parameters with unknown size go last.
+    """
+    # Separate known-size members from template parameters
+    known_size = [m for m in struct.members if m.size > 0]
+    unknown_size = [m for m in struct.members if m.size <= 0]
+    
+    # Sort known-size members by size descending
+    known_size.sort(key=lambda m: (m.size, m.alignment), reverse=True)
+    
+    # Template parameters go last
+    return known_size + unknown_size
 
 def is_leaf_struct(struct: StructInfo, all_struct_names: set = None) -> bool:
     """Check if struct contains only native types (no other structs).

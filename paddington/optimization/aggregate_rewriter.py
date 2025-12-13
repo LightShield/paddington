@@ -7,9 +7,10 @@ from ..utils import Logger
 def find_aggregate_inits(content: str, struct_name: str) -> List[tuple]:
     """Find aggregate initialization patterns in source code."""
     # Pattern: StructName var = {values} or StructName var{values}
+    # Also handle templates: StructName<T> var = {values}
     patterns = [
-        rf'{struct_name}\s+\w+\s*=\s*\{{([^}}]+)\}}',  # Type var = {values}
-        rf'{struct_name}\s+\w+\s*\{{([^}}]+)\}}',      # Type var{values}
+        rf'{struct_name}(?:<[^>]+>)?\s+\w+\s*=\s*\{{([^}}]+)\}}',  # Type var = {values}
+        rf'{struct_name}(?:<[^>]+>)?\s+\w+\s*\{{([^}}]+)\}}',      # Type var{values}
     ]
     
     matches = []
