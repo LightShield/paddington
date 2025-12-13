@@ -6,8 +6,8 @@ struct Config {
     int timeout;
     char enabled;
     char debug;
-    
-    Config(char e, int t, char d, double th) : threshold(th), timeout(t), enabled(e), debug(d) {}
+
+    Config(char e, int t, char d, double th) : threshold(th), timeout(t), enabled(e), debug(d){}
 };
 
 int main() {

@@ -1,4 +1,4 @@
-#include "expected_user.h"
+#include "input_user.h"
 
 User::User(char a, int i, char r, double b) 
-    : balance(b), id(i), active(a), role(r) {}
+    : active(a), id(i), role(r), balance(b) {}

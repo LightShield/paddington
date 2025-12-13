@@ -1,62 +1,100 @@
 """Data models for struct analysis."""
+
 from dataclasses import dataclass
 from typing import List
 
+__all__ = ["MemberInfo", "StructInfo"]
+
+
 @dataclass
 class MemberInfo:
+    """Information about a struct/class member field.
+
+    Attributes:
+        name: Member variable name
+        type_name: C++ type name (e.g., 'int', 'double', 'MyClass')
+        size: Size in bytes
+        alignment: Alignment requirement in bytes
+        offset: Byte offset from start of struct
+    """
+
     name: str
     type_name: str
     size: int
     alignment: int
     offset: int
 
+
 @dataclass
 class StructInfo:
+    """Information about a struct/class definition.
+
+    Attributes:
+        name: Struct/class name
+        file_path: Source file path
+        line: Line number where defined
+        members: List of member fields
+        total_size: Total size in bytes
+        is_class: True for class, False for struct
+        is_template: True for template definitions
+    """
+
     name: str
     file_path: str
     line: int
     members: List[MemberInfo]
     total_size: int
-    is_class: bool = False  # True for class, False for struct
-    
+    is_class: bool = False
+    is_template: bool = False
+
     def calculate_padding(self) -> int:
-        """Calculate total padding bytes in struct."""
+        """Calculate total padding bytes in struct.
+
+        Returns:
+            Total padding in bytes (includes internal padding and trailing padding)
+        """
         if not self.members:
             return 0
-        
+
         padding = 0
         for i, member in enumerate(self.members):
             if i == 0:
                 padding += member.offset
             else:
-                prev = self.members[i-1]
+                prev = self.members[i - 1]
                 expected_offset = prev.offset + prev.size
                 actual_offset = member.offset
                 padding += actual_offset - expected_offset
-        
+
         # Padding at end
         last_member = self.members[-1]
         data_end = last_member.offset + last_member.size
         padding += self.total_size - data_end
-        
+
         return padding
-    
+
     def calculate_optimal_size(self) -> int:
-        """Calculate size if members were optimally ordered (largest to smallest)."""
+        """Calculate size if members were optimally ordered (largest to smallest).
+
+        Returns:
+            Optimal size in bytes with members ordered by size descending
+        """
         if not self.members:
             return 0
-        
-        sorted_members = sorted(self.members, key=lambda m: (m.size, m.alignment), reverse=True)
-        
+
+        sorted_members = sorted(
+            self.members, key=lambda m: (m.size, m.alignment), reverse=True
+        )
+
         offset = 0
         max_align = max(m.alignment for m in sorted_members)
-        
+
         for member in sorted_members:
             if offset % member.alignment != 0:
                 offset += member.alignment - (offset % member.alignment)
             offset += member.size
-        
+
         if offset % max_align != 0:
             offset += max_align - (offset % max_align)
-        
+
         return offset

@@ -2,10 +2,12 @@
 Thread-safe singleton logger with colored output.
 Source: https://github.com/LightShield/logger_python
 """
+
 import sys
 import threading
 import datetime
 import inspect
+
 
 class Logger:
     _instance = None
@@ -19,11 +21,11 @@ class Logger:
     }
 
     COLORS = {
-        "DEBUG": "\033[94m",        # Blue
-        "INFO": "\033[92m",         # Green
-        "WARNING": "\033[93m",      # Yellow
-        "ERROR": "\033[1;91m",      # Bright red bold
-        "RESET": "\033[0m"
+        "DEBUG": "\033[94m",  # Blue
+        "INFO": "\033[92m",  # Green
+        "WARNING": "\033[93m",  # Yellow
+        "ERROR": "\033[1;91m",  # Bright red bold
+        "RESET": "\033[0m",
     }
 
     def __new__(cls, level="DEBUG"):
@@ -51,8 +53,8 @@ class Logger:
         frame = inspect.currentframe()
         outer_frames = inspect.getouterframes(frame)
         for frm in outer_frames:
-            if 'Logger' not in frm.frame.f_globals.get('__name__', ''):
-                return frm.filename.split('/')[-1], frm.lineno
+            if "Logger" not in frm.frame.f_globals.get("__name__", ""):
+                return frm.filename.split("/")[-1], frm.lineno
         return "(unknown)", 0
 
     def _log(self, level_name, message):

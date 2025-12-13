@@ -1,16 +1,16 @@
 // Nested structs - must optimize Inner before Outer
 struct Inner {
-    int b;       // 4 bytes
+    int b;       // 4 bytes (3 bytes padding before)
     char a;      // 1 byte
 };
-// Total: 8 bytes (3 bytes padding at end)
+// Total: 8 bytes
 
 struct Outer {
-    Inner inner; // 8 bytes
+    Inner inner; // 8 bytes (7 bytes padding before)
     int y;       // 4 bytes
     char x;      // 1 byte
 };
-// Total: 16 bytes (3 bytes padding at end)
+// Total: 16 bytes (with unoptimized Inner)
 
 int main() {
     Outer outer;

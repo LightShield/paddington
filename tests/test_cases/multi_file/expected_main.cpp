@@ -1,4 +1,4 @@
-#include "expected_data.h"
+#include "input_data.h"
 
 int main() {
     Data d;
