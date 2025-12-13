@@ -4,6 +4,9 @@ from typing import List, Optional
 import clang.cindex as clang
 from .models import MemberInfo, StructInfo
 
+# Constants
+BITS_PER_BYTE = 8
+
 def init_libclang():
     """Initialize libclang library."""
     clang.Config.set_library_file('/Library/Developer/CommandLineTools/usr/lib/libclang.dylib')
@@ -31,7 +34,7 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
                 type_name=member_type.spelling,
                 size=member_type.get_size(),
                 alignment=member_type.get_align(),
-                offset=cursor.type.get_offset(child.spelling) // 8
+                offset=cursor.type.get_offset(child.spelling) // BITS_PER_BYTE
             ))
     
     if not members:
