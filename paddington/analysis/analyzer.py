@@ -43,6 +43,20 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
         return
 
     files = find_cpp_files(path)
+    
+    # Check for compilation database
+    from ..utils.compilation_database import (
+        find_compilation_database,
+        get_files_from_compilation_database,
+    )
+    
+    compile_db = find_compilation_database(path)
+    if compile_db:
+        log.info(f"Using compilation database: {compile_db}")
+        db_files = get_files_from_compilation_database(compile_db)
+        if db_files:
+            files = db_files
+            log.debug(f"Using {len(files)} files from compilation database")
 
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()
