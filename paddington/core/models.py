@@ -2,6 +2,8 @@
 from dataclasses import dataclass
 from typing import List
 
+__all__ = ['MemberInfo', 'StructInfo']
+
 @dataclass
 class MemberInfo:
     """Information about a struct/class member field.
