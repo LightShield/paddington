@@ -2,6 +2,7 @@ import sys
 import argparse
 from pathlib import Path
 from .analyzer import analyze_files
+from .optimize import optimize_files
 
 def main():
     parser = argparse.ArgumentParser(description='paddingTON - padding Trimming Optimization eNgine')
@@ -12,17 +13,18 @@ def main():
     analyze_parser.add_argument('path', type=Path, help='File or directory to analyze')
     analyze_parser.add_argument('-v', '--verbose', action='count', default=1, help='Increase verbosity')
     
-    # optimize command (placeholder)
+    # optimize command
     optimize_parser = subparsers.add_parser('optimize', help='Optimize struct padding')
     optimize_parser.add_argument('path', type=Path, help='File or directory to optimize')
+    optimize_parser.add_argument('--apply', action='store_true', help='Apply changes (default: dry-run)')
+    optimize_parser.add_argument('-v', '--verbose', action='count', default=1, help='Increase verbosity')
     
     args = parser.parse_args()
     
     if args.command == 'analyze':
         analyze_files(args.path, verbosity=args.verbose)
     elif args.command == 'optimize':
-        print("optimize command not yet implemented")
-        sys.exit(1)
+        optimize_files(args.path, dry_run=not args.apply, verbosity=args.verbose)
 
 if __name__ == '__main__':
     main()
