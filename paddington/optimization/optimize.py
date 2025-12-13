@@ -80,22 +80,30 @@ def optimize_files(path: Path, dry_run: bool = True, force: bool = False,
         if not is_leaf_struct(struct, all_struct_names):
             log.debug(f"Processing nested struct {struct.name}")
         
+        # Templates need --force flag since we can't calculate size savings
+        if struct.is_template and not force:
+            log.debug(f"Skipping template {struct.name}: use --force to reorder template definitions")
+            continue
+        
         # Check if optimization is needed
         has_savings = needs_optimization(struct)
         
-        if not has_savings and not force:
+        if not has_savings and not force and not struct.is_template:
             log.debug(f"Skipping {struct.name}: already optimal")
             continue
         
         # Calculate savings
         optimal_size = struct.calculate_optimal_size()
-        savings = struct.total_size - optimal_size
+        savings = struct.total_size - optimal_size if not struct.is_template else 0
         
         type_name = "class" if struct.is_class else "struct"
+        if struct.is_template:
+            type_name = f"template {type_name}"
+        
         if savings > 0:
             log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
         else:
-            log.info(f"Normalizing {type_name} {struct.name}: {struct.total_size} bytes (no size change, reordering for consistency)")
+            log.info(f"Normalizing {type_name} {struct.name} (reordering for consistency)")
         
         if not dry_run:
             try:

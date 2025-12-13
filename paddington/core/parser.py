@@ -10,7 +10,10 @@ def init_libclang():
 
 def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
     """Parse a struct/class cursor into StructInfo."""
-    if cursor.kind not in [clang.CursorKind.STRUCT_DECL, clang.CursorKind.CLASS_DECL]:
+    # Handle regular structs/classes and templates
+    if cursor.kind not in [clang.CursorKind.STRUCT_DECL, 
+                           clang.CursorKind.CLASS_DECL,
+                           clang.CursorKind.CLASS_TEMPLATE]:
         return None
     
     if not cursor.is_definition():
@@ -34,13 +37,18 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
     if not members:
         return None
     
+    # For templates, we can't get accurate size/offset info without instantiation
+    # But we can still reorder the template definition
+    is_template = (cursor.kind == clang.CursorKind.CLASS_TEMPLATE)
+    
     return StructInfo(
         name=cursor.spelling,
         file_path=str(cursor.location.file),
         line=cursor.location.line,
         members=members,
-        total_size=cursor.type.get_size(),
-        is_class=(cursor.kind == clang.CursorKind.CLASS_DECL)
+        total_size=cursor.type.get_size() if not is_template else 0,
+        is_class=(cursor.kind in [clang.CursorKind.CLASS_DECL, clang.CursorKind.CLASS_TEMPLATE]),
+        is_template=is_template
     )
 
 def has_ignore_annotation(cursor: clang.Cursor) -> bool:

@@ -18,6 +18,7 @@ class StructInfo:
     members: List[MemberInfo]
     total_size: int
     is_class: bool = False  # True for class, False for struct
+    is_template: bool = False  # True for template definitions
     
     def calculate_padding(self) -> int:
         """Calculate total padding bytes in struct."""
