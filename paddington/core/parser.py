@@ -128,14 +128,24 @@ def has_ignore_annotation(cursor: clang.Cursor) -> bool:
     return False
 
 
-def find_structs(translation_unit: clang.TranslationUnit) -> List[StructInfo]:
-    """Find all struct definitions in translation unit."""
+def find_structs(translation_unit: clang.TranslationUnit, main_file: str) -> List[StructInfo]:
+    """Find all struct definitions in translation unit from the main file only.
+    
+    Args:
+        translation_unit: Parsed translation unit
+        main_file: Path to the main file being analyzed (exclude system/third-party)
+        
+    Returns:
+        List of structs defined in main_file (not from includes)
+    """
     structs = []
 
     def visit(cursor):
         struct_info = parse_struct(cursor)
         if struct_info:
-            structs.append(struct_info)
+            # Only include structs from the main file, not from includes
+            if cursor.location.file and cursor.location.file.name == main_file:
+                structs.append(struct_info)
 
         for child in cursor.get_children():
             visit(child)
@@ -145,7 +155,14 @@ def find_structs(translation_unit: clang.TranslationUnit) -> List[StructInfo]:
 
 
 def parse_file(file_path: Path) -> List[StructInfo]:
-    """Parse a single C++ file and return struct definitions."""
+    """Parse a single C++ file and return struct definitions.
+    
+    Args:
+        file_path: Path to C++ file to parse
+        
+    Returns:
+        List of structs defined in this file (excludes system/third-party includes)
+    """
     index = clang.Index.create()
     include_dir = f"-I{file_path.parent}"
 
@@ -162,4 +179,4 @@ def parse_file(file_path: Path) -> List[StructInfo]:
         if errors:
             return []
 
-    return find_structs(tu)
+    return find_structs(tu, str(file_path))
