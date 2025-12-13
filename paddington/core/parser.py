@@ -32,6 +32,9 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
     if has_ignore_annotation(cursor):
         return None
 
+    if has_preprocessor_directives(cursor):
+        return None
+
     members = []
     for child in cursor.get_children():
         if child.kind == clang.CursorKind.FIELD_DECL:
@@ -65,6 +68,41 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
         ),
         is_template=is_template,
     )
+
+
+def has_preprocessor_directives(cursor: clang.Cursor) -> bool:
+    """Check if struct contains preprocessor directives like #ifdef.
+    
+    Args:
+        cursor: Struct/class cursor
+        
+    Returns:
+        True if struct body contains #ifdef, #ifndef, #if, etc.
+    """
+    file = cursor.location.file
+    if not file:
+        return False
+
+    try:
+        with open(file.name, "r") as f:
+            lines = f.readlines()
+
+        # Get struct body range (approximate)
+        start_line = cursor.location.line
+        # Scan ~50 lines (typical struct size)
+        end_line = min(start_line + 50, len(lines))
+
+        for i in range(start_line, end_line):
+            line = lines[i].strip()
+            if line.startswith("#if"):  # Matches #ifdef, #ifndef, #if
+                return True
+            if line.startswith("};"):  # End of struct
+                break
+
+    except (IOError, IndexError):
+        pass
+
+    return False
 
 
 def has_ignore_annotation(cursor: clang.Cursor) -> bool:
