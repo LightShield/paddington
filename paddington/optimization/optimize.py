@@ -7,13 +7,15 @@ from ..core.dependency_analyzer import topological_sort, has_circular_dependency
 from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
 
-def optimize_files(path: Path, dry_run: bool = True, force: bool = False, verbosity: int = 1):
+def optimize_files(path: Path, dry_run: bool = True, force: bool = False, 
+                  update_signatures: bool = False, verbosity: int = 1):
     """Optimize struct padding in C++ files.
     
     Args:
         path: File or directory to optimize
         dry_run: If True, only report what would be done
         force: If True, reorder even if no size savings
+        update_signatures: If True, update constructor signatures and call sites
         verbosity: Logging verbosity level
     """
     log = Logger()
@@ -34,6 +36,9 @@ def optimize_files(path: Path, dry_run: bool = True, force: bool = False, verbos
     
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()
+    
+    if not update_signatures:
+        log.info("Note: Only updating initializer lists. Use --update-signatures to also update constructor signatures and call sites.")
     
     # Group structs by file
     file_structs: Dict[str, List] = {}
@@ -102,6 +107,8 @@ def optimize_files(path: Path, dry_run: bool = True, force: bool = False, verbos
                 write_file(file_path, content)
                 
                 # Step 2: Rewrite constructors (reads updated file)
+                # Note: Currently only updates initializer lists, not signatures
+                # TODO: If update_signatures=True, also reorder constructor parameters
                 content = rewrite_constructors(file_path, struct, new_order)
                 write_file(file_path, content)
                 
