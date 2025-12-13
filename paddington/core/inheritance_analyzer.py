@@ -1,6 +1,6 @@
 """Analyze inheritance relationships."""
 
-from typing import List, Optional, Set
+from typing import List
 import clang.cindex as clang
 from .models import StructInfo
 

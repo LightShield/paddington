@@ -84,7 +84,7 @@ def has_ignore_annotation(cursor: clang.Cursor) -> bool:
                 prev_line = lines[cursor.location.line - 2].strip()
                 if "paddington-ignore" in prev_line:
                     return True
-    except:
+    except (IOError, IndexError):
         pass
 
     return False

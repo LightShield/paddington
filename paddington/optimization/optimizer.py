@@ -1,6 +1,6 @@
 """Struct optimization logic."""
 
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from ..core import StructInfo, MemberInfo
 
 

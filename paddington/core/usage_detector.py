@@ -1,8 +1,7 @@
 """Detect struct/class usage sites in code."""
 
-from typing import List, Tuple
+from typing import List
 import clang.cindex as clang
-from .models import StructInfo
 
 
 class UsageSite:

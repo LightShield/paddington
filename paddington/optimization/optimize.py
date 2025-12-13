@@ -82,7 +82,6 @@ def optimize_files(
     # Optimize in dependency order
     optimized_count = 0
     total_savings = 0
-    skipped_nested = 0
 
     for struct in sorted_structs:
         file_path = struct.file_path
