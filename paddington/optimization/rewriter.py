@@ -48,28 +48,44 @@ def rewrite_struct_definition(file_path: str, struct: StructInfo, new_order: Lis
     other_lines = []
     other_access = {}  # line_index -> access_specifier for non-members
     
+    # Track if we're inside a function/constructor body
+    in_function_body = False
+    brace_depth = 0
+    
     for i in range(brace_line + 1, closing_brace - 1):
         line = lines[i]
+        stripped = line.strip()
         
         # Skip empty lines
-        stripped = line.strip()
         if not stripped:
             continue
+        
+        # Track braces to detect function bodies
+        if '{' in line:
+            brace_depth += line.count('{')
+            if brace_depth > 0:
+                in_function_body = True
+        if '}' in line:
+            brace_depth -= line.count('}')
+            if brace_depth == 0:
+                in_function_body = False
         
         # Check for access specifiers
         if stripped in ['public:', 'private:', 'protected:']:
             current_access = stripped
             continue
         
-        # Check if this is a member declaration
+        # Check if this is a member declaration (only outside function bodies)
         is_member = False
-        for member in struct.members:
-            # Look for member name followed by semicolon
-            if re.search(rf'\b{member.name}\b.*;', line):
-                member_lines[member.name] = line
-                member_access[member.name] = current_access
-                is_member = True
-                break
+        if not in_function_body:
+            for member in struct.members:
+                # Look for member name followed by semicolon
+                # Must be a declaration, not an assignment
+                if re.search(rf'\b{member.type_name}\s+{member.name}\b.*;', line):
+                    member_lines[member.name] = line
+                    member_access[member.name] = current_access
+                    is_member = True
+                    break
         
         # If not a member, it's a constructor/method/comment
         if not is_member:
