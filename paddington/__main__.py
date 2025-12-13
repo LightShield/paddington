@@ -46,6 +46,11 @@ def main():
         help="Command to run after each optimization to verify build (e.g., 'make test')",
     )
     optimize_parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Use compilation database to verify each file compiles (requires compile_commands.json)",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -61,6 +66,7 @@ def main():
             update_signatures=args.update_signatures,
             patch_dir=args.patch_dir,
             build_command=args.build_command,
+            verify=args.verify,
             verbosity=args.verbose,
         )
 

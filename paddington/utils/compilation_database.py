@@ -81,6 +81,42 @@ def get_files_from_compilation_database(db_path: Path) -> List[Path]:
         return []
 
 
+def get_build_command_for_file(db_path: Path, file_path: Path) -> Optional[str]:
+    """Get build command for a specific file from compilation database.
+    
+    Args:
+        db_path: Path to compile_commands.json
+        file_path: File to get build command for
+        
+    Returns:
+        Build command string or None if not found
+    """
+    log = Logger()
+    
+    try:
+        compdb = clang.CompilationDatabase.fromDirectory(str(db_path.parent))
+        
+        file_variants = [
+            str(file_path),
+            str(file_path.resolve()),
+            file_path.name,
+        ]
+        
+        for variant in file_variants:
+            commands = compdb.getCompileCommands(variant)
+            if commands:
+                # Get the command string
+                cmd = commands[0]
+                # Reconstruct command from arguments
+                return ' '.join(cmd.arguments)
+        
+        return None
+        
+    except Exception as e:
+        log.debug(f"Could not get build command: {e}")
+        return None
+
+
 def should_use_compilation_database(path: Path) -> bool:
     """Check if we should use compilation database.
     

@@ -27,6 +27,7 @@ def optimize_files(
     update_signatures: bool = False,
     patch_dir: Optional[Path] = None,
     build_command: Optional[str] = None,
+    verify: bool = False,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding in C++ files.
@@ -38,6 +39,7 @@ def optimize_files(
         update_signatures: If True, update constructor signatures and call sites
         patch_dir: If provided, generate patches instead of modifying files
         build_command: If provided, run after each optimization to verify build
+        verify: If True, use compilation database to verify each file
         verbosity: Logging verbosity level
     """
     log = Logger()
@@ -207,12 +209,21 @@ def optimize_files(
 
                 log.info(f"Updated {file_path}")
                 
-                # Verify build if command provided
-                if build_command:
+                # Verify build if requested
+                effective_build_command = build_command
+                
+                # If --verify flag, try to get build command from compilation database
+                if verify and compile_db and not effective_build_command:
+                    from ..utils.compilation_database import get_build_command_for_file
+                    effective_build_command = get_build_command_for_file(compile_db, Path(file_path))
+                    if effective_build_command:
+                        log.debug(f"Using build command from compilation database")
+                
+                if effective_build_command:
                     from ..utils.build_verifier import run_build_command
                     
                     build_dir = Path(file_path).parent
-                    if not run_build_command(build_command, build_dir):
+                    if not run_build_command(effective_build_command, build_dir):
                         log.error(f"Build failed after optimizing {struct.name}")
                         log.error("Rolling back changes...")
                         # TODO: Implement rollback
