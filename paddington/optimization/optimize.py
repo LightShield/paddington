@@ -3,6 +3,12 @@
 from pathlib import Path
 from typing import List, Dict, Optional
 from ..utils import find_cpp_files, Logger
+from ..utils.validation import (
+    validate_path_exists,
+    validate_libclang_available,
+    validate_cpp_files_exist,
+    validate_git_repo,
+)
 from ..core import init_libclang, parse_file
 from ..core.dependency_analyzer import (
     topological_sort,
@@ -42,6 +48,19 @@ def optimize_files(
     else:
         log.set_level("WARNING")
 
+    # Validate inputs
+    try:
+        validate_path_exists(path)
+        validate_libclang_available()
+        validate_cpp_files_exist(path)
+        
+        # Validate git repo if patch generation requested
+        if patch_dir:
+            validate_git_repo(path)
+    except (FileNotFoundError, ValueError, RuntimeError) as e:
+        log.error(str(e))
+        return
+
     # Patch mode implies not dry-run
     if patch_dir:
         dry_run = False
@@ -49,10 +68,6 @@ def optimize_files(
         log.info(f"Generating patches in {patch_dir}")
 
     files = find_cpp_files(path)
-
-    if not files:
-        log.warning(f"No C++ files found in {path}")
-        return
 
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()

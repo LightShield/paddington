@@ -2,6 +2,11 @@
 
 from pathlib import Path
 from ..utils import find_cpp_files, Logger
+from ..utils.validation import (
+    validate_path_exists,
+    validate_libclang_available,
+    validate_cpp_files_exist,
+)
 from ..core import init_libclang, parse_file
 from .reporter import report_analysis
 
@@ -12,6 +17,11 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
     Args:
         path: File or directory path to analyze
         verbosity: Logging verbosity level (1=WARNING, 2=INFO, 3=DEBUG)
+        
+    Raises:
+        FileNotFoundError: If path doesn't exist
+        ValueError: If no C++ files found
+        RuntimeError: If libclang not available
     """
     log = Logger()
 
@@ -23,11 +33,16 @@ def analyze_files(path: Path, verbosity: int = 1) -> None:
     else:
         log.set_level("WARNING")
 
-    files = find_cpp_files(path)
-
-    if not files:
-        log.warning(f"No C++ files found in {path}")
+    # Validate inputs
+    try:
+        validate_path_exists(path)
+        validate_libclang_available()
+        validate_cpp_files_exist(path)
+    except (FileNotFoundError, ValueError, RuntimeError) as e:
+        log.error(str(e))
         return
+
+    files = find_cpp_files(path)
 
     log.debug(f"Found {len(files)} C++ files")
     init_libclang()
