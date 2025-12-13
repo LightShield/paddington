@@ -72,10 +72,10 @@ def parse_struct(cursor: clang.Cursor) -> Optional[StructInfo]:
 
 def has_preprocessor_directives(cursor: clang.Cursor) -> bool:
     """Check if struct contains preprocessor directives like #ifdef.
-    
+
     Args:
         cursor: Struct/class cursor
-        
+
     Returns:
         True if struct body contains #ifdef, #ifndef, #if, etc.
     """
@@ -128,13 +128,15 @@ def has_ignore_annotation(cursor: clang.Cursor) -> bool:
     return False
 
 
-def find_structs(translation_unit: clang.TranslationUnit, main_file: str) -> List[StructInfo]:
+def find_structs(
+    translation_unit: clang.TranslationUnit, main_file: str
+) -> List[StructInfo]:
     """Find all struct definitions in translation unit from the main file only.
-    
+
     Args:
         translation_unit: Parsed translation unit
         main_file: Path to the main file being analyzed (exclude system/third-party)
-        
+
     Returns:
         List of structs defined in main_file (not from includes)
     """
@@ -154,18 +156,20 @@ def find_structs(translation_unit: clang.TranslationUnit, main_file: str) -> Lis
     return structs
 
 
-def parse_file(file_path: Path, compile_args: Optional[List[str]] = None) -> List[StructInfo]:
+def parse_file(
+    file_path: Path, compile_args: Optional[List[str]] = None
+) -> List[StructInfo]:
     """Parse a single C++ file and return struct definitions.
-    
+
     Args:
         file_path: Path to C++ file to parse
         compile_args: Optional compile arguments from compilation database
-        
+
     Returns:
         List of structs defined in this file (excludes system/third-party includes)
     """
     index = clang.Index.create()
-    
+
     # Use provided compile args or default
     if compile_args:
         args = compile_args

@@ -25,7 +25,7 @@ def analyze_files(
         include_patterns: Only process files matching these patterns
         exclude_patterns: Skip files matching these patterns
         verbosity: Logging verbosity level (1=WARNING, 2=INFO, 3=DEBUG)
-        
+
     Raises:
         FileNotFoundError: If path doesn't exist
         ValueError: If no C++ files found
@@ -51,14 +51,14 @@ def analyze_files(
         return
 
     files = find_cpp_files(path)
-    
+
     # Check for compilation database
     from ..utils.compilation_database import (
         find_compilation_database,
         get_files_from_compilation_database,
         get_compile_args_for_file,
     )
-    
+
     compile_db = find_compilation_database(path)
     if compile_db:
         log.info(f"Using compilation database: {compile_db}")
@@ -66,10 +66,11 @@ def analyze_files(
         if db_files:
             files = db_files
             log.debug(f"Using {len(files)} files from compilation database")
-    
+
     # Apply include/exclude filters
     if include_patterns or exclude_patterns:
         from ..utils.file_filter import filter_files
+
         original_count = len(files)
         files = filter_files(files, include_patterns, exclude_patterns)
         log.info(f"Filtered {original_count} files to {len(files)} files")
@@ -85,12 +86,12 @@ def analyze_files(
     for file in files:
         try:
             log.debug(f"Parsing {file}")
-            
+
             # Get compile args from database if available
             compile_args = None
             if compile_db:
                 compile_args = get_compile_args_for_file(compile_db, file)
-            
+
             structs = parse_file(file, compile_args)
             all_structs.extend(structs)
         except Exception as e:

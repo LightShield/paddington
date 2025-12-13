@@ -1,14 +1,15 @@
 """Generate git patches for struct optimizations."""
+
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from ..core import StructInfo
 from ..utils import Logger
 
 
 def create_patch(
     file_path: str, struct: StructInfo, patch_dir: Path, tree_id: str, order: int
-) -> Path:
+) -> Optional[Path]:
     """Create a git patch file for a single struct optimization.
 
     Args:

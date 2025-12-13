@@ -1,19 +1,18 @@
 """Input validation utilities."""
+
 import subprocess
 from pathlib import Path
-from typing import Optional
-from .logger import Logger
 
 
 def validate_path_exists(path: Path) -> bool:
     """Validate that path exists.
-    
+
     Args:
         path: Path to validate
-        
+
     Returns:
         True if path exists
-        
+
     Raises:
         FileNotFoundError: If path doesn't exist
     """
@@ -24,13 +23,13 @@ def validate_path_exists(path: Path) -> bool:
 
 def validate_git_repo(path: Path) -> bool:
     """Validate that path is in a git repository (for patch generation).
-    
+
     Args:
         path: Path to check
-        
+
     Returns:
         True if in git repo
-        
+
     Raises:
         RuntimeError: If not in git repo
     """
@@ -42,14 +41,14 @@ def validate_git_repo(path: Path) -> bool:
             text=True,
             cwd=path if path.is_dir() else path.parent,
         )
-        
+
         if result.returncode != 0:
             raise RuntimeError(
                 f"Path is not in a git repository: {path}\n"
                 "Patch generation requires files to be in a git repo.\n"
                 "Initialize with: git init"
             )
-        
+
         return True
     except FileNotFoundError:
         raise RuntimeError(
@@ -60,16 +59,16 @@ def validate_git_repo(path: Path) -> bool:
 
 def validate_libclang_available() -> bool:
     """Validate that libclang is available.
-    
+
     Returns:
         True if libclang can be loaded
-        
+
     Raises:
         RuntimeError: If libclang not available
     """
     try:
-        import clang.cindex as clang
-        
+        import clang.cindex  # noqa: F401
+
         # Just check if we can import, don't initialize yet
         return True
     except ImportError as e:
@@ -81,23 +80,23 @@ def validate_libclang_available() -> bool:
 
 def validate_cpp_files_exist(path: Path) -> bool:
     """Validate that C++ files exist in path.
-    
+
     Args:
         path: Path to check
-        
+
     Returns:
         True if C++ files found
-        
+
     Raises:
         ValueError: If no C++ files found
     """
     from .file_utils import find_cpp_files
-    
+
     files = find_cpp_files(path)
     if not files:
         raise ValueError(
             f"No C++ files found in {path}\n"
             "Looking for files with extensions: .cpp, .cc, .cxx, .h, .hpp, .hxx"
         )
-    
+
     return True

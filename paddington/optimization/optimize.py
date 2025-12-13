@@ -61,7 +61,7 @@ def optimize_files(
         validate_path_exists(path)
         validate_libclang_available()
         validate_cpp_files_exist(path)
-        
+
         # Validate git repo if patch generation requested
         if patch_dir:
             validate_git_repo(path)
@@ -76,13 +76,13 @@ def optimize_files(
         log.info(f"Generating patches in {patch_dir}")
 
     files = find_cpp_files(path)
-    
+
     # Check for compilation database
     from ..utils.compilation_database import (
         find_compilation_database,
         get_files_from_compilation_database,
     )
-    
+
     compile_db = find_compilation_database(path)
     if compile_db:
         log.info(f"Using compilation database: {compile_db}")
@@ -90,10 +90,11 @@ def optimize_files(
         if db_files:
             files = db_files
             log.debug(f"Using {len(files)} files from compilation database")
-    
+
     # Apply include/exclude filters
     if include_patterns or exclude_patterns:
         from ..utils.file_filter import filter_files
+
         original_count = len(files)
         files = filter_files(files, include_patterns, exclude_patterns)
         log.info(f"Filtered {original_count} files to {len(files)} files")
@@ -117,13 +118,14 @@ def optimize_files(
     for file in files:
         try:
             log.debug(f"Parsing {file}")
-            
+
             # Get compile args from database if available
             compile_args = None
             if compile_db:
                 from ..utils.compilation_database import get_compile_args_for_file
+
                 compile_args = get_compile_args_for_file(compile_db, file)
-            
+
             structs = parse_file(file, compile_args)
 
             for struct in structs:
@@ -223,27 +225,30 @@ def optimize_files(
                 write_file(file_path, content)
 
                 log.info(f"Updated {file_path}")
-                
+
                 # Verify build if requested
                 effective_build_command = build_command
-                
+
                 # If --verify flag, try to get build command from compilation database
                 if verify and compile_db and not effective_build_command:
                     from ..utils.compilation_database import get_build_command_for_file
-                    effective_build_command = get_build_command_for_file(compile_db, Path(file_path))
+
+                    effective_build_command = get_build_command_for_file(
+                        compile_db, Path(file_path)
+                    )
                     if effective_build_command:
-                        log.debug(f"Using build command from compilation database")
-                
+                        log.debug("Using build command from compilation database")
+
                 if effective_build_command:
                     from ..utils.build_verifier import run_build_command
-                    
+
                     build_dir = Path(file_path).parent
                     if not run_build_command(effective_build_command, build_dir):
                         log.error(f"Build failed after optimizing {struct.name}")
                         log.error("Rolling back changes...")
                         # TODO: Implement rollback
                         return
-                        
+
             except Exception as e:
                 log.error(f"Error optimizing {struct.name}: {e}")
                 import traceback
@@ -255,19 +260,19 @@ def optimize_files(
         if patch_dir and not dry_run:
             tree_id = tree_assignment.get(struct.name, 0)
             tree_key = f"tree_{tree_id:03d}"
-            
+
             # Track order within tree
             if tree_key not in tree_order:
                 tree_order[tree_key] = 0
             tree_order[tree_key] += 1
-            
+
             patch_file = create_patch(
                 file_path, struct, patch_dir, tree_key, tree_order[tree_key]
             )
-            
+
             if patch_file:
                 patch_files.append(patch_file)
-                
+
                 # Write commit message
                 commit_msg_file = patch_file.with_suffix(".msg")
                 with open(commit_msg_file, "w") as f:

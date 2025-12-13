@@ -106,42 +106,42 @@ def topological_sort(structs: List[StructInfo]) -> List[StructInfo]:
 
 def identify_dependency_trees(structs: List[StructInfo]) -> Dict[str, int]:
     """Identify which dependency tree each struct belongs to.
-    
+
     Args:
         structs: List of struct definitions
-        
+
     Returns:
         Dict mapping struct_name -> tree_id (0, 1, 2, ...)
     """
     graph = build_dependency_graph(structs)
-    
+
     tree_assignment = {}
     current_tree_id = 0
     visited = set()
-    
+
     def assign_tree(struct_name: str, tree_id: int):
         """Recursively assign tree ID to struct and its dependencies."""
         if struct_name in visited:
             return
-        
+
         visited.add(struct_name)
         tree_assignment[struct_name] = tree_id
-        
+
         # Assign same tree to all dependencies
         for dep in graph.get(struct_name, []):
             assign_tree(dep, tree_id)
-        
+
         # Assign same tree to all dependents
         for name, deps in graph.items():
             if struct_name in deps:
                 assign_tree(name, tree_id)
-    
+
     # Process each unvisited struct
     for struct in structs:
         if struct.name not in visited:
             assign_tree(struct.name, current_tree_id)
             current_tree_id += 1
-    
+
     return tree_assignment
 
 
