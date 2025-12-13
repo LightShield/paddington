@@ -6,8 +6,12 @@ def get_optimal_member_order(struct: StructInfo) -> List[MemberInfo]:
     """Return members in optimal order (largest to smallest)."""
     return sorted(struct.members, key=lambda m: (m.size, m.alignment), reverse=True)
 
-def is_leaf_struct(struct: StructInfo) -> bool:
-    """Check if struct contains only native types (no other structs)."""
+def is_leaf_struct(struct: StructInfo, all_struct_names: set = None) -> bool:
+    """Check if struct contains only native types (no other structs).
+    
+    If all_struct_names is provided, checks against known structs.
+    Otherwise, uses heuristic based on type names.
+    """
     native_types = {
         'char', 'signed char', 'unsigned char',
         'short', 'unsigned short', 'int', 'unsigned int',
@@ -25,7 +29,12 @@ def is_leaf_struct(struct: StructInfo) -> bool:
         base_type = base_type.rstrip('*&').strip()
         
         if base_type not in native_types:
-            return False
+            # If we have a list of known structs, check against it
+            if all_struct_names and base_type in all_struct_names:
+                return False
+            # Otherwise, assume it's a custom type
+            elif not all_struct_names:
+                return False
     
     return True
 

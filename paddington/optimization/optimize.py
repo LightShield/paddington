@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Dict
 from ..utils import find_cpp_files, Logger
 from ..core import init_libclang, parse_file
+from ..core.dependency_analyzer import topological_sort, has_circular_dependency
 from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
 
@@ -29,6 +30,7 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
     
     # Group structs by file
     file_structs: Dict[str, List] = {}
+    all_structs = []
     
     for file in files:
         try:
@@ -39,57 +41,71 @@ def optimize_files(path: Path, dry_run: bool = True, verbosity: int = 1):
                 if struct.file_path not in file_structs:
                     file_structs[struct.file_path] = []
                 file_structs[struct.file_path].append(struct)
+                all_structs.append(struct)
         except Exception as e:
             log.error(f"Error parsing {file}: {e}")
     
-    # Optimize leaf structs only (Phase 2)
+    # Sort structs in dependency order (bottom-up)
+    log.debug(f"Sorting {len(all_structs)} structs by dependencies")
+    sorted_structs = topological_sort(all_structs)
+    
+    # Check for circular dependencies
+    if has_circular_dependency(all_structs):
+        log.warning("Circular dependencies detected - some structs may not be optimized")
+    
+    # Build set of all struct names for leaf detection
+    all_struct_names = {s.name for s in all_structs}
+    
+    # Optimize in dependency order
     optimized_count = 0
     total_savings = 0
+    skipped_nested = 0
     
-    for file_path, structs in file_structs.items():
-        for struct in structs:
-            if not is_leaf_struct(struct):
-                log.debug(f"Skipping {struct.name}: not a leaf struct")
+    for struct in sorted_structs:
+        file_path = struct.file_path
+        
+        # Check if it's a leaf or all dependencies are optimized
+        if not is_leaf_struct(struct, all_struct_names):
+            log.debug(f"Processing nested struct {struct.name}")
+        
+        if not needs_optimization(struct):
+            log.debug(f"Skipping {struct.name}: already optimal")
+            continue
+        
+        # Calculate savings
+        optimal_size = struct.calculate_optimal_size()
+        savings = struct.total_size - optimal_size
+        
+        type_name = "class" if struct.is_class else "struct"
+        log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
+        
+        if not dry_run:
+            try:
+                # Get optimal order
+                new_order = get_optimal_member_order(struct)
+                
+                # Step 1: Rewrite struct definition
+                content = rewrite_struct_definition(file_path, struct, new_order)
+                write_file(file_path, content)
+                
+                # Step 2: Rewrite constructors (reads updated file)
+                content = rewrite_constructors(file_path, struct, new_order)
+                write_file(file_path, content)
+                
+                # Step 3: Rewrite aggregate initializations (reads updated file)
+                from .aggregate_rewriter import rewrite_aggregate_initializations
+                content = rewrite_aggregate_initializations(file_path, struct, new_order)
+                write_file(file_path, content)
+                
+                log.info(f"Updated {file_path}")
+            except Exception as e:
+                log.error(f"Error optimizing {struct.name}: {e}")
+                import traceback
+                log.debug(traceback.format_exc())
                 continue
-            
-            if not needs_optimization(struct):
-                log.debug(f"Skipping {struct.name}: already optimal")
-                continue
-            
-            # Calculate savings
-            optimal_size = struct.calculate_optimal_size()
-            savings = struct.total_size - optimal_size
-            
-            type_name = "class" if struct.is_class else "struct"
-            log.info(f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)")
-            
-            if not dry_run:
-                try:
-                    # Get optimal order
-                    new_order = get_optimal_member_order(struct)
-                    
-                    # Step 1: Rewrite struct definition
-                    content = rewrite_struct_definition(file_path, struct, new_order)
-                    write_file(file_path, content)
-                    
-                    # Step 2: Rewrite constructors (reads updated file)
-                    content = rewrite_constructors(file_path, struct, new_order)
-                    write_file(file_path, content)
-                    
-                    # Step 3: Rewrite aggregate initializations (reads updated file)
-                    from .aggregate_rewriter import rewrite_aggregate_initializations
-                    content = rewrite_aggregate_initializations(file_path, struct, new_order)
-                    write_file(file_path, content)
-                    
-                    log.info(f"Updated {file_path}")
-                except Exception as e:
-                    log.error(f"Error optimizing {struct.name}: {e}")
-                    import traceback
-                    log.debug(traceback.format_exc())
-                    continue
-            
-            optimized_count += 1
-            total_savings += savings
+        
+        optimized_count += 1
+        total_savings += savings
     
     mode = "Would optimize" if dry_run else "Optimized"
     print(f"\n{mode} {optimized_count} struct(s)/class(es)")
