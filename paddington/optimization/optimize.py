@@ -6,7 +6,6 @@ from ..utils import Logger
 from ..core import parse_object_files, identify_leaves_and_order
 from .optimizer import needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
-from .patch_generator import create_patch, write_apply_order
 
 
 def optimize_files(
@@ -27,7 +26,7 @@ def optimize_files(
         path: Object file or directory to optimize
         dry_run: If True, only report what would be done
         force: If True, reorder even if no size savings
-        update_signatures: If True, update constructor signatures and call sites
+        update_signatures: Ignored - we only update initializer lists
         patch_dir: If provided, generate patches instead of modifying files
         build_command: If provided, run after each optimization to verify build
         verify: If True, verify compilation after changes
@@ -76,12 +75,12 @@ def optimize_files(
     log.info(f"Ordering {len(all_structs)} structs by dependencies...")
     ordered_structs, visited = identify_leaves_and_order(all_structs)
 
-    if not update_signatures:
-        log.info("Note: Only updating initializer lists. Use --update-signatures to also update constructor signatures and call sites.")
+    log.info("Note: Only updating struct definitions and initializer lists (not constructor signatures)")
 
     optimized_count = 0
     total_savings = 0
     processed = set()
+    modified_files = {}
 
     for struct in ordered_structs:
         if struct.name in processed:
@@ -90,6 +89,11 @@ def optimize_files(
         
         # Skip if no members or zero-sized members
         if not struct.members or any(m.size == 0 for m in struct.members):
+            continue
+        
+        # Skip if no source file info
+        if not struct.file_path or not struct.line:
+            log.debug(f"Skipping {struct.name}: no source location")
             continue
             
         if not needs_optimization(struct) and not force:
@@ -102,13 +106,30 @@ def optimize_files(
         savings = struct.size - optimal_size
         
         if dry_run:
-            log.info(f"[DRY-RUN] Would optimize {struct.name}: {struct.size} bytes -> {optimal_size} bytes ({savings} bytes saved, {padding} bytes padding)")
+            log.info(f"[DRY-RUN] Would optimize {struct.name}: {struct.size} bytes -> {optimal_size} bytes ({savings} bytes saved)")
+            log.info(f"  File: {struct.file_path}:{struct.line}")
             optimized_count += 1
             total_savings += savings
         else:
-            log.error(f"Source code rewriting not yet implemented for DWARF-extracted structs")
-            log.error(f"Need source file location for {struct.name}")
-            break
+            log.info(f"Optimizing {struct.name}: {struct.size} bytes -> {optimal_size} bytes ({savings} bytes saved)")
+            
+            # Rewrite struct definition
+            new_content = rewrite_struct_definition(struct.file_path, struct, optimal_order)
+            
+            # Rewrite initializer lists
+            new_content = rewrite_constructors(new_content, struct, optimal_order)
+            
+            # Track modified files
+            modified_files[struct.file_path] = new_content
+            
+            optimized_count += 1
+            total_savings += savings
+
+    # Write modified files
+    if not dry_run and modified_files:
+        for file_path, content in modified_files.items():
+            write_file(file_path, content)
+            log.info(f"Updated {file_path}")
 
     print(f"\nOptimized {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
