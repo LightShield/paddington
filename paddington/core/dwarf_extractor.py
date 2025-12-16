@@ -25,87 +25,94 @@ class Struct:
     line: Optional[int] = None
 
 
-def build_type_table(dwarf) -> Dict:
-    """Build complete type table with resolved sizes."""
-    raw_table = {}
+def build_global_type_table(objfiles: List[Path]) -> Dict:
+    """Build global type table from all object files."""
+    global_table = {}
     
-    # First pass: collect all type DIEs
-    for CU in dwarf.iter_CUs():
-        for die in CU.iter_DIEs():
-            if die.tag == 'DW_TAG_base_type':
-                name_attr = die.attributes.get('DW_AT_name')
-                size_attr = die.attributes.get('DW_AT_byte_size')
-                if name_attr:
-                    name = name_attr.value
-                    if isinstance(name, bytes):
-                        name = name.decode()
-                    size = size_attr.value if size_attr else 0
-                    raw_table[die.offset] = ('base', name, size, None)
+    for objfile in objfiles:
+        with open(objfile, 'rb') as f:
+            elf = ELFFile(f)
             
-            elif die.tag == 'DW_TAG_typedef':
-                name_attr = die.attributes.get('DW_AT_name')
-                type_attr = die.attributes.get('DW_AT_type')
-                if name_attr:
-                    name = name_attr.value
-                    if isinstance(name, bytes):
-                        name = name.decode()
-                    ref = type_attr.value if type_attr else None
-                    raw_table[die.offset] = ('typedef', name, 0, ref)
+            if not elf.has_dwarf_info():
+                continue
             
-            elif die.tag == 'DW_TAG_enumeration_type':
-                name_attr = die.attributes.get('DW_AT_name')
-                size_attr = die.attributes.get('DW_AT_byte_size')
-                if name_attr:
-                    name = name_attr.value
-                    if isinstance(name, bytes):
-                        name = name.decode()
-                    size = size_attr.value if size_attr else 4
-                    raw_table[die.offset] = ('enum', name, size, None)
+            dwarf = elf.get_dwarf_info()
             
-            elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
-                name_attr = die.attributes.get('DW_AT_name')
-                size_attr = die.attributes.get('DW_AT_byte_size')
-                if name_attr:
-                    name = name_attr.value
-                    if isinstance(name, bytes):
-                        name = name.decode()
-                    size = size_attr.value if size_attr else 0
-                    raw_table[die.offset] = ('struct', name, size, None)
+            for CU in dwarf.iter_CUs():
+                for die in CU.iter_DIEs():
+                    if die.tag == 'DW_TAG_base_type':
+                        name_attr = die.attributes.get('DW_AT_name')
+                        size_attr = die.attributes.get('DW_AT_byte_size')
+                        if name_attr and die.offset:
+                            name = name_attr.value
+                            if isinstance(name, bytes):
+                                name = name.decode()
+                            size = size_attr.value if size_attr else 0
+                            global_table[die.offset] = ('base', name, size, None)
+                    
+                    elif die.tag == 'DW_TAG_typedef':
+                        name_attr = die.attributes.get('DW_AT_name')
+                        type_attr = die.attributes.get('DW_AT_type')
+                        if name_attr and die.offset:
+                            name = name_attr.value
+                            if isinstance(name, bytes):
+                                name = name.decode()
+                            ref = type_attr.value if type_attr else None
+                            global_table[die.offset] = ('typedef', name, 0, ref)
+                    
+                    elif die.tag == 'DW_TAG_enumeration_type':
+                        name_attr = die.attributes.get('DW_AT_name')
+                        size_attr = die.attributes.get('DW_AT_byte_size')
+                        if name_attr and die.offset:
+                            name = name_attr.value
+                            if isinstance(name, bytes):
+                                name = name.decode()
+                            size = size_attr.value if size_attr else 4
+                            global_table[die.offset] = ('enum', name, size, None)
+                    
+                    elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                        name_attr = die.attributes.get('DW_AT_name')
+                        size_attr = die.attributes.get('DW_AT_byte_size')
+                        if name_attr and die.offset:
+                            name = name_attr.value
+                            if isinstance(name, bytes):
+                                name = name.decode()
+                            size = size_attr.value if size_attr else 0
+                            global_table[die.offset] = ('struct', name, size, None)
     
-    # Second pass: resolve typedefs
+    # Resolve typedefs
     resolved = {}
-    for offset, (kind, name, size, ref) in raw_table.items():
-        if kind == 'typedef' and ref and ref in raw_table:
-            # Follow chain
-            _, final_name, final_size, _ = raw_table[ref]
-            resolved[offset] = (name, final_size)  # Keep typedef name, use underlying size
+    for offset, (kind, name, size, ref) in global_table.items():
+        if kind == 'typedef' and ref and ref in global_table:
+            _, _, final_size, _ = global_table[ref]
+            resolved[offset] = (name, final_size)
         else:
             resolved[offset] = (name, size)
     
     return resolved
 
 
-def parse_object_file(objfile: Path) -> tuple:
-    """Parse object file and extract structs and type table."""
+def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict) -> List[Struct]:
+    """Parse structs from object files using pre-built type table."""
     structs = []
     
-    with open(objfile, 'rb') as f:
-        elf = ELFFile(f)
-        
-        if not elf.has_dwarf_info():
-            return structs, {}
-        
-        dwarf = elf.get_dwarf_info()
-        type_table = build_type_table(dwarf)
-        
-        for CU in dwarf.iter_CUs():
-            for die in CU.iter_DIEs():
-                if die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
-                    struct = parse_struct(die, CU, type_table)
-                    if struct:
-                        structs.append(struct)
+    for objfile in objfiles:
+        with open(objfile, 'rb') as f:
+            elf = ELFFile(f)
+            
+            if not elf.has_dwarf_info():
+                continue
+            
+            dwarf = elf.get_dwarf_info()
+            
+            for CU in dwarf.iter_CUs():
+                for die in CU.iter_DIEs():
+                    if die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                        struct = parse_struct(die, CU, type_table)
+                        if struct:
+                            structs.append(struct)
     
-    return structs, type_table
+    return structs
 
 
 def parse_struct(die, CU, type_table: Dict) -> Optional[Struct]:
@@ -189,15 +196,13 @@ def deduplicate_structs(structs: List[Struct]) -> List[Struct]:
 
 def extract_reference_tree(objfiles: List[Path], output: Path) -> None:
     """Extract reference tree from object files and save as JSON."""
-    all_structs = []
-    all_type_table = {}
+    print(f"Building global type table from {len(objfiles)} object files...")
+    global_type_table = build_global_type_table(objfiles)
+    print(f"  Type table has {len(global_type_table)} entries")
     
-    for objfile in objfiles:
-        print(f"Processing {objfile}...")
-        structs, type_table = parse_object_file(objfile)
-        all_structs.extend(structs)
-        all_type_table.update(type_table)
-        print(f"  Found {len(structs)} structs")
+    print(f"\nParsing structs...")
+    all_structs = parse_structs_with_type_table(objfiles, global_type_table)
+    print(f"  Found {len(all_structs)} structs total")
     
     all_structs = deduplicate_structs(all_structs)
     print(f"\nAfter deduplication: {len(all_structs)} unique structs")
