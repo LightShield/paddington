@@ -130,7 +130,7 @@ def rewrite_struct_definition(
             for member in struct.members:
                 # Look for member name followed by semicolon
                 # Must be a declaration, not an assignment
-                if re.search(rf"\b{member.type_name}\s+{member.name}\b.*;", line):
+                if re.search(rf"\b{member.type}\s+{member.name}\b.*;", line):
                     member_lines[member.name] = line
                     member_access[member.name] = current_access
                     is_member = True

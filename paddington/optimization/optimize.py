@@ -8,6 +8,13 @@ from .optimizer import needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
 
 
+def remap_path(original_path: str, from_prefix: str, to_prefix: str) -> str:
+    """Remap file path from build location to source location."""
+    if original_path.startswith(from_prefix):
+        return original_path.replace(from_prefix, to_prefix, 1)
+    return original_path
+
+
 def optimize_files(
     path: Path,
     dry_run: bool = True,
@@ -18,22 +25,11 @@ def optimize_files(
     verify: bool = False,
     include_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
+    remap_from: Optional[str] = None,
+    remap_to: Optional[str] = None,
     verbosity: int = 1,
 ) -> None:
-    """Optimize struct padding from object files.
-
-    Args:
-        path: Object file or directory to optimize
-        dry_run: If True, only report what would be done
-        force: If True, reorder even if no size savings
-        update_signatures: Ignored - we only update initializer lists
-        patch_dir: If provided, generate patches instead of modifying files
-        build_command: If provided, run after each optimization to verify build
-        verify: If True, verify compilation after changes
-        include_patterns: Only process files matching these patterns
-        exclude_patterns: Skip files matching these patterns
-        verbosity: Logging verbosity level
-    """
+    """Optimize struct padding from object files."""
     log = Logger()
 
     if verbosity >= 3:
@@ -52,7 +48,9 @@ def optimize_files(
         patch_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"Generating patches in {patch_dir}")
 
-    # Find .o files
+    if remap_from and remap_to:
+        log.info(f"Path remapping enabled: {remap_from} -> {remap_to}")
+
     if path.is_file():
         objfiles = [path]
     else:
@@ -62,7 +60,6 @@ def optimize_files(
         log.error(f"No .o files found in {path}")
         return
 
-    # Apply filters
     if include_patterns or exclude_patterns:
         from ..utils.file_filter import filter_files
         original_count = len(objfiles)
@@ -80,56 +77,54 @@ def optimize_files(
     optimized_count = 0
     total_savings = 0
     processed = set()
-    modified_files = {}
 
     for struct in ordered_structs:
         if struct.name in processed:
             continue
         processed.add(struct.name)
         
-        # Skip if no members or zero-sized members
         if not struct.members or any(m.size == 0 for m in struct.members):
             continue
         
-        # Skip if no source file info
         if not struct.file_path or not struct.line:
             log.debug(f"Skipping {struct.name}: no source location")
+            continue
+        
+        source_path = struct.file_path
+        if remap_from and remap_to:
+            source_path = remap_path(source_path, remap_from, remap_to)
+            
+        if not Path(source_path).exists():
+            log.debug(f"Skipping {struct.name}: source file not found at {source_path}")
             continue
             
         if not needs_optimization(struct) and not force:
             log.debug(f"Skipping {struct.name}: no optimization needed")
             continue
 
-        padding = struct.calculate_padding()
         optimal_order = get_optimal_member_order(struct)
         optimal_size = struct.calculate_optimal_size()
         savings = struct.size - optimal_size
         
         if dry_run:
             log.info(f"[DRY-RUN] Would optimize {struct.name}: {struct.size} bytes -> {optimal_size} bytes ({savings} bytes saved)")
-            log.info(f"  File: {struct.file_path}:{struct.line}")
+            log.info(f"  File: {source_path}:{struct.line}")
             optimized_count += 1
             total_savings += savings
         else:
             log.info(f"Optimizing {struct.name}: {struct.size} bytes -> {optimal_size} bytes ({savings} bytes saved)")
             
             # Rewrite struct definition
-            new_content = rewrite_struct_definition(struct.file_path, struct, optimal_order)
+            new_content = rewrite_struct_definition(source_path, struct, optimal_order)
+            write_file(source_path, new_content)
             
             # Rewrite initializer lists
-            new_content = rewrite_constructors(new_content, struct, optimal_order)
+            new_content = rewrite_constructors(source_path, struct, optimal_order)
+            write_file(source_path, new_content)
             
-            # Track modified files
-            modified_files[struct.file_path] = new_content
-            
+            log.info(f"  Updated {source_path}")
             optimized_count += 1
             total_savings += savings
-
-    # Write modified files
-    if not dry_run and modified_files:
-        for file_path, content in modified_files.items():
-            write_file(file_path, content)
-            log.info(f"Updated {file_path}")
 
     print(f"\nOptimized {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
