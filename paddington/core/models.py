@@ -1,7 +1,7 @@
 """Data models for struct analysis."""
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Set
 
 __all__ = ["MemberInfo", "StructInfo"]
 
@@ -12,16 +12,14 @@ class MemberInfo:
 
     Attributes:
         name: Member variable name
-        type_name: C++ type name (e.g., 'int', 'double', 'MyClass')
+        type: C++ type name (e.g., 'int', 'double', 'MyClass')
         size: Size in bytes
-        alignment: Alignment requirement in bytes
         offset: Byte offset from start of struct
     """
 
     name: str
-    type_name: str
+    type: str
     size: int
-    alignment: int
     offset: int
 
 
@@ -31,21 +29,13 @@ class StructInfo:
 
     Attributes:
         name: Struct/class name
-        file_path: Source file path
-        line: Line number where defined
         members: List of member fields
-        total_size: Total size in bytes
-        is_class: True for class, False for struct
-        is_template: True for template definitions
+        size: Total size in bytes
     """
 
     name: str
-    file_path: str
-    line: int
+    size: int
     members: List[MemberInfo]
-    total_size: int
-    is_class: bool = False
-    is_template: bool = False
 
     def calculate_padding(self) -> int:
         """Calculate total padding bytes in struct.
@@ -69,7 +59,7 @@ class StructInfo:
         # Padding at end
         last_member = self.members[-1]
         data_end = last_member.offset + last_member.size
-        padding += self.total_size - data_end
+        padding += self.size - data_end
 
         return padding
 
@@ -83,18 +73,41 @@ class StructInfo:
             return 0
 
         sorted_members = sorted(
-            self.members, key=lambda m: (m.size, m.alignment), reverse=True
+            self.members, key=lambda m: (m.size, -m.offset), reverse=True
         )
 
         offset = 0
-        max_align = max(m.alignment for m in sorted_members)
+        max_align = max(m.size for m in sorted_members)  # Approximate alignment
 
         for member in sorted_members:
-            if offset % member.alignment != 0:
-                offset += member.alignment - (offset % member.alignment)
+            align = member.size
+            if offset % align != 0:
+                offset += align - (offset % align)
             offset += member.size
 
         if offset % max_align != 0:
             offset += max_align - (offset % max_align)
 
         return offset
+
+    def is_leaf(self, all_struct_names: Set[str]) -> bool:
+        """Check if struct is a leaf (no members are other structs).
+        
+        Args:
+            all_struct_names: Set of all known struct/class names
+            
+        Returns:
+            True if all members are primitive types
+        """
+        return all(m.type not in all_struct_names for m in self.members)
+
+    def get_dependencies(self, all_struct_names: Set[str]) -> Set[str]:
+        """Get set of struct names this struct depends on.
+        
+        Args:
+            all_struct_names: Set of all known struct/class names
+            
+        Returns:
+            Set of struct names used as member types
+        """
+        return {m.type for m in self.members if m.type in all_struct_names}
