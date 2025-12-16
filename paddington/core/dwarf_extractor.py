@@ -14,7 +14,7 @@ class Member:
     name: str
     type: str
     size: int
-    offset: int  # Added offset for padding calculation
+    offset: int
 
 
 @dataclass
@@ -22,6 +22,8 @@ class Struct:
     name: str
     size: int
     members: List[Member]
+    file_path: str = None
+    line: int = None
 
 
 def run_dwarfdump(objfile: Path) -> str:
@@ -74,6 +76,8 @@ def parse_dwarf_info(dwarf_output: str) -> tuple:
             i += 1
             struct_name = None
             struct_size = None
+            struct_file = None
+            struct_line = None
             members = []
             
             while i < len(lines):
@@ -93,6 +97,17 @@ def parse_dwarf_info(dwarf_output: str) -> tuple:
                         match = re.search(r'\(0x([0-9a-f]+)\)', sline)
                         if match:
                             struct_size = int(match.group(1), 16)
+                    
+                    elif "DW_AT_decl_file" in sline and not struct_file:
+                        match = re.search(r'\("([^"]+)"\)', sline)
+                        if match:
+                            struct_file = match.group(1)
+                    
+                    elif "DW_AT_decl_line" in sline and not struct_line:
+                        match = re.search(r'\((\d+)\)', sline)
+                        if match:
+                            struct_line = int(match.group(1))
+                    
                     i += 1
                         
                 elif "DW_TAG_member" in sline:
@@ -136,7 +151,7 @@ def parse_dwarf_info(dwarf_output: str) -> tuple:
                     i += 1
                 
             if struct_name and struct_size is not None:
-                structs.append(Struct(struct_name, struct_size, members))
+                structs.append(Struct(struct_name, struct_size, members, struct_file, struct_line))
                 if struct_offset:
                     type_table[struct_offset] = (struct_name, struct_size)
             continue
@@ -161,7 +176,6 @@ def deduplicate_structs(structs: List[Struct]) -> List[Struct]:
     unique = []
     
     for struct in structs:
-        # Create signature: name + size + member signatures
         member_sig = tuple((m.name, m.type, m.size, m.offset) for m in struct.members)
         sig = (struct.name, struct.size, member_sig)
         
@@ -185,10 +199,7 @@ def extract_reference_tree(objfiles: List[Path], output: Path) -> None:
         all_type_table.update(type_table)
         print(f"  Found {len(structs)} structs")
     
-    # Resolve type references
     resolve_member_types(all_structs, all_type_table)
-    
-    # Deduplicate
     all_structs = deduplicate_structs(all_structs)
     print(f"\nAfter deduplication: {len(all_structs)} unique structs")
     

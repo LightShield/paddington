@@ -44,7 +44,9 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
             structs.append(StructInfo(
                 name=s['name'],
                 size=s['size'],
-                members=members
+                members=members,
+                file_path=s.get('file_path'),
+                line=s.get('line')
             ))
         
         return structs

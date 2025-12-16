@@ -1,7 +1,7 @@
 """Data models for struct analysis."""
 
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Optional
 
 __all__ = ["MemberInfo", "StructInfo"]
 
@@ -29,13 +29,17 @@ class StructInfo:
 
     Attributes:
         name: Struct/class name
-        members: List of member fields
         size: Total size in bytes
+        members: List of member fields
+        file_path: Source file where struct is defined
+        line: Line number where struct is defined
     """
 
     name: str
     size: int
     members: List[MemberInfo]
+    file_path: Optional[str] = None
+    line: Optional[int] = None
 
     def calculate_padding(self) -> int:
         """Calculate total padding bytes in struct.
