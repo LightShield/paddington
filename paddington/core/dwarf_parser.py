@@ -1,9 +1,9 @@
 """Parse struct info from DWARF debug data in object files."""
 
 import json
-import subprocess
+import tempfile
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Dict
 from .models import MemberInfo, StructInfo
 
 __all__ = ["parse_object_files", "identify_leaves_and_order"]
@@ -16,10 +16,9 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
         objfiles: List of .o files with debug info
         
     Returns:
-        List of StructInfo objects
+        List of StructInfo objects with resolved types
     """
     from .dwarf_extractor import extract_reference_tree
-    import tempfile
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         temp_json = Path(f.name)
@@ -30,17 +29,28 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
         with open(temp_json) as f:
             data = json.load(f)
         
+        # Build name->size lookup for type resolution
+        type_sizes = {}
+        for s in data:
+            type_sizes[s['name']] = s['size']
+        
+        # Convert to StructInfo and resolve member types
         structs = []
         for s in data:
-            members = [
-                MemberInfo(
+            members = []
+            for m in s['members']:
+                # If member type is a struct name, get its size
+                member_size = m['size']
+                if member_size == 0 and m['type'] in type_sizes:
+                    member_size = type_sizes[m['type']]
+                
+                members.append(MemberInfo(
                     name=m['name'],
                     type=m['type'],
-                    size=m['size'],
+                    size=member_size,
                     offset=m['offset']
-                )
-                for m in s['members']
-            ]
+                ))
+            
             structs.append(StructInfo(
                 name=s['name'],
                 size=s['size'],
