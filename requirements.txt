@@ -1,1 +1,1 @@
-# No external dependencies - uses system dwarfdump
+pyelftools>=0.32

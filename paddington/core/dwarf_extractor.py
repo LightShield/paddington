@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Extract struct layout from object files using DWARF debug info."""
 
-import subprocess
-import re
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
+from elftools.elf.elffile import ELFFile
 
 
 @dataclass
@@ -22,156 +21,158 @@ class Struct:
     name: str
     size: int
     members: List[Member]
-    file_path: str = None
-    line: int = None
+    file_path: Optional[str] = None
+    line: Optional[int] = None
 
 
-def run_dwarfdump(objfile: Path) -> str:
-    """Run dwarfdump on object file."""
-    cmd = ["dwarfdump", str(objfile)]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return result.stdout
-
-
-def parse_dwarf_info(dwarf_output: str) -> tuple:
-    """Parse DWARF info to extract struct definitions and type table."""
-    structs = []
-    type_table = {}
-    lines = dwarf_output.splitlines()
-    i = 0
+def build_type_table(dwarf) -> Dict:
+    """Build complete type table with resolved sizes."""
+    raw_table = {}
     
-    while i < len(lines):
-        line = lines[i]
-        
-        # Extract offset
-        offset_match = re.match(r'^(0x[0-9a-f]+):', line)
-        current_offset = offset_match.group(1) if offset_match else None
-        
-        # Base types
-        if "DW_TAG_base_type" in line:
-            i += 1
-            type_name = None
-            type_size = None
+    # First pass: collect all type DIEs
+    for CU in dwarf.iter_CUs():
+        for die in CU.iter_DIEs():
+            if die.tag == 'DW_TAG_base_type':
+                name_attr = die.attributes.get('DW_AT_name')
+                size_attr = die.attributes.get('DW_AT_byte_size')
+                if name_attr:
+                    name = name_attr.value
+                    if isinstance(name, bytes):
+                        name = name.decode()
+                    size = size_attr.value if size_attr else 0
+                    raw_table[die.offset] = ('base', name, size, None)
             
-            while i < len(lines):
-                if lines[i].startswith("0x"):
-                    break
-                if "DW_AT_name" in lines[i]:
-                    match = re.search(r'\("([^"]+)"\)', lines[i])
-                    if match:
-                        type_name = match.group(1)
-                elif "DW_AT_byte_size" in lines[i]:
-                    match = re.search(r'\(0x([0-9a-f]+)\)', lines[i])
-                    if match:
-                        type_size = int(match.group(1), 16)
-                i += 1
-                
-            if current_offset and type_name:
-                type_table[current_offset] = (type_name, type_size or 0)
-            continue
-        
-        # Structure types
-        if "DW_TAG_structure_type" in line or "DW_TAG_class_type" in line:
-            struct_offset = current_offset
-            i += 1
-            struct_name = None
-            struct_size = None
-            struct_file = None
-            struct_line = None
-            members = []
+            elif die.tag == 'DW_TAG_typedef':
+                name_attr = die.attributes.get('DW_AT_name')
+                type_attr = die.attributes.get('DW_AT_type')
+                if name_attr:
+                    name = name_attr.value
+                    if isinstance(name, bytes):
+                        name = name.decode()
+                    ref = type_attr.value if type_attr else None
+                    raw_table[die.offset] = ('typedef', name, 0, ref)
             
-            while i < len(lines):
-                sline = lines[i]
-                
-                if "NULL" in sline:
-                    i += 1
-                    break
-                
-                if sline.startswith("              "):
-                    if "DW_AT_name" in sline and not struct_name:
-                        match = re.search(r'\("([^"]+)"\)', sline)
-                        if match:
-                            struct_name = match.group(1)
-                            
-                    elif "DW_AT_byte_size" in sline and not struct_size:
-                        match = re.search(r'\(0x([0-9a-f]+)\)', sline)
-                        if match:
-                            struct_size = int(match.group(1), 16)
-                    
-                    elif "DW_AT_decl_file" in sline and not struct_file:
-                        match = re.search(r'\("([^"]+)"\)', sline)
-                        if match:
-                            struct_file = match.group(1)
-                    
-                    elif "DW_AT_decl_line" in sline and not struct_line:
-                        match = re.search(r'\((\d+)\)', sline)
-                        if match:
-                            struct_line = int(match.group(1))
-                    
-                    i += 1
-                        
-                elif "DW_TAG_member" in sline:
-                    i += 1
-                    member_name = None
-                    member_type_ref = None
-                    member_offset = None
-                    
-                    while i < len(lines):
-                        mline = lines[i]
-                        
-                        if mline.startswith("0x") or (not mline.strip() and i+1 < len(lines) and lines[i+1].startswith("0x")):
-                            break
-                            
-                        if "DW_AT_name" in mline:
-                            match = re.search(r'\("([^"]+)"\)', mline)
-                            if match:
-                                member_name = match.group(1)
-                                
-                        elif "DW_AT_type" in mline:
-                            match = re.search(r'\((0x[0-9a-f]+)', mline)
-                            if match:
-                                member_type_ref = match.group(1)
-                        
-                        elif "DW_AT_data_member_location" in mline:
-                            match = re.search(r'\(0x([0-9a-f]+)\)', mline)
-                            if match:
-                                member_offset = int(match.group(1), 16)
-                                
-                        i += 1
-                        
-                    if member_name:
-                        if member_type_ref and member_type_ref in type_table:
-                            type_name, type_size = type_table[member_type_ref]
-                        else:
-                            type_name = member_type_ref or "unknown"
-                            type_size = 0
-                            
-                        members.append(Member(member_name, type_name, type_size, member_offset or 0))
-                else:
-                    i += 1
-                
-            if struct_name and struct_size is not None:
-                structs.append(Struct(struct_name, struct_size, members, struct_file, struct_line))
-                if struct_offset:
-                    type_table[struct_offset] = (struct_name, struct_size)
-            continue
+            elif die.tag == 'DW_TAG_enumeration_type':
+                name_attr = die.attributes.get('DW_AT_name')
+                size_attr = die.attributes.get('DW_AT_byte_size')
+                if name_attr:
+                    name = name_attr.value
+                    if isinstance(name, bytes):
+                        name = name.decode()
+                    size = size_attr.value if size_attr else 4
+                    raw_table[die.offset] = ('enum', name, size, None)
             
-        i += 1
+            elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                name_attr = die.attributes.get('DW_AT_name')
+                size_attr = die.attributes.get('DW_AT_byte_size')
+                if name_attr:
+                    name = name_attr.value
+                    if isinstance(name, bytes):
+                        name = name.decode()
+                    size = size_attr.value if size_attr else 0
+                    raw_table[die.offset] = ('struct', name, size, None)
+    
+    # Second pass: resolve typedefs
+    resolved = {}
+    for offset, (kind, name, size, ref) in raw_table.items():
+        if kind == 'typedef' and ref and ref in raw_table:
+            # Follow chain
+            _, final_name, final_size, _ = raw_table[ref]
+            resolved[offset] = (name, final_size)  # Keep typedef name, use underlying size
+        else:
+            resolved[offset] = (name, size)
+    
+    return resolved
+
+
+def parse_object_file(objfile: Path) -> tuple:
+    """Parse object file and extract structs and type table."""
+    structs = []
+    
+    with open(objfile, 'rb') as f:
+        elf = ELFFile(f)
         
+        if not elf.has_dwarf_info():
+            return structs, {}
+        
+        dwarf = elf.get_dwarf_info()
+        type_table = build_type_table(dwarf)
+        
+        for CU in dwarf.iter_CUs():
+            for die in CU.iter_DIEs():
+                if die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                    struct = parse_struct(die, CU, type_table)
+                    if struct:
+                        structs.append(struct)
+    
     return structs, type_table
 
 
-def resolve_member_types(structs: List[Struct], type_table: Dict) -> None:
-    """Resolve member types that reference other structs."""
-    for struct in structs:
-        for member in struct.members:
-            if member.type.startswith("0x"):
-                if member.type in type_table:
-                    member.type, member.size = type_table[member.type]
+def parse_struct(die, CU, type_table: Dict) -> Optional[Struct]:
+    """Parse a struct/class DIE."""
+    name_attr = die.attributes.get('DW_AT_name')
+    if not name_attr:
+        return None
+    
+    name = name_attr.value
+    if isinstance(name, bytes):
+        name = name.decode()
+    
+    size_attr = die.attributes.get('DW_AT_byte_size')
+    size = size_attr.value if size_attr else 0
+    
+    # Get source location
+    file_path = None
+    line = None
+    
+    if 'DW_AT_decl_file' in die.attributes:
+        file_idx = die.attributes['DW_AT_decl_file'].value
+        line_program = CU.dwarfinfo.line_program_for_CU(CU)
+        if line_program and 0 < file_idx <= len(line_program['file_entry']):
+            file_entry = line_program['file_entry'][file_idx - 1]
+            file_path = file_entry.name.decode() if isinstance(file_entry.name, bytes) else file_entry.name
+    
+    if 'DW_AT_decl_line' in die.attributes:
+        line = die.attributes['DW_AT_decl_line'].value
+    
+    # Extract members
+    members = []
+    for child in die.iter_children():
+        if child.tag == 'DW_TAG_member':
+            member = parse_member(child, type_table)
+            if member:
+                members.append(member)
+    
+    return Struct(name, size, members, file_path, line)
+
+
+def parse_member(die, type_table: Dict) -> Optional[Member]:
+    """Parse a member DIE."""
+    name_attr = die.attributes.get('DW_AT_name')
+    if not name_attr:
+        return None
+    
+    name = name_attr.value
+    if isinstance(name, bytes):
+        name = name.decode()
+    
+    # Get type reference and resolve
+    type_attr = die.attributes.get('DW_AT_type')
+    if type_attr and type_attr.value in type_table:
+        type_name, type_size = type_table[type_attr.value]
+    else:
+        type_name = "unknown"
+        type_size = 0
+    
+    # Get offset
+    offset_attr = die.attributes.get('DW_AT_data_member_location')
+    offset = offset_attr.value if offset_attr else 0
+    
+    return Member(name, type_name, type_size, offset)
 
 
 def deduplicate_structs(structs: List[Struct]) -> List[Struct]:
-    """Remove duplicate struct definitions, keeping first occurrence."""
+    """Remove duplicate struct definitions."""
     seen = {}
     unique = []
     
@@ -193,13 +194,11 @@ def extract_reference_tree(objfiles: List[Path], output: Path) -> None:
     
     for objfile in objfiles:
         print(f"Processing {objfile}...")
-        dwarf_output = run_dwarfdump(objfile)
-        structs, type_table = parse_dwarf_info(dwarf_output)
+        structs, type_table = parse_object_file(objfile)
         all_structs.extend(structs)
         all_type_table.update(type_table)
         print(f"  Found {len(structs)} structs")
     
-    resolve_member_types(all_structs, all_type_table)
     all_structs = deduplicate_structs(all_structs)
     print(f"\nAfter deduplication: {len(all_structs)} unique structs")
     
