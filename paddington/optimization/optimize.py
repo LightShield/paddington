@@ -1,5 +1,6 @@
 """Optimization orchestration."""
 
+import hashlib
 from pathlib import Path
 from typing import List, Optional
 from ..utils import Logger
@@ -13,6 +14,34 @@ def remap_path(original_path: str, from_prefix: str, to_prefix: str) -> str:
     if original_path.startswith(from_prefix):
         return original_path.replace(from_prefix, to_prefix, 1)
     return original_path
+
+
+def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
+    """Deduplicate .o files by content hash."""
+    log.info("Deduplicating .o files by content...")
+    
+    seen_hashes = {}
+    unique = []
+    
+    for idx, objfile in enumerate(objfiles, 1):
+        if idx % 100 == 0:
+            log.debug(f"  Hashing: {idx}/{len(objfiles)}")
+        
+        try:
+            with open(objfile, 'rb') as f:
+                # Hash first 64KB for speed
+                content_hash = hashlib.md5(f.read(65536)).hexdigest()
+            
+            if content_hash not in seen_hashes:
+                seen_hashes[content_hash] = objfile
+                unique.append(objfile)
+            else:
+                log.debug(f"  Duplicate: {objfile.name} (same as {seen_hashes[content_hash].name})")
+        except:
+            unique.append(objfile)  # Keep if can't hash
+    
+    log.info(f"Deduplicated: {len(objfiles)} -> {len(unique)} files ({len(objfiles) - len(unique)} duplicates removed)")
+    return unique
 
 
 def optimize_files(
@@ -74,6 +103,9 @@ def optimize_files(
         original_count = len(objfiles)
         objfiles = filter_files(objfiles, include_patterns, exclude_patterns)
         log.info(f"Filtered {original_count} files to {len(objfiles)} files")
+
+    # Deduplicate by content
+    objfiles = deduplicate_objfiles(objfiles, log)
 
     log.info(f"Extracting structs from {len(objfiles)} object files...")
     all_structs = parse_object_files(objfiles, cache_dir, log)
