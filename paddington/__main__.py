@@ -33,6 +33,11 @@ def main():
         help="Directory for caching parsed .o files (speeds up re-runs)",
     )
     analyze_parser.add_argument(
+        "--deduplicate",
+        action="store_true",
+        help="Deduplicate .o files by content hash before processing",
+    )
+    analyze_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -90,6 +95,11 @@ def main():
         help="Directory for caching parsed .o files (speeds up re-runs)",
     )
     optimize_parser.add_argument(
+        "--deduplicate",
+        action="store_true",
+        help="Deduplicate .o files by content hash before processing",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -101,6 +111,7 @@ def main():
             include_patterns=args.include,
             exclude_patterns=args.exclude,
             cache_dir=args.cache_dir,
+            deduplicate=args.deduplicate,
             verbosity=args.verbose,
         )
     elif args.command == "optimize":
@@ -116,6 +127,7 @@ def main():
             remap_from=args.remap_from,
             remap_to=args.remap_to,
             cache_dir=args.cache_dir,
+            deduplicate=args.deduplicate,
             verbosity=args.verbose,
         )
 

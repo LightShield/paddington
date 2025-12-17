@@ -18,6 +18,7 @@ python3 -m paddington optimize \
   "$BUILD_ROOT" \
   --patch-dir ./patches \
   --cache-dir "$CACHE_DIR" \
+  --deduplicate \
   --exclude "*/regs/*" \
   --exclude "*/third-party/*" \
   --exclude "*/tools/*" \

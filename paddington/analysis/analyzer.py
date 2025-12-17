@@ -40,6 +40,7 @@ def analyze_files(
     include_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
     cache_dir: Optional[Path] = None,
+    deduplicate: bool = False,
     verbosity: int = 1,
 ) -> None:
     """Analyze object files for struct padding."""
@@ -78,7 +79,8 @@ def analyze_files(
         log.info(f"Filtered {original_count} files to {len(objfiles)} files")
 
     # Deduplicate by content
-    objfiles = deduplicate_objfiles(objfiles, log)
+    if deduplicate:
+        objfiles = deduplicate_objfiles(objfiles, log)
 
     log.info(f"Analyzing {len(objfiles)} object files...")
     

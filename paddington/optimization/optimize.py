@@ -29,7 +29,6 @@ def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
         
         try:
             with open(objfile, 'rb') as f:
-                # Hash first 64KB for speed
                 content_hash = hashlib.md5(f.read(65536)).hexdigest()
             
             if content_hash not in seen_hashes:
@@ -38,7 +37,7 @@ def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
             else:
                 log.debug(f"  Duplicate: {objfile.name} (same as {seen_hashes[content_hash].name})")
         except:
-            unique.append(objfile)  # Keep if can't hash
+            unique.append(objfile)
     
     log.info(f"Deduplicated: {len(objfiles)} -> {len(unique)} files ({len(objfiles) - len(unique)} duplicates removed)")
     return unique
@@ -57,6 +56,7 @@ def optimize_files(
     remap_from: Optional[str] = None,
     remap_to: Optional[str] = None,
     cache_dir: Optional[Path] = None,
+    deduplicate: bool = False,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding from object files."""
@@ -105,7 +105,8 @@ def optimize_files(
         log.info(f"Filtered {original_count} files to {len(objfiles)} files")
 
     # Deduplicate by content
-    objfiles = deduplicate_objfiles(objfiles, log)
+    if deduplicate:
+        objfiles = deduplicate_objfiles(objfiles, log)
 
     log.info(f"Extracting structs from {len(objfiles)} object files...")
     all_structs = parse_object_files(objfiles, cache_dir, log)
@@ -169,3 +170,7 @@ def optimize_files(
 
     print(f"\nOptimized {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
+
+
+if __name__ == "__main__":
+    main()
