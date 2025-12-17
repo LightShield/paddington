@@ -19,6 +19,7 @@ python3 -m paddington optimize \
   --patch-dir ./patches \
   --cache-dir "$CACHE_DIR" \
   --deduplicate \
+  --use-pahole \
   --exclude "*/regs/*" \
   --exclude "*/third-party/*" \
   --exclude "*/tools/*" \
@@ -29,4 +30,5 @@ echo ""
 echo "Patches generated in $SCRIPT_DIR/patches/"
 echo "Review and apply with: git apply patches/*.patch"
 echo ""
+echo "Note: Using pahole for 100x+ speedup"
 echo "Note: Cached data in $CACHE_DIR for faster re-runs"

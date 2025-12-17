@@ -38,6 +38,11 @@ def main():
         help="Deduplicate .o files by content hash before processing",
     )
     analyze_parser.add_argument(
+        "--use-pahole",
+        action="store_true",
+        help="Use pahole instead of pyelftools (100x faster, requires pahole installed)",
+    )
+    analyze_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -100,6 +105,11 @@ def main():
         help="Deduplicate .o files by content hash before processing",
     )
     optimize_parser.add_argument(
+        "--use-pahole",
+        action="store_true",
+        help="Use pahole instead of pyelftools (100x faster, requires pahole installed)",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -112,6 +122,7 @@ def main():
             exclude_patterns=args.exclude,
             cache_dir=args.cache_dir,
             deduplicate=args.deduplicate,
+            use_pahole=args.use_pahole,
             verbosity=args.verbose,
         )
     elif args.command == "optimize":
@@ -128,6 +139,7 @@ def main():
             remap_to=args.remap_to,
             cache_dir=args.cache_dir,
             deduplicate=args.deduplicate,
+            use_pahole=args.use_pahole,
             verbosity=args.verbose,
         )
 

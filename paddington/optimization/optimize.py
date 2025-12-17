@@ -28,7 +28,6 @@ def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
             log.info(f"  Hashing: {idx}/{len(objfiles)}")
         
         try:
-            # Hash full file for accuracy
             hasher = hashlib.md5()
             with open(objfile, 'rb') as f:
                 while chunk := f.read(8192):
@@ -61,6 +60,7 @@ def optimize_files(
     remap_to: Optional[str] = None,
     cache_dir: Optional[Path] = None,
     deduplicate: bool = False,
+    use_pahole: bool = False,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding from object files."""
@@ -87,6 +87,9 @@ def optimize_files(
     
     if cache_dir:
         log.info(f"Using cache directory: {cache_dir}")
+    
+    if use_pahole:
+        log.info("Using pahole for extraction (100x faster)")
 
     # Find .o files
     log.info(f"Finding .o files in {path}...")
@@ -113,7 +116,13 @@ def optimize_files(
         objfiles = deduplicate_objfiles(objfiles, log)
 
     log.info(f"Extracting structs from {len(objfiles)} object files...")
-    all_structs = parse_object_files(objfiles, cache_dir, log)
+    
+    # Choose extractor
+    if use_pahole:
+        from ..core.pahole_parser import parse_object_files_with_pahole
+        all_structs = parse_object_files_with_pahole(objfiles, log)
+    else:
+        all_structs = parse_object_files(objfiles, cache_dir, log)
     
     log.info(f"Ordering {len(all_structs)} structs by dependencies...")
     ordered_structs, visited = identify_leaves_and_order(all_structs)

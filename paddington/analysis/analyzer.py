@@ -9,7 +9,7 @@ from .reporter import report_analysis
 
 
 def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
-    """Deduplicate .o files by full content hash."""
+    """Deduplicate .o files by content hash."""
     log.info("Deduplicating .o files by content...")
     
     seen_hashes = {}
@@ -20,12 +20,8 @@ def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
             log.info(f"  Hashing: {idx}/{len(objfiles)}")
         
         try:
-            # Hash full file
-            hasher = hashlib.md5()
             with open(objfile, 'rb') as f:
-                while chunk := f.read(8192):
-                    hasher.update(chunk)
-            content_hash = hasher.hexdigest()
+                content_hash = hashlib.md5(f.read(65536)).hexdigest()
             
             if content_hash not in seen_hashes:
                 seen_hashes[content_hash] = objfile
@@ -45,6 +41,7 @@ def analyze_files(
     exclude_patterns: Optional[List[str]] = None,
     cache_dir: Optional[Path] = None,
     deduplicate: bool = False,
+    use_pahole: bool = False,
     verbosity: int = 1,
 ) -> None:
     """Analyze object files for struct padding."""
@@ -88,6 +85,11 @@ def analyze_files(
 
     log.info(f"Analyzing {len(objfiles)} object files...")
     
-    all_structs = parse_object_files(objfiles, cache_dir, log)
+    # Choose extractor
+    if use_pahole:
+        from ..core.pahole_parser import parse_object_files_with_pahole
+        all_structs = parse_object_files_with_pahole(objfiles, log)
+    else:
+        all_structs = parse_object_files(objfiles, cache_dir, log)
     
     report_analysis(all_structs, verbosity)
