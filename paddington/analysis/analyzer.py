@@ -29,10 +29,13 @@ def analyze_files(
         return
 
     # Find .o files
+    log.info(f"Finding .o files in {path}...")
     if path.is_file():
         objfiles = [path]
     else:
         objfiles = list(path.rglob("*.o"))
+    
+    log.info(f"Found {len(objfiles)} .o files")
 
     if not objfiles:
         log.error(f"No .o files found in {path}")
@@ -40,6 +43,7 @@ def analyze_files(
 
     # Apply filters
     if include_patterns or exclude_patterns:
+        log.info("Applying filters...")
         from ..utils.file_filter import filter_files
         original_count = len(objfiles)
         objfiles = filter_files(objfiles, include_patterns, exclude_patterns)
@@ -47,6 +51,6 @@ def analyze_files(
 
     log.info(f"Analyzing {len(objfiles)} object files...")
     
-    all_structs = parse_object_files(objfiles, cache_dir)
+    all_structs = parse_object_files(objfiles, cache_dir, log)
     
     report_analysis(all_structs, verbosity)

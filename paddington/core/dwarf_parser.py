@@ -9,7 +9,7 @@ from .models import MemberInfo, StructInfo
 __all__ = ["parse_object_files", "identify_leaves_and_order"]
 
 
-def parse_object_files(objfiles: List[Path], cache_dir: Optional[Path] = None) -> List[StructInfo]:
+def parse_object_files(objfiles: List[Path], cache_dir: Optional[Path] = None, log=None) -> List[StructInfo]:
     """Parse struct info from object files with cross-file type resolution."""
     from .dwarf_extractor import extract_reference_tree
     
@@ -17,7 +17,7 @@ def parse_object_files(objfiles: List[Path], cache_dir: Optional[Path] = None) -
         temp_json = Path(f.name)
     
     try:
-        extract_reference_tree(objfiles, temp_json, cache_dir)
+        extract_reference_tree(objfiles, temp_json, cache_dir, log)
         
         with open(temp_json) as f:
             data = json.load(f)

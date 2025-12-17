@@ -69,14 +69,14 @@ def optimize_files(
         return
 
     if include_patterns or exclude_patterns:
-        log.info(f"Applying filters...")
+        log.info("Applying filters...")
         from ..utils.file_filter import filter_files
         original_count = len(objfiles)
         objfiles = filter_files(objfiles, include_patterns, exclude_patterns)
         log.info(f"Filtered {original_count} files to {len(objfiles)} files")
 
     log.info(f"Extracting structs from {len(objfiles)} object files...")
-    all_structs = parse_object_files(objfiles, cache_dir)
+    all_structs = parse_object_files(objfiles, cache_dir, log)
     
     log.info(f"Ordering {len(all_structs)} structs by dependencies...")
     ordered_structs, visited = identify_leaves_and_order(all_structs)
