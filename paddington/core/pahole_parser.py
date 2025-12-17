@@ -27,15 +27,17 @@ def parse_object_files_with_pahole(objfiles: List[Path], log=None) -> List[Struc
         
         try:
             cmd = ["pahole", "-I", "-M", str(objfile)]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True, stderr=subprocess.DEVNULL)
+            result = subprocess.run(cmd, capture_output=True, text=True, stderr=subprocess.DEVNULL)
+            
+            if result.returncode != 0:
+                log.debug(f"  Skipped: pahole returned {result.returncode}")
+                continue
+            
             structs = parse_pahole_output(result.stdout)
             all_structs.extend(structs)
             log.debug(f"  Found {len(structs)} structs")
-        except subprocess.CalledProcessError:
-            log.debug(f"  Skipped: pahole failed")
-            continue
         except Exception as e:
-            log.debug(f"  Skipped: {type(e).__name__}")
+            log.debug(f"  Skipped: {type(e).__name__}: {e}")
             continue
     
     log.info(f"Found {len(all_structs)} structs total")
@@ -82,7 +84,7 @@ def parse_pahole_output(output: str) -> List[StructInfo]:
                     while i < len(lines):
                         mline = lines[i]
                         
-                        if mline.strip().startswith('};'):
+                        if mline.strip() == '};':
                             i += 1
                             break
                         
@@ -93,19 +95,27 @@ def parse_pahole_output(output: str) -> List[StructInfo]:
                             i += 1
                             continue
                         
+                        # Skip holes, cacheline boundaries, access specifiers
+                        if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', '']:
+                            i += 1
+                            continue
+                        
                         # Member: type name; /* offset size */
+                        # Handle complex types with spaces
                         member_match = re.match(r'\s+(.+?)\s+(\w+);\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
                         if member_match:
                             member_type = member_match.group(1).strip()
                             member_name = member_match.group(2)
-                            member_offset = int(member_match.group(3))
-                            member_size = int(member_match.group(4))
-                            
-                            members.append(MemberInfo(member_name, member_type, member_size, member_offset))
+                            try:
+                                member_offset = int(member_match.group(3))
+                                member_size = int(member_match.group(4))
+                                members.append(MemberInfo(member_name, member_type, member_size, member_offset))
+                            except ValueError:
+                                pass
                         
                         i += 1
                     
-                    if struct_name and struct_size > 0:
+                    if struct_name and struct_size > 0 and members:
                         structs.append(StructInfo(struct_name, struct_size, members, file_path, line_num))
                     continue
         
