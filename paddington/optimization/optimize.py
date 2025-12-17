@@ -17,7 +17,7 @@ def remap_path(original_path: str, from_prefix: str, to_prefix: str) -> str:
 
 
 def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
-    """Deduplicate .o files by content hash."""
+    """Deduplicate .o files by full content hash."""
     log.info("Deduplicating .o files by content...")
     
     seen_hashes = {}
@@ -25,11 +25,15 @@ def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
     
     for idx, objfile in enumerate(objfiles, 1):
         if idx % 100 == 0:
-            log.debug(f"  Hashing: {idx}/{len(objfiles)}")
+            log.info(f"  Hashing: {idx}/{len(objfiles)}")
         
         try:
+            # Hash full file for accuracy
+            hasher = hashlib.md5()
             with open(objfile, 'rb') as f:
-                content_hash = hashlib.md5(f.read(65536)).hexdigest()
+                while chunk := f.read(8192):
+                    hasher.update(chunk)
+            content_hash = hasher.hexdigest()
             
             if content_hash not in seen_hashes:
                 seen_hashes[content_hash] = objfile
@@ -170,7 +174,3 @@ def optimize_files(
 
     print(f"\nOptimized {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
-
-
-if __name__ == "__main__":
-    main()
