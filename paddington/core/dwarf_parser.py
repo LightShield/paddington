@@ -3,13 +3,13 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Optional
 from .models import MemberInfo, StructInfo
 
 __all__ = ["parse_object_files", "identify_leaves_and_order"]
 
 
-def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
+def parse_object_files(objfiles: List[Path], cache_dir: Optional[Path] = None) -> List[StructInfo]:
     """Parse struct info from object files with cross-file type resolution."""
     from .dwarf_extractor import extract_reference_tree
     
@@ -17,7 +17,7 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
         temp_json = Path(f.name)
     
     try:
-        extract_reference_tree(objfiles, temp_json)
+        extract_reference_tree(objfiles, temp_json, cache_dir)
         
         with open(temp_json) as f:
             data = json.load(f)
@@ -25,7 +25,7 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
         # Build name->size lookup for ALL structs
         type_sizes = {}
         for s in data:
-            if s['size'] > 0:  # Only use structs with known size
+            if s['size'] > 0:
                 type_sizes[s['name']] = s['size']
         
         # Convert to StructInfo and resolve member types by name

@@ -2,10 +2,12 @@
 """Extract struct layout from object files using DWARF debug info."""
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from elftools.elf.elffile import ELFFile
+from elftools.common.exceptions import ELFRelocationError
 
 
 @dataclass
@@ -25,60 +27,77 @@ class Struct:
     line: Optional[int] = None
 
 
-def build_global_type_table(objfiles: List[Path]) -> Dict:
+def get_cache_path(objfile: Path, cache_dir: Path) -> Path:
+    """Get cache file path for an object file."""
+    # Use hash of full path to avoid collisions
+    path_hash = hashlib.md5(str(objfile).encode()).hexdigest()[:16]
+    return cache_dir / f"{objfile.stem}_{path_hash}.json"
+
+
+def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = None) -> Dict:
     """Build global type table from all object files."""
     global_table = {}
     
-    for objfile in objfiles:
-        with open(objfile, 'rb') as f:
-            elf = ELFFile(f)
-            
-            if not elf.has_dwarf_info():
-                continue
-            
-            dwarf = elf.get_dwarf_info()
-            
-            for CU in dwarf.iter_CUs():
-                for die in CU.iter_DIEs():
-                    if die.tag == 'DW_TAG_base_type':
-                        name_attr = die.attributes.get('DW_AT_name')
-                        size_attr = die.attributes.get('DW_AT_byte_size')
-                        if name_attr and die.offset:
-                            name = name_attr.value
-                            if isinstance(name, bytes):
-                                name = name.decode()
-                            size = size_attr.value if size_attr else 0
-                            global_table[die.offset] = ('base', name, size, None)
-                    
-                    elif die.tag == 'DW_TAG_typedef':
-                        name_attr = die.attributes.get('DW_AT_name')
-                        type_attr = die.attributes.get('DW_AT_type')
-                        if name_attr and die.offset:
-                            name = name_attr.value
-                            if isinstance(name, bytes):
-                                name = name.decode()
-                            ref = type_attr.value if type_attr else None
-                            global_table[die.offset] = ('typedef', name, 0, ref)
-                    
-                    elif die.tag == 'DW_TAG_enumeration_type':
-                        name_attr = die.attributes.get('DW_AT_name')
-                        size_attr = die.attributes.get('DW_AT_byte_size')
-                        if name_attr and die.offset:
-                            name = name_attr.value
-                            if isinstance(name, bytes):
-                                name = name.decode()
-                            size = size_attr.value if size_attr else 4
-                            global_table[die.offset] = ('enum', name, size, None)
-                    
-                    elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
-                        name_attr = die.attributes.get('DW_AT_name')
-                        size_attr = die.attributes.get('DW_AT_byte_size')
-                        if name_attr and die.offset:
-                            name = name_attr.value
-                            if isinstance(name, bytes):
-                                name = name.decode()
-                            size = size_attr.value if size_attr else 0
-                            global_table[die.offset] = ('struct', name, size, None)
+    for idx, objfile in enumerate(objfiles, 1):
+        if idx % 100 == 0:
+            print(f"  Building type table: {idx}/{len(objfiles)} files...")
+        
+        try:
+            with open(objfile, 'rb') as f:
+                elf = ELFFile(f)
+                
+                if not elf.has_dwarf_info():
+                    continue
+                
+                dwarf = elf.get_dwarf_info()
+                
+                for CU in dwarf.iter_CUs():
+                    for die in CU.iter_DIEs():
+                        if die.tag == 'DW_TAG_base_type':
+                            name_attr = die.attributes.get('DW_AT_name')
+                            size_attr = die.attributes.get('DW_AT_byte_size')
+                            if name_attr and die.offset:
+                                name = name_attr.value
+                                if isinstance(name, bytes):
+                                    name = name.decode()
+                                size = size_attr.value if size_attr else 0
+                                global_table[die.offset] = ('base', name, size, None)
+                        
+                        elif die.tag == 'DW_TAG_typedef':
+                            name_attr = die.attributes.get('DW_AT_name')
+                            type_attr = die.attributes.get('DW_AT_type')
+                            if name_attr and die.offset:
+                                name = name_attr.value
+                                if isinstance(name, bytes):
+                                    name = name.decode()
+                                ref = type_attr.value if type_attr else None
+                                global_table[die.offset] = ('typedef', name, 0, ref)
+                        
+                        elif die.tag == 'DW_TAG_enumeration_type':
+                            name_attr = die.attributes.get('DW_AT_name')
+                            size_attr = die.attributes.get('DW_AT_byte_size')
+                            if name_attr and die.offset:
+                                name = name_attr.value
+                                if isinstance(name, bytes):
+                                    name = name.decode()
+                                size = size_attr.value if size_attr else 4
+                                global_table[die.offset] = ('enum', name, size, None)
+                        
+                        elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                            name_attr = die.attributes.get('DW_AT_name')
+                            size_attr = die.attributes.get('DW_AT_byte_size')
+                            if name_attr and die.offset:
+                                name = name_attr.value
+                                if isinstance(name, bytes):
+                                    name = name.decode()
+                                size = size_attr.value if size_attr else 0
+                                global_table[die.offset] = ('struct', name, size, None)
+        except ELFRelocationError as e:
+            print(f"  Warning: Skipping {objfile.name} (relocation error: {e})")
+            continue
+        except Exception as e:
+            print(f"  Warning: Skipping {objfile.name} (error: {e})")
+            continue
     
     # Resolve typedefs
     resolved = {}
@@ -92,25 +111,57 @@ def build_global_type_table(objfiles: List[Path]) -> Dict:
     return resolved
 
 
-def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict) -> List[Struct]:
+def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_dir: Optional[Path] = None) -> List[Struct]:
     """Parse structs from object files using pre-built type table."""
     structs = []
     
-    for objfile in objfiles:
-        with open(objfile, 'rb') as f:
-            elf = ELFFile(f)
-            
-            if not elf.has_dwarf_info():
-                continue
-            
-            dwarf = elf.get_dwarf_info()
-            
-            for CU in dwarf.iter_CUs():
-                for die in CU.iter_DIEs():
-                    if die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
-                        struct = parse_struct(die, CU, type_table)
-                        if struct:
-                            structs.append(struct)
+    for idx, objfile in enumerate(objfiles, 1):
+        if idx % 100 == 0:
+            print(f"  Parsing structs: {idx}/{len(objfiles)} files...")
+        
+        # Check cache
+        if cache_dir:
+            cache_file = get_cache_path(objfile, cache_dir)
+            if cache_file.exists():
+                try:
+                    with open(cache_file) as f:
+                        cached = json.load(f)
+                        for s in cached:
+                            members = [Member(**m) for m in s['members']]
+                            structs.append(Struct(s['name'], s['size'], members, s.get('file_path'), s.get('line')))
+                        continue
+                except:
+                    pass
+        
+        try:
+            with open(objfile, 'rb') as f:
+                elf = ELFFile(f)
+                
+                if not elf.has_dwarf_info():
+                    continue
+                
+                dwarf = elf.get_dwarf_info()
+                file_structs = []
+                
+                for CU in dwarf.iter_CUs():
+                    for die in CU.iter_DIEs():
+                        if die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
+                            struct = parse_struct(die, CU, type_table)
+                            if struct:
+                                structs.append(struct)
+                                file_structs.append(struct)
+                
+                # Save to cache
+                if cache_dir and file_structs:
+                    cache_file = get_cache_path(objfile, cache_dir)
+                    cache_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(cache_file, 'w') as f:
+                        json.dump([asdict(s) for s in file_structs], f)
+                        
+        except ELFRelocationError:
+            continue
+        except Exception:
+            continue
     
     return structs
 
@@ -194,14 +245,14 @@ def deduplicate_structs(structs: List[Struct]) -> List[Struct]:
     return unique
 
 
-def extract_reference_tree(objfiles: List[Path], output: Path) -> None:
+def extract_reference_tree(objfiles: List[Path], output: Path, cache_dir: Optional[Path] = None) -> None:
     """Extract reference tree from object files and save as JSON."""
     print(f"Building global type table from {len(objfiles)} object files...")
-    global_type_table = build_global_type_table(objfiles)
+    global_type_table = build_global_type_table(objfiles, cache_dir)
     print(f"  Type table has {len(global_type_table)} entries")
     
     print(f"\nParsing structs...")
-    all_structs = parse_structs_with_type_table(objfiles, global_type_table)
+    all_structs = parse_structs_with_type_table(objfiles, global_type_table, cache_dir)
     print(f"  Found {len(all_structs)} structs total")
     
     all_structs = deduplicate_structs(all_structs)
@@ -220,9 +271,17 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print(f"Usage: {sys.argv[0]} <output.json> <objfile1.o> [objfile2.o ...]")
         print(f"   or: {sys.argv[0]} <output.json> <directory>")
+        print(f"   or: {sys.argv[0]} <output.json> <directory> --cache-dir <cache>")
         sys.exit(1)
         
     output = Path(sys.argv[1])
+    
+    # Check for cache dir flag
+    cache_dir = None
+    if "--cache-dir" in sys.argv:
+        cache_idx = sys.argv.index("--cache-dir")
+        cache_dir = Path(sys.argv[cache_idx + 1])
+        sys.argv = sys.argv[:cache_idx] + sys.argv[cache_idx+2:]
     
     objfiles = []
     for arg in sys.argv[2:]:
@@ -236,4 +295,4 @@ if __name__ == "__main__":
         print("No object files found")
         sys.exit(1)
         
-    extract_reference_tree(objfiles, output)
+    extract_reference_tree(objfiles, output, cache_dir)

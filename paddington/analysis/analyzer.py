@@ -11,16 +11,10 @@ def analyze_files(
     path: Path,
     include_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
+    cache_dir: Optional[Path] = None,
     verbosity: int = 1,
 ) -> None:
-    """Analyze object files for struct padding.
-
-    Args:
-        path: Object file or directory path to analyze
-        include_patterns: Only process files matching these patterns
-        exclude_patterns: Skip files matching these patterns
-        verbosity: Logging verbosity level (1=WARNING, 2=INFO, 3=DEBUG)
-    """
+    """Analyze object files for struct padding."""
     log = Logger()
 
     if verbosity >= 3:
@@ -53,6 +47,6 @@ def analyze_files(
 
     log.info(f"Analyzing {len(objfiles)} object files...")
     
-    all_structs = parse_object_files(objfiles)
+    all_structs = parse_object_files(objfiles, cache_dir)
     
     report_analysis(all_structs, verbosity)

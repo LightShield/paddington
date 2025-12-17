@@ -28,6 +28,11 @@ def main():
         help="Skip files matching pattern (can be used multiple times)",
     )
     analyze_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Directory for caching parsed .o files (speeds up re-runs)",
+    )
+    analyze_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -80,6 +85,11 @@ def main():
         help="New path prefix (for dev environments)",
     )
     optimize_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Directory for caching parsed .o files (speeds up re-runs)",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -90,6 +100,7 @@ def main():
             args.path,
             include_patterns=args.include,
             exclude_patterns=args.exclude,
+            cache_dir=args.cache_dir,
             verbosity=args.verbose,
         )
     elif args.command == "optimize":
@@ -104,6 +115,7 @@ def main():
             exclude_patterns=args.exclude,
             remap_from=args.remap_from,
             remap_to=args.remap_to,
+            cache_dir=args.cache_dir,
             verbosity=args.verbose,
         )
 

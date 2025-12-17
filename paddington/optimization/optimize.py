@@ -27,6 +27,7 @@ def optimize_files(
     exclude_patterns: Optional[List[str]] = None,
     remap_from: Optional[str] = None,
     remap_to: Optional[str] = None,
+    cache_dir: Optional[Path] = None,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding from object files."""
@@ -50,6 +51,9 @@ def optimize_files(
 
     if remap_from and remap_to:
         log.info(f"Path remapping enabled: {remap_from} -> {remap_to}")
+    
+    if cache_dir:
+        log.info(f"Using cache directory: {cache_dir}")
 
     if path.is_file():
         objfiles = [path]
@@ -67,7 +71,7 @@ def optimize_files(
         log.info(f"Filtered {original_count} files to {len(objfiles)} files")
 
     log.info(f"Extracting structs from {len(objfiles)} object files...")
-    all_structs = parse_object_files(objfiles)
+    all_structs = parse_object_files(objfiles, cache_dir)
     
     log.info(f"Ordering {len(all_structs)} structs by dependencies...")
     ordered_structs, visited = identify_leaves_and_order(all_structs)
