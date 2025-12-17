@@ -35,6 +35,12 @@ def get_cache_path(objfile: Path, cache_dir: Path) -> Path:
     return cache_dir / f"{objfile.stem}_{path_hash}.json"
 
 
+def get_error_cache_path(objfile: Path, cache_dir: Path) -> Path:
+    """Get error cache file path."""
+    path_hash = hashlib.md5(str(objfile).encode()).hexdigest()[:16]
+    return cache_dir / f"{objfile.stem}_{path_hash}.error"
+
+
 class TimeoutError(Exception):
     pass
 
@@ -62,6 +68,19 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
         
         log.debug(f"Processing type table for {objfile.name}")
         
+        # Check error cache first
+        if cache_dir:
+            error_cache = get_error_cache_path(objfile, cache_dir)
+            if error_cache.exists():
+                try:
+                    with open(error_cache) as f:
+                        reason = f.read().strip()
+                    skipped_files.append((objfile.name, f"cached_error: {reason}"))
+                    log.debug(f"  Skipped: cached error ({reason})")
+                    continue
+                except:
+                    pass
+        
         # Check cache
         if cache_dir:
             cache_file = get_cache_path(objfile, cache_dir)
@@ -84,12 +103,14 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(60)
         
+        error_reason = None
         try:
             with open(objfile, 'rb') as f:
                 elf = ELFFile(f)
                 
                 if not elf.has_dwarf_info():
-                    skipped_files.append((objfile.name, "no_dwarf_info"))
+                    error_reason = "no_dwarf_info"
+                    skipped_files.append((objfile.name, error_reason))
                     log.debug(f"  Skipped: no DWARF info")
                     signal.alarm(0)
                     continue
@@ -145,7 +166,7 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 
                 signal.alarm(0)
                 
-                # Cache types (even if empty - avoids re-parsing)
+                # Cache types
                 if cache_dir:
                     cache_file = get_cache_path(objfile, cache_dir)
                     type_cache = cache_file.parent / f"{cache_file.stem}_types.json"
@@ -158,19 +179,26 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 
         except TimeoutError:
             signal.alarm(0)
+            error_reason = "timeout_60s"
             log.warning(f"Timeout (60s) on {objfile.name}")
-            skipped_files.append((objfile.name, "timeout_60s"))
-            continue
+            skipped_files.append((objfile.name, error_reason))
         except ELFRelocationError as e:
             signal.alarm(0)
+            error_reason = f"relocation_error"
             log.debug(f"  Skipped: relocation error")
-            skipped_files.append((objfile.name, f"relocation_error: {e}"))
-            continue
+            skipped_files.append((objfile.name, error_reason))
         except Exception as e:
             signal.alarm(0)
+            error_reason = f"parse_error: {type(e).__name__}"
             log.debug(f"  Skipped: {type(e).__name__}")
-            skipped_files.append((objfile.name, f"parse_error: {type(e).__name__}"))
-            continue
+            skipped_files.append((objfile.name, error_reason))
+        
+        # Cache error
+        if error_reason and cache_dir:
+            error_cache = get_error_cache_path(objfile, cache_dir)
+            error_cache.parent.mkdir(parents=True, exist_ok=True)
+            with open(error_cache, 'w') as f:
+                f.write(error_reason)
     
     log.info(f"Type table complete: {cached_count} cached, {parsed_count} parsed, {len(skipped_files)} skipped")
     
@@ -205,6 +233,13 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
             log.info(f"Parsing structs: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count}, skipped: {len(skipped_files)})")
         
         log.debug(f"Processing structs for {objfile.name}")
+        
+        # Check error cache first
+        if cache_dir:
+            error_cache = get_error_cache_path(objfile, cache_dir)
+            if error_cache.exists():
+                log.debug(f"  Skipped: cached error")
+                continue
         
         # Check cache
         if cache_dir:
@@ -247,7 +282,7 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                 
                 signal.alarm(0)
                 
-                # Save to cache (even if empty)
+                # Save to cache
                 if cache_dir:
                     cache_file = get_cache_path(objfile, cache_dir)
                     cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -260,12 +295,30 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
         except TimeoutError:
             signal.alarm(0)
             log.warning(f"Timeout (60s) on {objfile.name}")
+            # Cache error
+            if cache_dir:
+                error_cache = get_error_cache_path(objfile, cache_dir)
+                error_cache.parent.mkdir(parents=True, exist_ok=True)
+                with open(error_cache, 'w') as f:
+                    f.write("timeout_60s")
             continue
         except ELFRelocationError:
             signal.alarm(0)
+            # Cache error
+            if cache_dir:
+                error_cache = get_error_cache_path(objfile, cache_dir)
+                error_cache.parent.mkdir(parents=True, exist_ok=True)
+                with open(error_cache, 'w') as f:
+                    f.write("relocation_error")
             continue
-        except Exception:
+        except Exception as e:
             signal.alarm(0)
+            # Cache error
+            if cache_dir:
+                error_cache = get_error_cache_path(objfile, cache_dir)
+                error_cache.parent.mkdir(parents=True, exist_ok=True)
+                with open(error_cache, 'w') as f:
+                    f.write(f"parse_error: {type(e).__name__}")
             continue
     
     log.info(f"Struct parsing complete: {cached_count} cached, {parsed_count} parsed, {len(skipped_files)} skipped")
