@@ -3,6 +3,7 @@
 
 import json
 import hashlib
+import signal
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
@@ -33,6 +34,14 @@ def get_cache_path(objfile: Path, cache_dir: Path) -> Path:
     return cache_dir / f"{objfile.stem}_{path_hash}.json"
 
 
+class TimeoutError(Exception):
+    pass
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutError()
+
+
 def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = None) -> Dict:
     """Build global type table from all object files."""
     global_table = {}
@@ -41,7 +50,7 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
     skipped_count = 0
     
     for idx, objfile in enumerate(objfiles, 1):
-        if idx % 100 == 0:
+        if idx % 10 == 0:
             print(f"  Type table: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count}, skipped: {skipped_count})")
         
         # Check cache for this file's types
@@ -52,7 +61,6 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 try:
                     with open(type_cache) as f:
                         file_types = json.load(f)
-                        # Convert string keys back to int
                         for offset_str, (name, size) in file_types.items():
                             global_table[int(offset_str)] = ('cached', name, size, None)
                         cached_count += 1
@@ -60,12 +68,17 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 except:
                     pass
         
+        # Set 30 second timeout for this file
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(30)
+        
         try:
             with open(objfile, 'rb') as f:
                 elf = ELFFile(f)
                 
                 if not elf.has_dwarf_info():
                     skipped_count += 1
+                    signal.alarm(0)
                     continue
                 
                 dwarf = elf.get_dwarf_info()
@@ -117,6 +130,8 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                                 global_table[die.offset] = ('struct', name, size, None)
                                 file_types[str(die.offset)] = (name, size)
                 
+                signal.alarm(0)
+                
                 # Cache types for this file
                 if cache_dir and file_types:
                     cache_file = get_cache_path(objfile, cache_dir)
@@ -127,10 +142,17 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 
                 parsed_count += 1
                 
+        except TimeoutError:
+            signal.alarm(0)
+            print(f"  Warning: Timeout on {objfile.name}")
+            skipped_count += 1
+            continue
         except ELFRelocationError as e:
+            signal.alarm(0)
             skipped_count += 1
             continue
         except Exception as e:
+            signal.alarm(0)
             skipped_count += 1
             continue
     
@@ -153,10 +175,11 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
     structs = []
     cached_count = 0
     parsed_count = 0
+    skipped_count = 0
     
     for idx, objfile in enumerate(objfiles, 1):
-        if idx % 100 == 0:
-            print(f"  Parsing structs: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count})")
+        if idx % 10 == 0:
+            print(f"  Parsing structs: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count}, skipped: {skipped_count})")
         
         # Check cache
         if cache_dir:
@@ -173,11 +196,17 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                 except:
                     pass
         
+        # Set 30 second timeout
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(30)
+        
         try:
             with open(objfile, 'rb') as f:
                 elf = ELFFile(f)
                 
                 if not elf.has_dwarf_info():
+                    signal.alarm(0)
+                    skipped_count += 1
                     continue
                 
                 dwarf = elf.get_dwarf_info()
@@ -191,6 +220,8 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                                 structs.append(struct)
                                 file_structs.append(struct)
                 
+                signal.alarm(0)
+                
                 # Save to cache
                 if cache_dir and file_structs:
                     cache_file = get_cache_path(objfile, cache_dir)
@@ -200,12 +231,21 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                 
                 parsed_count += 1
                         
+        except TimeoutError:
+            signal.alarm(0)
+            print(f"  Warning: Timeout on {objfile.name}")
+            skipped_count += 1
+            continue
         except ELFRelocationError:
+            signal.alarm(0)
+            skipped_count += 1
             continue
         except Exception:
+            signal.alarm(0)
+            skipped_count += 1
             continue
     
-    print(f"  Struct parsing complete: {cached_count} cached, {parsed_count} parsed")
+    print(f"  Struct parsing complete: {cached_count} cached, {parsed_count} parsed, {skipped_count} skipped")
     return structs
 
 
