@@ -145,8 +145,8 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                 
                 signal.alarm(0)
                 
-                # Cache types
-                if cache_dir and file_types:
+                # Cache types (even if empty - avoids re-parsing)
+                if cache_dir:
                     cache_file = get_cache_path(objfile, cache_dir)
                     type_cache = cache_file.parent / f"{cache_file.stem}_types.json"
                     type_cache.parent.mkdir(parents=True, exist_ok=True)
@@ -247,8 +247,8 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                 
                 signal.alarm(0)
                 
-                # Save to cache
-                if cache_dir and file_structs:
+                # Save to cache (even if empty)
+                if cache_dir:
                     cache_file = get_cache_path(objfile, cache_dir)
                     cache_file.parent.mkdir(parents=True, exist_ok=True)
                     with open(cache_file, 'w') as f:
