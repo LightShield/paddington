@@ -29,7 +29,6 @@ class Struct:
 
 def get_cache_path(objfile: Path, cache_dir: Path) -> Path:
     """Get cache file path for an object file."""
-    # Use hash of full path to avoid collisions
     path_hash = hashlib.md5(str(objfile).encode()).hexdigest()[:16]
     return cache_dir / f"{objfile.stem}_{path_hash}.json"
 
@@ -37,19 +36,40 @@ def get_cache_path(objfile: Path, cache_dir: Path) -> Path:
 def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = None) -> Dict:
     """Build global type table from all object files."""
     global_table = {}
+    cached_count = 0
+    parsed_count = 0
+    skipped_count = 0
     
     for idx, objfile in enumerate(objfiles, 1):
         if idx % 100 == 0:
-            print(f"  Building type table: {idx}/{len(objfiles)} files...")
+            print(f"  Type table: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count}, skipped: {skipped_count})")
+        
+        # Check cache for this file's types
+        if cache_dir:
+            cache_file = get_cache_path(objfile, cache_dir)
+            type_cache = cache_file.parent / f"{cache_file.stem}_types.json"
+            if type_cache.exists():
+                try:
+                    with open(type_cache) as f:
+                        file_types = json.load(f)
+                        # Convert string keys back to int
+                        for offset_str, (name, size) in file_types.items():
+                            global_table[int(offset_str)] = ('cached', name, size, None)
+                        cached_count += 1
+                        continue
+                except:
+                    pass
         
         try:
             with open(objfile, 'rb') as f:
                 elf = ELFFile(f)
                 
                 if not elf.has_dwarf_info():
+                    skipped_count += 1
                     continue
                 
                 dwarf = elf.get_dwarf_info()
+                file_types = {}
                 
                 for CU in dwarf.iter_CUs():
                     for die in CU.iter_DIEs():
@@ -62,6 +82,7 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                                     name = name.decode()
                                 size = size_attr.value if size_attr else 0
                                 global_table[die.offset] = ('base', name, size, None)
+                                file_types[str(die.offset)] = (name, size)
                         
                         elif die.tag == 'DW_TAG_typedef':
                             name_attr = die.attributes.get('DW_AT_name')
@@ -72,6 +93,7 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                                     name = name.decode()
                                 ref = type_attr.value if type_attr else None
                                 global_table[die.offset] = ('typedef', name, 0, ref)
+                                file_types[str(die.offset)] = (name, 0)
                         
                         elif die.tag == 'DW_TAG_enumeration_type':
                             name_attr = die.attributes.get('DW_AT_name')
@@ -82,6 +104,7 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                                     name = name.decode()
                                 size = size_attr.value if size_attr else 4
                                 global_table[die.offset] = ('enum', name, size, None)
+                                file_types[str(die.offset)] = (name, size)
                         
                         elif die.tag in ['DW_TAG_structure_type', 'DW_TAG_class_type']:
                             name_attr = die.attributes.get('DW_AT_name')
@@ -92,12 +115,26 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
                                     name = name.decode()
                                 size = size_attr.value if size_attr else 0
                                 global_table[die.offset] = ('struct', name, size, None)
+                                file_types[str(die.offset)] = (name, size)
+                
+                # Cache types for this file
+                if cache_dir and file_types:
+                    cache_file = get_cache_path(objfile, cache_dir)
+                    type_cache = cache_file.parent / f"{cache_file.stem}_types.json"
+                    type_cache.parent.mkdir(parents=True, exist_ok=True)
+                    with open(type_cache, 'w') as f:
+                        json.dump(file_types, f)
+                
+                parsed_count += 1
+                
         except ELFRelocationError as e:
-            print(f"  Warning: Skipping {objfile.name} (relocation error: {e})")
+            skipped_count += 1
             continue
         except Exception as e:
-            print(f"  Warning: Skipping {objfile.name} (error: {e})")
+            skipped_count += 1
             continue
+    
+    print(f"  Type table complete: {cached_count} cached, {parsed_count} parsed, {skipped_count} skipped")
     
     # Resolve typedefs
     resolved = {}
@@ -114,10 +151,12 @@ def build_global_type_table(objfiles: List[Path], cache_dir: Optional[Path] = No
 def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_dir: Optional[Path] = None) -> List[Struct]:
     """Parse structs from object files using pre-built type table."""
     structs = []
+    cached_count = 0
+    parsed_count = 0
     
     for idx, objfile in enumerate(objfiles, 1):
         if idx % 100 == 0:
-            print(f"  Parsing structs: {idx}/{len(objfiles)} files...")
+            print(f"  Parsing structs: {idx}/{len(objfiles)} (cached: {cached_count}, parsed: {parsed_count})")
         
         # Check cache
         if cache_dir:
@@ -129,6 +168,7 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                         for s in cached:
                             members = [Member(**m) for m in s['members']]
                             structs.append(Struct(s['name'], s['size'], members, s.get('file_path'), s.get('line')))
+                        cached_count += 1
                         continue
                 except:
                     pass
@@ -157,12 +197,15 @@ def parse_structs_with_type_table(objfiles: List[Path], type_table: Dict, cache_
                     cache_file.parent.mkdir(parents=True, exist_ok=True)
                     with open(cache_file, 'w') as f:
                         json.dump([asdict(s) for s in file_structs], f)
+                
+                parsed_count += 1
                         
         except ELFRelocationError:
             continue
         except Exception:
             continue
     
+    print(f"  Struct parsing complete: {cached_count} cached, {parsed_count} parsed")
     return structs
 
 
