@@ -55,16 +55,21 @@ def optimize_files(
     if cache_dir:
         log.info(f"Using cache directory: {cache_dir}")
 
+    # Find .o files
+    log.info(f"Finding .o files in {path}...")
     if path.is_file():
         objfiles = [path]
     else:
         objfiles = list(path.rglob("*.o"))
+    
+    log.info(f"Found {len(objfiles)} .o files")
 
     if not objfiles:
         log.error(f"No .o files found in {path}")
         return
 
     if include_patterns or exclude_patterns:
+        log.info(f"Applying filters...")
         from ..utils.file_filter import filter_files
         original_count = len(objfiles)
         objfiles = filter_files(objfiles, include_patterns, exclude_patterns)
