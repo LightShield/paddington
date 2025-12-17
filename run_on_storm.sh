@@ -22,7 +22,7 @@ python3 -m paddington optimize \
   --exclude "*/third-party/*" \
   --exclude "*/tools/*" \
   --exclude "*/include/c++/*" \
-  -vv
+  -vvv
 
 echo ""
 echo "Patches generated in $SCRIPT_DIR/patches/"
