@@ -78,3 +78,44 @@ python3 -m paddington.core.pahole_extractor output.json file1.o file2.o
 **pahole is 100-600x faster** but loses source file info. For the storm build with 1,334 files, pahole would complete in minutes instead of hours.
 
 The trade-off: Speed vs source file mapping convenience.
+
+## UPDATE: pahole HAS Source File Info!
+
+The `-I, --show_decl_info` flag shows source file and line number:
+
+```bash
+pahole -I file.o
+```
+
+Output:
+```
+/* /path/to/source.h:42 */
+struct Point {
+        char                       label;                /*     0     1 */
+        int                        x;                    /*     4     4 */
+        double                     y;                    /*     8     8 */
+        /* size: 16 */
+};
+```
+
+## Revised Recommendation
+
+**Use pahole for everything!**
+
+```bash
+pahole -I --show_reorg_steps file.o
+```
+
+Provides:
+- ✅ Struct layouts
+- ✅ Source file:line
+- ✅ Padding info
+- ✅ Reorganization suggestions
+- ✅ 100x+ faster than pyelftools
+
+paddington would just:
+1. Run pahole on all .o files (~5 min for 1334 files)
+2. Parse pahole output (trivial)
+3. Apply refactoring to source files
+
+**Total time: ~10 minutes instead of 9 hours**

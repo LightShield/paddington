@@ -27,16 +27,17 @@ class Struct:
 
 
 def run_pahole(objfile: Path) -> str:
-    """Run pahole on object file."""
-    cmd = ["pahole", "--hex", str(objfile)]
+    """Run pahole with source location info."""
+    cmd = ["pahole", "-I", "--hex", str(objfile)]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result.stdout
 
 
-def parse_pahole_output(output: str, objfile: Path) -> List[Struct]:
-    """Parse pahole output to extract struct info.
+def parse_pahole_output(output: str) -> List[Struct]:
+    """Parse pahole output with source locations.
     
-    pahole output format:
+    Format with -I flag:
+    /* /path/to/file.h:42 */
     struct StructName {
             type                       member_name;         /*  offset  size */
             ...
@@ -50,32 +51,73 @@ def parse_pahole_output(output: str, objfile: Path) -> List[Struct]:
     while i < len(lines):
         line = lines[i]
         
-        # Look for struct/class definition
-        match = re.match(r'^(struct|class)\s+(\S+)\s*\{', line)
-        if match:
-            struct_name = match.group(2)
+        # Source location comment: /* /path/to/file.h:42 */
+        loc_match = re.match(r'/\*\s*(.+):(\d+)\s*\*/', line)
+        if loc_match:
+            next_file = loc_match.group(1)
+            next_line = int(loc_match.group(2))
+            i += 1
+            
+            # Next line should be struct definition
+            if i < len(lines):
+                struct_match = re.match(r'^(struct|class)\s+(\S+)\s*\{', lines[i])
+                if struct_match:
+                    struct_name = struct_match.group(2)
+                    i += 1
+                    members = []
+                    struct_size = 0
+                    
+                    while i < len(lines):
+                        mline = lines[i]
+                        
+                        if mline.strip().startswith('};'):
+                            i += 1
+                            break
+                        
+                        # Size line
+                        size_match = re.search(r'/\*\s*size:\s*(\d+)', mline)
+                        if size_match:
+                            struct_size = int(size_match.group(1))
+                            i += 1
+                            continue
+                        
+                        # Member: type name; /* offset size */
+                        member_match = re.match(r'\s+(.+?)\s+(\w+);\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
+                        if member_match:
+                            member_type = member_match.group(1).strip()
+                            member_name = member_match.group(2)
+                            member_offset = int(member_match.group(3))
+                            member_size = int(member_match.group(4))
+                            
+                            members.append(Member(member_name, member_type, member_size, member_offset))
+                        
+                        i += 1
+                    
+                    if struct_name and struct_size > 0:
+                        structs.append(Struct(struct_name, struct_size, members, next_file, next_line))
+                    continue
+        
+        # Struct without location info
+        struct_match = re.match(r'^(struct|class)\s+(\S+)\s*\{', line)
+        if struct_match:
+            struct_name = struct_match.group(2)
             i += 1
             members = []
             struct_size = 0
             
-            # Parse members until closing brace
             while i < len(lines):
                 mline = lines[i]
                 
-                # End of struct
                 if mline.strip().startswith('};'):
                     i += 1
                     break
                 
-                # Size comment: /* size: 552, cachelines: 9, members: 21 */
                 size_match = re.search(r'/\*\s*size:\s*(\d+)', mline)
                 if size_match:
                     struct_size = int(size_match.group(1))
                     i += 1
                     continue
                 
-                # Member line: type name; /* offset size */
-                # Example: int x; /* 0 4 */
                 member_match = re.match(r'\s+(.+?)\s+(\w+);\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
                 if member_match:
                     member_type = member_match.group(1).strip()
@@ -88,8 +130,7 @@ def parse_pahole_output(output: str, objfile: Path) -> List[Struct]:
                 i += 1
             
             if struct_name and struct_size > 0:
-                # pahole doesn't provide source file info, use objfile path as hint
-                structs.append(Struct(struct_name, struct_size, members, str(objfile), None))
+                structs.append(Struct(struct_name, struct_size, members, None, None))
         else:
             i += 1
     
@@ -114,7 +155,7 @@ def extract_with_pahole(objfiles: List[Path], output: Path, log=None) -> None:
         
         try:
             pahole_output = run_pahole(objfile)
-            structs = parse_pahole_output(pahole_output, objfile)
+            structs = parse_pahole_output(pahole_output)
             all_structs.extend(structs)
             log.debug(f"  Found {len(structs)} structs")
         except subprocess.CalledProcessError as e:
@@ -149,6 +190,7 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) < 3:
         print(f"Usage: {sys.argv[0]} <output.json> <objfile1.o> [objfile2.o ...]")
+        print(f"Requires: pahole installed (sudo apt-get install dwarves)")
         sys.exit(1)
         
     output = Path(sys.argv[1])
