@@ -1,4 +1,4 @@
-"""Ultra-simple line-based struct rewriter - only swaps member declaration lines."""
+"""Ultra-simple line-based struct rewriter - handles multi-line declarations."""
 
 import re
 from typing import List, Dict
@@ -7,13 +7,7 @@ from ..utils import Logger
 
 
 def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[MemberInfo]) -> str:
-    """Minimal rewriter: find member lines, swap them, done.
-    
-    Rules:
-    - Only match lines ending with ; (no () before ;)
-    - Must be at class body level (not inside {})
-    - One member per line (skip struct if violated)
-    """
+    """Minimal rewriter: find member lines (including multi-line), swap them."""
     log = Logger()
     
     with open(file_path, "r") as f:
@@ -29,7 +23,7 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
     while brace_line < len(lines) and '{' not in lines[brace_line]:
         brace_line += 1
     
-    # Find closing brace (track depth)
+    # Find closing brace
     closing_brace = brace_line + 1
     depth = 1
     while closing_brace < len(lines) and depth > 0:
@@ -39,63 +33,81 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
             depth -= 1
         closing_brace += 1
     
-    # Find member declaration lines
-    # Strategy: look for lines with member name that end with ; and have no ( before ;
-    member_lines = {}  # member_name -> line_index
+    # Find member declarations (may span multiple lines)
+    member_lines = {}  # member_name -> (start_line, num_lines)
     depth = 0
+    i = brace_line + 1
     
-    for i in range(brace_line + 1, closing_brace - 1):
+    while i < closing_brace - 1:
         line = lines[i]
-        stripped = line.strip()
         
-        # Track depth to skip method bodies
+        # Track depth
         depth += line.count('{')
         depth -= line.count('}')
         
-        # Only look at class body level (depth 0)
         if depth != 0:
+            i += 1
             continue
         
-        # Skip empty, comments, access specifiers
+        stripped = line.strip()
         if not stripped or stripped.startswith('//') or stripped in ['public:', 'private:', 'protected:']:
+            i += 1
             continue
         
-        # Member declarations: must have ; (may have comments after)
-        if ';' not in stripped:
+        # Collect lines until semicolon
+        start_line = i
+        full_text = line
+        num_lines = 1
+        
+        while ';' not in lines[i] and i + 1 < closing_brace - 1:
+            i += 1
+            full_text += lines[i]
+            num_lines += 1
+        
+        # Skip methods (have () before ;)
+        semicolon_pos = full_text.find(';')
+        if semicolon_pos >= 0 and '(' in full_text[:semicolon_pos]:
+            i += 1
             continue
         
-        # Check if line has () before the ; - if so, it's a method declaration
-        semicolon_pos = stripped.find(';')
-        before_semicolon = stripped[:semicolon_pos]
-        if '(' in before_semicolon:
-            continue
-        
-        # Check which member this line declares
+        # Check which member
         for member in struct.members:
-            if re.search(rf"\b{re.escape(member.name)}\b", line):
+            if re.search(rf"\b{re.escape(member.name)}\b", full_text):
                 if member.name in member_lines:
                     log.warning(f"Member {member.name} found on multiple lines - skipping struct {struct.name}")
                     return "".join(lines)
-                member_lines[member.name] = i
+                member_lines[member.name] = (start_line, num_lines)
                 break
+        
+        i += 1
     
-    # Verify we found all members
     if len(member_lines) != len(struct.members):
         missing = [m.name for m in struct.members if m.name not in member_lines]
         log.warning(f"Skipping {struct.name}: found {len(member_lines)}/{len(struct.members)} members (missing: {', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
         return "".join(lines)
     
-    # Build mapping: old_line_idx -> new_line_content
-    line_replacements = {}
-    sorted_indices = sorted(member_lines.values())
+    # Extract declarations
+    member_declarations = {}
+    for member_name, (start_idx, num_lines) in member_lines.items():
+        member_declarations[member_name] = lines[start_idx:start_idx + num_lines]
     
-    for new_idx, member in enumerate(new_order):
-        old_line_idx = member_lines[member.name]
-        new_line_idx = sorted_indices[new_idx]
-        line_replacements[new_line_idx] = lines[old_line_idx]
+    # Remove old lines
+    lines_to_remove = []
+    for start_idx, num_lines in member_lines.values():
+        for j in range(num_lines):
+            lines_to_remove.append(start_idx + j)
     
-    # Apply replacements
-    for line_idx, new_content in line_replacements.items():
-        lines[line_idx] = new_content
+    for idx in sorted(lines_to_remove, reverse=True):
+        del lines[idx]
+    
+    # Insert reordered
+    first_member_start = min(start_idx for start_idx, _ in member_lines.values())
+    deletions_before = sum(1 for idx in lines_to_remove if idx < first_member_start)
+    insert_pos = first_member_start - deletions_before
+    
+    for member in reversed(new_order):
+        if member.name in member_declarations:
+            for line in reversed(member_declarations[member.name]):
+                lines.insert(insert_pos, line)
     
     return "".join(lines)
