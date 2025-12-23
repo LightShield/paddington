@@ -19,6 +19,15 @@ htmlcov/
 # Paddington cache
 .paddington_cache/
 
+# Patches and test outputs
+patches/
+patches_*/
+test_patches/
+
+# Environment-specific scripts
+run_on_storm.sh
+test_*.sh
+
 # IDE
 .vscode/
 .idea/

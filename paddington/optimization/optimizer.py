@@ -31,7 +31,7 @@ def needs_optimization(struct: StructInfo):
     
     # Simple check: if there's any padding, it might be optimizable
     padding = struct.calculate_padding()
-    if padding == 0:
+    if padding <= 0:
         return False, SkipReason.NO_PADDING
     
     return True, None
