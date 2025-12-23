@@ -14,6 +14,7 @@ class Logger:
     _lock = threading.Lock()
 
     LEVELS = {
+        "TRACE": 5,
         "DEBUG": 10,
         "INFO": 20,
         "WARNING": 30,
@@ -69,6 +70,9 @@ class Logger:
 
         output = f"{now} {color}[{level_name}] {filename}:{lineno}{reset} {message}"
         print(output, file=sys.stderr if level_name == "ERROR" else sys.stdout)
+
+    def trace(self, message):
+        self._log("TRACE", message)
 
     def debug(self, message):
         self._log("DEBUG", message)

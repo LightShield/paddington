@@ -16,6 +16,9 @@ build/
 .coverage
 htmlcov/
 
+# Paddington cache
+.paddington_cache/
+
 # IDE
 .vscode/
 .idea/

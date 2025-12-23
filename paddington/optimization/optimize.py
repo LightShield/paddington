@@ -1,23 +1,49 @@
 """Optimization orchestration."""
 
+import hashlib
 from pathlib import Path
-from typing import List, Dict, Optional
-from ..utils import find_cpp_files, Logger
-from ..utils.validation import (
-    validate_path_exists,
-    validate_libclang_available,
-    validate_cpp_files_exist,
-    validate_git_repo,
-)
-from ..core import init_libclang, parse_file
-from ..core.dependency_analyzer import (
-    topological_sort,
-    has_circular_dependency,
-    identify_dependency_trees,
-)
-from .optimizer import is_leaf_struct, needs_optimization, get_optimal_member_order
+from typing import List, Optional
+from ..utils import Logger
+from ..core import parse_object_files, identify_leaves_and_order
+from .optimizer import needs_optimization, get_optimal_member_order
 from .rewriter import rewrite_struct_definition, rewrite_constructors, write_file
-from .patch_generator import create_patch, generate_commit_message, write_apply_order
+
+
+def remap_path(original_path: str, from_prefix: str, to_prefix: str) -> str:
+    """Remap file path from build location to source location."""
+    if original_path.startswith(from_prefix):
+        return original_path.replace(from_prefix, to_prefix, 1)
+    return original_path
+
+
+def deduplicate_objfiles(objfiles: List[Path], log) -> List[Path]:
+    """Deduplicate .o files by full content hash."""
+    log.info("Deduplicating .o files by content...")
+    
+    seen_hashes = {}
+    unique = []
+    
+    for idx, objfile in enumerate(objfiles, 1):
+        if idx % 100 == 0:
+            log.info(f"  Hashing: {idx}/{len(objfiles)}")
+        
+        try:
+            hasher = hashlib.md5()
+            with open(objfile, 'rb') as f:
+                while chunk := f.read(8192):
+                    hasher.update(chunk)
+            content_hash = hasher.hexdigest()
+            
+            if content_hash not in seen_hashes:
+                seen_hashes[content_hash] = objfile
+                unique.append(objfile)
+            else:
+                log.debug(f"  Duplicate: {objfile.name} (same as {seen_hashes[content_hash].name})")
+        except:
+            unique.append(objfile)
+    
+    log.info(f"Deduplicated: {len(objfiles)} -> {len(unique)} files ({len(objfiles) - len(unique)} duplicates removed)")
+    return unique
 
 
 def optimize_files(
@@ -30,265 +56,191 @@ def optimize_files(
     verify: bool = False,
     include_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
+    remap_from: Optional[str] = None,
+    remap_to: Optional[str] = None,
+    cache_dir: Optional[Path] = None,
+    deduplicate: bool = False,
+    use_pahole: bool = False,
     verbosity: int = 1,
 ) -> None:
-    """Optimize struct padding in C++ files.
-
-    Args:
-        path: File or directory to optimize
-        dry_run: If True, only report what would be done
-        force: If True, reorder even if no size savings
-        update_signatures: If True, update constructor signatures and call sites
-        patch_dir: If provided, generate patches instead of modifying files
-        build_command: If provided, run after each optimization to verify build
-        verify: If True, use compilation database to verify each file
-        include_patterns: Only process files matching these patterns
-        exclude_patterns: Skip files matching these patterns
-        verbosity: Logging verbosity level
-    """
+    """Optimize struct padding from object files."""
     log = Logger()
 
-    # Map verbosity to log level
-    if verbosity >= 3:
+    if verbosity >= 4:
+        log.set_level("TRACE")
+    elif verbosity >= 3:
         log.set_level("DEBUG")
     elif verbosity >= 2:
         log.set_level("INFO")
     else:
         log.set_level("WARNING")
 
-    # Validate inputs
-    try:
-        validate_path_exists(path)
-        validate_libclang_available()
-        validate_cpp_files_exist(path)
-
-        # Validate git repo if patch generation requested
-        if patch_dir:
-            validate_git_repo(path)
-    except (FileNotFoundError, ValueError, RuntimeError) as e:
-        log.error(str(e))
+    if not path.exists():
+        log.error(f"Path does not exist: {path}")
         return
 
-    # Patch mode implies not dry-run
     if patch_dir:
         dry_run = False
         patch_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"Generating patches in {patch_dir}")
 
-    files = find_cpp_files(path)
+    if remap_from and remap_to:
+        log.info(f"Path remapping enabled: {remap_from} -> {remap_to}")
+    
+    if cache_dir:
+        log.info(f"Using cache directory: {cache_dir}")
+    
+    if use_pahole:
+        log.info("Using pahole for extraction (100x faster)")
 
-    # Check for compilation database
-    from ..utils.compilation_database import (
-        find_compilation_database,
-        get_files_from_compilation_database,
-    )
+    # Find .o files
+    log.info(f"Finding .o files in {path}...")
+    if path.is_file():
+        objfiles = [path]
+    else:
+        objfiles = list(path.rglob("*.o"))
+    
+    log.info(f"Found {len(objfiles)} .o files")
 
-    compile_db = find_compilation_database(path)
-    if compile_db:
-        log.info(f"Using compilation database: {compile_db}")
-        db_files = get_files_from_compilation_database(compile_db)
-        if db_files:
-            files = db_files
-            log.debug(f"Using {len(files)} files from compilation database")
+    if not objfiles:
+        log.error(f"No .o files found in {path}")
+        return
 
-    # Apply include/exclude filters
     if include_patterns or exclude_patterns:
+        log.info("Applying filters...")
         from ..utils.file_filter import filter_files
+        original_count = len(objfiles)
+        objfiles = filter_files(objfiles, include_patterns, exclude_patterns)
+        log.info(f"Filtered {original_count} files to {len(objfiles)} files")
 
-        original_count = len(files)
-        files = filter_files(files, include_patterns, exclude_patterns)
-        log.info(f"Filtered {original_count} files to {len(files)} files")
-        if include_patterns:
-            log.debug(f"Include patterns: {include_patterns}")
-        if exclude_patterns:
-            log.debug(f"Exclude patterns: {exclude_patterns}")
+    # Deduplicate by content
+    if deduplicate:
+        objfiles = deduplicate_objfiles(objfiles, log)
 
-    log.debug(f"Found {len(files)} C++ files")
-    init_libclang()
+    log.info(f"Extracting structs from {len(objfiles)} object files...")
+    
+    # Choose extractor
+    if use_pahole:
+        from ..core.pahole_parser import parse_object_files_with_pahole
+        all_structs = parse_object_files_with_pahole(objfiles, log)
+    else:
+        all_structs = parse_object_files(objfiles, cache_dir, log)
+    
+    # Filter to only project files (under build root)
+    original_count = len(all_structs)
+    project_root = str(path.resolve())
+    all_structs = [s for s in all_structs if s.file_path and 
+                   (s.file_path.startswith(project_root) or 
+                    (remap_from and s.file_path.startswith(remap_from)))]
+    if original_count > len(all_structs):
+        log.info(f"Filtered to project files: {len(all_structs)}/{original_count} structs")
+    
+    log.info(f"Ordering {len(all_structs)} structs by dependencies...")
+    ordered_structs, visited = identify_leaves_and_order(all_structs)
 
-    if not update_signatures:
-        log.info(
-            "Note: Only updating initializer lists. Use --update-signatures to also update constructor signatures and call sites."
-        )
+    log.info("Note: Only updating struct definitions and initializer lists (not constructor signatures)")
 
-    # Group structs by file
-    file_structs: Dict[str, List] = {}
-    all_structs = []
-
-    for file in files:
-        try:
-            log.debug(f"Parsing {file}")
-
-            # Get compile args from database if available
-            compile_args = None
-            if compile_db:
-                from ..utils.compilation_database import get_compile_args_for_file
-
-                compile_args = get_compile_args_for_file(compile_db, file)
-
-            structs = parse_file(file, compile_args)
-
-            for struct in structs:
-                if struct.file_path not in file_structs:
-                    file_structs[struct.file_path] = []
-                file_structs[struct.file_path].append(struct)
-                all_structs.append(struct)
-        except Exception as e:
-            log.error(f"Error parsing {file}: {e}")
-
-    # Sort structs in dependency order (bottom-up)
-    log.debug(f"Sorting {len(all_structs)} structs by dependencies")
-    sorted_structs = topological_sort(all_structs)
-
-    # Check for circular dependencies
-    if has_circular_dependency(all_structs):
-        log.warning(
-            "Circular dependencies detected - some structs may not be optimized"
-        )
-
-    # Identify dependency trees for patch generation
-    tree_assignment = identify_dependency_trees(all_structs)
-    tree_order = {}  # Track order within each tree
-    patch_files = []  # Track generated patches
-
-    # Build set of all struct names for leaf detection
-    all_struct_names = {s.name for s in all_structs}
-
-    # Optimize in dependency order
     optimized_count = 0
     total_savings = 0
+    processed = set()
+    patch_files = []
 
-    for struct in sorted_structs:
-        file_path = struct.file_path
-
-        # Check if it's a leaf or all dependencies are optimized
-        if not is_leaf_struct(struct, all_struct_names):
-            log.debug(f"Processing nested struct {struct.name}")
-
-        # Templates need --force flag since we can't calculate size savings
-        if struct.is_template and not force:
-            log.debug(
-                f"Skipping template {struct.name}: use --force to reorder template definitions"
-            )
+    for struct in ordered_structs:
+        if struct.name in processed:
+            continue
+        processed.add(struct.name)
+        
+        if not struct.members or any(m.size == 0 for m in struct.members):
+            continue
+        
+        if not struct.file_path or not struct.line:
+            log.debug(f"Skipping {struct.name}: no source location")
+            continue
+        
+        source_path = struct.file_path
+        if remap_from and remap_to:
+            source_path = remap_path(source_path, remap_from, remap_to)
+            
+        if not Path(source_path).exists():
+            log.debug(f"Skipping {struct.name}: source file not found at {source_path}")
+            continue
+        
+        should_optimize, skip_reason = needs_optimization(struct)
+        if not should_optimize and not force:
+            if isinstance(skip_reason, tuple):
+                reason, details = skip_reason
+                log.debug(f"Skipping {struct.name}: {reason} ({', '.join(details[:3])}{'...' if len(details) > 3 else ''})")
+            else:
+                log.debug(f"Skipping {struct.name}: {skip_reason}")
             continue
 
-        # Check if optimization is needed
-        has_savings = needs_optimization(struct)
-
-        if not has_savings and not force and not struct.is_template:
-            log.debug(f"Skipping {struct.name}: already optimal")
-            continue
-
-        # Calculate savings
-        optimal_size = struct.calculate_optimal_size()
-        savings = struct.total_size - optimal_size if not struct.is_template else 0
-
-        type_name = "class" if struct.is_class else "struct"
-        if struct.is_template:
-            type_name = f"template {type_name}"
-
-        if savings > 0:
-            log.info(
-                f"Optimizing {type_name} {struct.name}: {struct.total_size} -> {optimal_size} bytes ({savings} saved)"
-            )
+        optimal_order = get_optimal_member_order(struct)
+        padding = struct.calculate_padding()
+        # Note: We can't accurately calculate optimal size due to alignment complexity
+        # So we report padding that could potentially be saved
+        
+        if dry_run:
+            log.info(f"[DRY-RUN] Would optimize {struct.name}: {struct.size} bytes ({padding} bytes padding)")
+            log.info(f"  File: {source_path}:{struct.line}")
+            optimized_count += 1
+            total_savings += padding
         else:
-            log.info(
-                f"Normalizing {type_name} {struct.name} (reordering for consistency)"
-            )
+            log.info(f"Optimizing {struct.name}: {struct.size} bytes ({padding} bytes padding)")
+            
+            # Rewrite struct definition using minimal line-swap approach
+            from .rewriter_minimal import rewrite_struct_minimal
+            new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
+            write_file(source_path, new_content)
+            
+            # Reorder constructor initializer lists in header file
+            from .rewriter import rewrite_constructors
+            new_content = rewrite_constructors(source_path, struct, optimal_order)
+            write_file(source_path, new_content)
+            
+            # Also check corresponding .cpp file for out-of-line constructors
+            cpp_path = Path(source_path).with_suffix('.cpp')
+            if cpp_path.exists():
+                new_content = rewrite_constructors(str(cpp_path), struct, optimal_order)
+                write_file(str(cpp_path), new_content)
+            
+            log.info(f"  Updated {source_path}")
+            
+            # Generate patch if requested
+            if patch_dir:
+                from .patch_generator import create_patch, generate_commit_message
+                # Include both .h and .cpp files in patch if .cpp exists
+                files_to_patch = [source_path]
+                cpp_path = Path(source_path).with_suffix('.cpp')
+                if cpp_path.exists():
+                    files_to_patch.append(str(cpp_path))
+                
+                patch_file = create_patch(files_to_patch, struct, patch_dir, f"struct_{optimized_count:03d}", 1)
+                if patch_file:
+                    patch_files.append(patch_file)
+                    commit_msg_file = patch_file.with_suffix(".msg")
+                    with open(commit_msg_file, "w") as f:
+                        f.write(generate_commit_message(struct, padding))
+            
+            optimized_count += 1
+            total_savings += padding
 
-        if not dry_run:
-            try:
-                # Get optimal order
-                new_order = get_optimal_member_order(struct)
-
-                # Step 1: Rewrite struct definition
-                content = rewrite_struct_definition(file_path, struct, new_order)
-                write_file(file_path, content)
-
-                # Step 2: Rewrite constructors (reads updated file)
-                # Note: Currently only updates initializer lists, not signatures
-                # TODO: If update_signatures=True, also reorder constructor parameters
-                content = rewrite_constructors(file_path, struct, new_order)
-                write_file(file_path, content)
-
-                # Step 3: Rewrite aggregate initializations (reads updated file)
-                from .aggregate_rewriter import rewrite_aggregate_initializations
-                from .smart_pointer_rewriter import rewrite_smart_pointer_calls
-
-                content = rewrite_aggregate_initializations(
-                    file_path, struct, new_order
-                )
-                write_file(file_path, content)
-
-                # Step 4: Check smart pointer calls (currently no-op)
-                content = rewrite_smart_pointer_calls(file_path, struct, new_order)
-                write_file(file_path, content)
-
-                log.info(f"Updated {file_path}")
-
-                # Verify build if requested
-                effective_build_command = build_command
-
-                # If --verify flag, try to get build command from compilation database
-                if verify and compile_db and not effective_build_command:
-                    from ..utils.compilation_database import get_build_command_for_file
-
-                    effective_build_command = get_build_command_for_file(
-                        compile_db, Path(file_path)
-                    )
-                    if effective_build_command:
-                        log.debug("Using build command from compilation database")
-
-                if effective_build_command:
-                    from ..utils.build_verifier import run_build_command
-
-                    build_dir = Path(file_path).parent
-                    if not run_build_command(effective_build_command, build_dir):
-                        log.error(f"Build failed after optimizing {struct.name}")
-                        log.error("Rolling back changes...")
-                        # TODO: Implement rollback
-                        return
-
-            except Exception as e:
-                log.error(f"Error optimizing {struct.name}: {e}")
-                import traceback
-
-                log.debug(traceback.format_exc())
-                continue
-
-        # Generate patch if in patch mode
-        if patch_dir and not dry_run:
-            tree_id = tree_assignment.get(struct.name, 0)
-            tree_key = f"tree_{tree_id:03d}"
-
-            # Track order within tree
-            if tree_key not in tree_order:
-                tree_order[tree_key] = 0
-            tree_order[tree_key] += 1
-
-            patch_file = create_patch(
-                file_path, struct, patch_dir, tree_key, tree_order[tree_key]
-            )
-
-            if patch_file:
-                patch_files.append(patch_file)
-
-                # Write commit message
-                commit_msg_file = patch_file.with_suffix(".msg")
-                with open(commit_msg_file, "w") as f:
-                    f.write(generate_commit_message(struct, savings))
-
-        optimized_count += 1
-        total_savings += savings
-
-    mode = "Would optimize" if dry_run else "Optimized"
-    print(f"\n{mode} {optimized_count} struct(s)/class(es)")
+    print(f"\nOptimized {optimized_count} struct(s)/class(es)")
     print(f"Total savings: {total_savings} bytes")
-
+    
     if patch_dir and patch_files:
+        from .patch_generator import write_apply_order
         write_apply_order(patch_dir, patch_files)
         print(f"\nGenerated {len(patch_files)} patches in {patch_dir}")
         print(f"See {patch_dir}/APPLY_ORDER.txt for application sequence")
-
-    if dry_run:
-        print("\nRun with --apply to make changes")
+    
+    # Print statistics summary
+    print(f"\n{'='*60}")
+    print("OPTIMIZATION SUMMARY")
+    print(f"{'='*60}")
+    print(f"Total structs analyzed: {len(ordered_structs)}")
+    print(f"Structs optimized: {optimized_count}")
+    print(f"Structs skipped: {len(ordered_structs) - optimized_count}")
+    print(f"Total padding identified: {total_savings} bytes")
+    if optimized_count > 0:
+        print(f"Average padding per struct: {total_savings // optimized_count} bytes")
+    print(f"{'='*60}")

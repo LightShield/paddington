@@ -1,6 +1,7 @@
 """Source code rewriting utilities."""
 
 from typing import List, Dict, Optional
+from pathlib import Path
 import re
 from ..core import StructInfo, MemberInfo
 from ..utils import Logger
@@ -128,15 +129,15 @@ def rewrite_struct_definition(
         is_member = False
         if not in_function_body:
             for member in struct.members:
-                # Look for member name followed by semicolon
-                # Must be a declaration, not an assignment
-                if re.search(rf"\b{member.type_name}\s+{member.name}\b.*;", line):
+                # Match by member name only - look for the name followed by ; or [ or =
+                # This handles: int x; int arr[10]; int y = 5;
+                if re.search(rf"\b{re.escape(member.name)}\b\s*[;\[=]", line):
                     member_lines[member.name] = line
                     member_access[member.name] = current_access
                     is_member = True
                     break
 
-        # If not a member, it's a constructor/method/comment
+        # If not a member, it's a constructor/method/comment - preserve it
         if not is_member:
             other_lines.append(line)
             other_access[len(other_lines) - 1] = current_access
@@ -197,17 +198,29 @@ def rewrite_struct_definition(
 
 
 def find_constructor_initializers(content: str, struct_name: str) -> List[tuple]:
-    """Find constructor initializer lists for a struct."""
-    # Pattern: StructName(...) : member1(...), member2(...) {}
-    pattern = rf"{struct_name}\s*\([^)]*\)\s*:\s*([^{{]+)\{{"
+    """Find constructor initializer lists for a struct.
+    
+    Returns: List of (start, end, init_list) 
+    """
     matches = []
-
-    for match in re.finditer(pattern, content, re.MULTILINE):
-        init_list = match.group(1)
+    
+    # Pattern 1: Inline constructors (no :: before name)
+    # Use negative lookbehind to exclude StructName::StructName
+    pattern1 = rf"(?<!:)(?<!:){re.escape(struct_name)}\s*\([^)]*\)\s*:\s*([^{{]+?)\s*\{{"
+    for match in re.finditer(pattern1, content, re.MULTILINE | re.DOTALL):
+        init_list = match.group(1).strip()
         start = match.start(1)
         end = match.end(1)
         matches.append((start, end, init_list))
-
+    
+    # Pattern 2: Out-of-line constructors (StructName::StructName)
+    pattern2 = rf"{re.escape(struct_name)}::{re.escape(struct_name)}\s*\([^)]*\)\s*:\s*([^{{]+?)\s*\{{"
+    for match in re.finditer(pattern2, content, re.MULTILINE | re.DOTALL):
+        init_list = match.group(1).strip()
+        start = match.start(1)
+        end = match.end(1)
+        matches.append((start, end, init_list))
+    
     return matches
 
 
@@ -265,14 +278,29 @@ def rewrite_constructors(
     file_path: str, struct: StructInfo, new_order: List[MemberInfo]
 ) -> str:
     """Rewrite constructor initializer lists."""
+    log = Logger()
+    
     with open(file_path, "r") as f:
         content = f.read()
 
     matches = find_constructor_initializers(content, struct.name)
+    
+    if not matches:
+        log.debug(f"  No constructor initializer lists found in {Path(file_path).name}")
+        return content
+    
+    log.debug(f"  Found {len(matches)} constructor(s) with initializer lists in {Path(file_path).name}")
 
     # Process matches in reverse order to maintain offsets
     for start, end, init_list in reversed(matches):
+        old_init = init_list.strip()
         new_init_list = reorder_initializer_list(init_list, new_order)
+        
+        if old_init != new_init_list:
+            log.trace(f"    Reordered init list:")
+            log.trace(f"      Old: {old_init}")
+            log.trace(f"      New: {new_init_list}")
+        
         content = content[:start] + new_init_list + content[end:]
 
     return content

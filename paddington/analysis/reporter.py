@@ -19,9 +19,14 @@ def report_analysis(structs: List[StructInfo], verbosity: int = 1) -> None:
     optimizable_count = 0
 
     for struct in structs:
+        if not struct.members or struct.size == 0:
+            continue
+        if any(m.size == 0 for m in struct.members):
+            continue
+            
         padding = struct.calculate_padding()
         optimal_size = struct.calculate_optimal_size()
-        savings = struct.total_size - optimal_size
+        savings = struct.size - optimal_size
 
         total_padding += padding
 
@@ -29,22 +34,18 @@ def report_analysis(structs: List[StructInfo], verbosity: int = 1) -> None:
             optimizable_count += 1
             total_savings += savings
 
-            type_name = "class" if struct.is_class else "struct"
-
             if verbosity >= 1:
                 print(
-                    f"[PADDING] {type_name} {struct.name}: {struct.total_size} bytes "
+                    f"[PADDING] {struct.name}: {struct.size} bytes "
                     f"({padding} bytes padding, {savings} bytes savable)"
                 )
 
             if verbosity >= 2:
-                log.info(f"Location: {struct.file_path}:{struct.line}")
                 log.info(f"Optimal size: {optimal_size} bytes")
                 log.info(f"Members: {', '.join(m.name for m in struct.members)}")
         elif verbosity >= 3:
-            type_name = "class" if struct.is_class else "struct"
             log.debug(
-                f"{type_name} {struct.name}: {struct.total_size} bytes (already optimal)"
+                f"{struct.name}: {struct.size} bytes (already optimal)"
             )
 
     print(

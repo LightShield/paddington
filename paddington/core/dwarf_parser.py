@@ -1,50 +1,57 @@
 """Parse struct info from DWARF debug data in object files."""
 
 import json
-import subprocess
+import tempfile
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Optional
 from .models import MemberInfo, StructInfo
 
 __all__ = ["parse_object_files", "identify_leaves_and_order"]
 
 
-def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
-    """Parse struct info from object files using dwarf_extractor.
-    
-    Args:
-        objfiles: List of .o files with debug info
-        
-    Returns:
-        List of StructInfo objects
-    """
+def parse_object_files(objfiles: List[Path], cache_dir: Optional[Path] = None, log=None) -> List[StructInfo]:
+    """Parse struct info from object files with cross-file type resolution."""
     from .dwarf_extractor import extract_reference_tree
-    import tempfile
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         temp_json = Path(f.name)
     
     try:
-        extract_reference_tree(objfiles, temp_json)
+        extract_reference_tree(objfiles, temp_json, cache_dir, log)
         
         with open(temp_json) as f:
             data = json.load(f)
         
+        # Build name->size lookup for ALL structs
+        type_sizes = {}
+        for s in data:
+            if s['size'] > 0:
+                type_sizes[s['name']] = s['size']
+        
+        # Convert to StructInfo and resolve member types by name
         structs = []
         for s in data:
-            members = [
-                MemberInfo(
+            members = []
+            for m in s['members']:
+                member_size = m['size']
+                
+                # If size is 0, try to resolve by type name
+                if member_size == 0 and m['type'] in type_sizes:
+                    member_size = type_sizes[m['type']]
+                
+                members.append(MemberInfo(
                     name=m['name'],
                     type=m['type'],
-                    size=m['size'],
+                    size=member_size,
                     offset=m['offset']
-                )
-                for m in s['members']
-            ]
+                ))
+            
             structs.append(StructInfo(
                 name=s['name'],
                 size=s['size'],
-                members=members
+                members=members,
+                file_path=s.get('file_path'),
+                line=s.get('line')
             ))
         
         return structs
@@ -53,15 +60,7 @@ def parse_object_files(objfiles: List[Path]) -> List[StructInfo]:
 
 
 def identify_leaves_and_order(structs: List[StructInfo]) -> Tuple[List[StructInfo], Set[str]]:
-    """Identify leaf structs and order all structs bottom-up.
-    
-    Args:
-        structs: List of all structs
-        
-    Returns:
-        (ordered_structs, visited_names) where ordered_structs is bottom-up order
-        and visited_names tracks what's been processed
-    """
+    """Identify leaf structs and order all structs bottom-up."""
     all_names = {s.name for s in structs}
     struct_map = {s.name: s for s in structs}
     

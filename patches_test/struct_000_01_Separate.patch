@@ -1,0 +1,24 @@
+diff --git a/test_separate.cpp b/test_separate.cpp
+index af19075..b032c3e 100644
+--- a/test_separate.cpp
++++ b/test_separate.cpp
+@@ -1,6 +1,6 @@
+ #include "test_separate.h"
+ 
+-Separate::Separate() : a(false), b(0), c(false) {}
++Separate::Separate() : b(0), a(false), c(false)}
+ 
+ int main() {
+     Separate s;
+diff --git a/test_separate.h b/test_separate.h
+index 42110c5..494a03a 100644
+--- a/test_separate.h
++++ b/test_separate.h
+@@ -1,6 +1,6 @@
+ struct Separate {
+-    bool a;
+     int b;
++    bool a;
+     bool c;
+     
+     Separate();

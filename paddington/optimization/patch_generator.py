@@ -8,12 +8,12 @@ from ..utils import Logger
 
 
 def create_patch(
-    file_path: str, struct: StructInfo, patch_dir: Path, tree_id: str, order: int
+    file_paths, struct: StructInfo, patch_dir: Path, tree_id: str, order: int
 ) -> Optional[Path]:
     """Create a git patch file for a single struct optimization.
 
     Args:
-        file_path: Path to the modified file
+        file_paths: Path or list of paths to modified files
         struct: Struct that was optimized
         patch_dir: Directory to save patch files
         tree_id: Dependency tree identifier (e.g., 'tree_001')
@@ -23,18 +23,22 @@ def create_patch(
         Path to generated patch file
     """
     log = Logger()
+    
+    # Handle single file or list
+    if isinstance(file_paths, str):
+        file_paths = [file_paths]
 
     # Generate patch filename: tree_id_order_struct_name.patch
     patch_name = f"{tree_id}_{order:02d}_{struct.name}.patch"
     patch_path = patch_dir / patch_name
 
-    # Create git diff
+    # Create git diff for all files
     try:
         result = subprocess.run(
-            ["git", "diff", "--no-color", file_path],
+            ["git", "diff", "--no-color"] + file_paths,
             capture_output=True,
             text=True,
-            cwd=Path(file_path).parent,
+            cwd=Path(file_paths[0]).parent,
         )
 
         if result.returncode != 0:
@@ -63,7 +67,7 @@ def generate_commit_message(struct: StructInfo, savings: int) -> str:
     Returns:
         Commit message following Conventional Commits format
     """
-    type_name = "class" if struct.is_class else "struct"
+    type_name = "struct"
 
     if savings > 0:
         return f"""refactor: Optimize padding for {type_name} {struct.name}
@@ -71,9 +75,7 @@ def generate_commit_message(struct: StructInfo, savings: int) -> str:
 Reorder members from largest to smallest to reduce padding.
 
 Changes:
-- {struct.name}: {struct.total_size} -> {struct.total_size - savings} bytes ({savings} bytes saved)
-- Updated constructor initializer lists
-- Updated aggregate initializations
+- {struct.name}: {struct.size} -> {struct.size - savings} bytes ({savings} bytes saved)
 
 Location: {struct.file_path}:{struct.line}"""
     else:
