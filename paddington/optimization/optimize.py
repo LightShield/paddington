@@ -190,6 +190,15 @@ def optimize_files(
             # Rewrite struct definition using minimal line-swap approach
             from .rewriter_minimal import rewrite_struct_minimal
             new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
+            
+            # Check if rewrite succeeded (returns original if failed)
+            with open(source_path, "r") as f:
+                original_content = f.read()
+            
+            if new_content == original_content:
+                log.warning(f"Skipping {struct.name}: could not reorder member declarations")
+                continue
+            
             write_file(source_path, new_content)
             
             # Reorder constructor initializer lists in header file
