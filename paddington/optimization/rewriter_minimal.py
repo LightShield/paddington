@@ -33,8 +33,9 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
             depth -= 1
         closing_brace += 1
     
-    # Find member declarations (may span multiple lines)
-    member_lines = {}  # member_name -> (start_line, num_lines)
+    # Find member declarations with their access specifiers
+    member_lines = {}  # member_name -> (start_line, num_lines, access_spec)
+    current_access = 'public' if 'struct' in lines[struct_line].lower() else 'private'
     depth = 0
     i = brace_line + 1
     
@@ -54,7 +55,14 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
         depth -= line.count('}')
         
         stripped = line.strip()
-        if not stripped or stripped.startswith('//') or stripped in ['public:', 'private:', 'protected:', '{', '}']:
+        
+        # Track access specifier changes
+        if stripped in ['public:', 'protected:', 'private:']:
+            current_access = stripped[:-1]  # Remove the colon
+            i += 1
+            continue
+        
+        if not stripped or stripped.startswith('//') or stripped in ['{', '}']:
             i += 1
             continue
         
@@ -81,7 +89,7 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
                 if member.name in member_lines:
                     log.warning(f"Member {member.name} found on multiple lines - skipping struct {struct.name}")
                     return "".join(lines)
-                member_lines[member.name] = (start_line, num_lines)
+                member_lines[member.name] = (start_line, num_lines, current_access)
                 break
         
         i += 1
@@ -91,28 +99,38 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
         log.warning(f"Skipping {struct.name}: found {len(member_lines)}/{len(struct.members)} members (missing: {', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
         return "".join(lines)
     
-    # Extract declarations
-    member_declarations = {}
-    for member_name, (start_idx, num_lines) in member_lines.items():
-        member_declarations[member_name] = lines[start_idx:start_idx + num_lines]
+    # Extract member declarations with access specs
+    member_declarations = {}  # member_name -> (lines, access_spec)
+    for member_name, (start_idx, num_lines, access_spec) in member_lines.items():
+        member_declarations[member_name] = (lines[start_idx:start_idx + num_lines], access_spec)
     
-    # Remove old lines
+    # Remove old member lines
     lines_to_remove = []
-    for start_idx, num_lines in member_lines.values():
+    for start_idx, num_lines, _ in member_lines.values():
         for j in range(num_lines):
             lines_to_remove.append(start_idx + j)
     
     for idx in sorted(lines_to_remove, reverse=True):
         del lines[idx]
     
-    # Insert reordered
-    first_member_start = min(start_idx for start_idx, _ in member_lines.values())
+    # Find insertion point
+    first_member_start = min(start_idx for start_idx, _, _ in member_lines.values())
     deletions_before = sum(1 for idx in lines_to_remove if idx < first_member_start)
     insert_pos = first_member_start - deletions_before
     
+    # Insert reordered members with access specifiers
+    current_access = None
     for member in reversed(new_order):
         if member.name in member_declarations:
-            for line in reversed(member_declarations[member.name]):
+            member_lines_list, access_spec = member_declarations[member.name]
+            
+            # Insert access specifier if it changed
+            if access_spec != current_access:
+                lines.insert(insert_pos, f"  {access_spec}:\n")
+                current_access = access_spec
+            
+            # Insert member lines
+            for line in reversed(member_lines_list):
                 lines.insert(insert_pos, line)
     
     return "".join(lines)
