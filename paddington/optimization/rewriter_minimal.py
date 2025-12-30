@@ -41,16 +41,20 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
     while i < closing_brace - 1:
         line = lines[i]
         
-        # Track depth
-        depth += line.count('{')
-        depth -= line.count('}')
-        
-        if depth != 0:
+        # Skip if we're already inside a method body (check BEFORE updating depth)
+        if depth > 0:
+            # Update depth for this line before moving on
+            depth += line.count('{')
+            depth -= line.count('}')
             i += 1
             continue
         
+        # Update depth for this line
+        depth += line.count('{')
+        depth -= line.count('}')
+        
         stripped = line.strip()
-        if not stripped or stripped.startswith('//') or stripped in ['public:', 'private:', 'protected:']:
+        if not stripped or stripped.startswith('//') or stripped in ['public:', 'private:', 'protected:', '{', '}']:
             i += 1
             continue
         
@@ -58,10 +62,11 @@ def rewrite_struct_minimal(file_path: str, struct: StructInfo, new_order: List[M
         start_line = i
         full_text = line
         num_lines = 1
+        j = i
         
-        while ';' not in lines[i] and i + 1 < closing_brace - 1:
-            i += 1
-            full_text += lines[i]
+        while ';' not in lines[j] and j + 1 < closing_brace - 1:
+            j += 1
+            full_text += lines[j]
             num_lines += 1
         
         # Skip methods (have () before ;)
