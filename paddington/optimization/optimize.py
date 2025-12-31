@@ -188,13 +188,9 @@ def optimize_files(
         else:
             log.info(f"Optimizing {struct.name}: {struct.size} bytes ({padding} bytes padding)")
             
-            # Use clang rewriter if compile_commands available, otherwise regex
-            if compile_commands:
-                from .rewriter_clang import rewrite_struct_clang
-                new_content = rewrite_struct_clang(source_path, struct, optimal_order, compile_commands)
-            else:
-                from .rewriter_minimal import rewrite_struct_minimal
-                new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
+            # Use tree-sitter rewriter (syntax-aware, no compilation needed)
+            from .rewriter_treesitter import rewrite_struct_treesitter
+            new_content = rewrite_struct_treesitter(source_path, struct, optimal_order)
             
             # Check if rewrite succeeded
             with open(source_path, "r") as f:

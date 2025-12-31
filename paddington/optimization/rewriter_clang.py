@@ -30,28 +30,47 @@ def rewrite_struct_clang(file_path: str, struct: StructInfo, new_order: List[Mem
     log = Logger()
     init_libclang()
     
-    # Parse file with compilation database if available
-    args = ['-std=c++17']
+    # Use compilation database to get proper compile flags
+    index = clang.cindex.Index.create()
     
     if compile_commands_dir:
         try:
             compdb = clang.cindex.CompilationDatabase.fromDirectory(compile_commands_dir)
-            commands = compdb.getCompileCommands(file_path)
+            # Try to find compile commands for this file or any .cpp that includes it
+            commands = list(compdb.getAllCompileCommands())
+            
             if commands:
-                # Extract compile flags
+                # Use the first command's flags as a baseline
+                args = []
                 for arg in commands[0].arguments:
-                    if arg.startswith('-I') or arg.startswith('-D'):
-                        args.append(arg)
-        except:
-            log.debug(f"Could not load compile_commands.json from {compile_commands_dir}")
-    
-    index = clang.cindex.Index.create()
-    tu = index.parse(file_path, args=args)
+                    arg_str = str(arg)
+                    # Skip output files and source files
+                    if arg_str in ['c++', 'g++', 'clang++'] or arg_str.endswith('.cpp') or arg_str.endswith('.o'):
+                        continue
+                    if arg_str in ['-c', '-o']:
+                        continue
+                    args.append(arg_str)
+                
+                log.debug(f"Using {len(args)} compile flags from compilation database")
+                tu = index.parse(file_path, args=args)
+            else:
+                log.warning(f"No compile commands found in {compile_commands_dir}")
+                tu = index.parse(file_path, args=['-std=c++17'])
+        except Exception as e:
+            log.warning(f"Could not load compilation database: {e}")
+            tu = index.parse(file_path, args=['-std=c++17'])
+    else:
+        tu = index.parse(file_path, args=['-std=c++17'])
     
     if not tu:
         log.warning(f"Could not parse {file_path} with clang")
         with open(file_path) as f:
             return f.read()
+    
+    # Check for parse errors
+    if list(tu.diagnostics):
+        log.debug(f"Clang parse warnings for {file_path}: {len(list(tu.diagnostics))} diagnostics")
+        # Continue anyway - warnings are often acceptable
     
     # Find struct
     struct_cursor = find_struct(tu.cursor, struct.name)
