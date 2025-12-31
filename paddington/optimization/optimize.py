@@ -61,6 +61,7 @@ def optimize_files(
     cache_dir: Optional[Path] = None,
     deduplicate: bool = False,
     use_pahole: bool = False,
+    compile_commands: Optional[str] = None,
     verbosity: int = 1,
 ) -> None:
     """Optimize struct padding from object files."""
@@ -187,9 +188,13 @@ def optimize_files(
         else:
             log.info(f"Optimizing {struct.name}: {struct.size} bytes ({padding} bytes padding)")
             
-            # Rewrite struct definition using minimal line-swap approach
-            from .rewriter_minimal import rewrite_struct_minimal
-            new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
+            # Use clang rewriter if compile_commands available, otherwise regex
+            if compile_commands:
+                from .rewriter_clang import rewrite_struct_clang
+                new_content = rewrite_struct_clang(source_path, struct, optimal_order, compile_commands)
+            else:
+                from .rewriter_minimal import rewrite_struct_minimal
+                new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
             
             # Check if rewrite succeeded
             with open(source_path, "r") as f:

@@ -110,6 +110,11 @@ def main():
         help="Use pahole instead of pyelftools (100x faster, requires pahole installed)",
     )
     optimize_parser.add_argument(
+        "--compile-commands",
+        type=str,
+        help="Path to directory containing compile_commands.json (enables clang-based rewriting)",
+    )
+    optimize_parser.add_argument(
         "-v", "--verbose", action="count", default=1, help="Increase verbosity"
     )
 
@@ -140,6 +145,7 @@ def main():
             cache_dir=args.cache_dir,
             deduplicate=args.deduplicate,
             use_pahole=args.use_pahole,
+            compile_commands=args.compile_commands,
             verbosity=args.verbose,
         )
 
