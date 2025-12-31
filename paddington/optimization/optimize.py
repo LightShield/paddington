@@ -191,7 +191,7 @@ def optimize_files(
             from .rewriter_minimal import rewrite_struct_minimal
             new_content = rewrite_struct_minimal(source_path, struct, optimal_order)
             
-            # Check if rewrite succeeded (returns original if failed)
+            # Check if rewrite succeeded
             with open(source_path, "r") as f:
                 original_content = f.read()
             
