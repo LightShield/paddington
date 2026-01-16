@@ -1,0 +1,1 @@
+"""Tests for struct_data module."""
