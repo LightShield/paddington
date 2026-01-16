@@ -1,10 +1,14 @@
 """SrcML-based source code transformer."""
 
-import subprocess
-import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Optional
+
+try:
+    import srcml_caller
+    SRCML_AVAILABLE = True
+except ImportError:
+    SRCML_AVAILABLE = False
 
 from .base import ISourceTransformer
 from ...struct_data import SourceModification, TransformedSource
@@ -66,35 +70,30 @@ class SrcMLTransformer(ISourceTransformer):
         )
     
     def _source_to_xml(self, file_path: Path) -> Optional[str]:
-        """Convert source file to srcML XML."""
+        """Convert source file to srcML XML using srcml-caller library."""
+        if not SRCML_AVAILABLE:
+            return None
+        
         try:
-            result = subprocess.run(
-                ['srcml', str(file_path)],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Read source file
+            with open(file_path, 'r') as f:
+                source_content = f.read()
+            
+            # Convert to XML using srcml-caller
+            xml_str = srcml_caller.cpp_to_srcml(source_content, include_positions=True)
+            return xml_str
+        except Exception:
             return None
     
     def _xml_to_source(self, xml_content: str) -> Optional[str]:
-        """Convert srcML XML back to source code."""
+        """Convert srcML XML back to source code using srcml-caller library."""
+        if not SRCML_AVAILABLE:
+            return None
+        
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
-                f.write(xml_content)
-                xml_file = f.name
-            
-            result = subprocess.run(
-                ['srcml', xml_file],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            Path(xml_file).unlink()  # Clean up temp file
-            return result.stdout
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            source = srcml_caller.to_code(xml_content)
+            return source
+        except Exception:
             return None
     
     def _modify_xml(self, xml_content: str, struct_name: str) -> Optional[str]:

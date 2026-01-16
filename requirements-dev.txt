@@ -3,8 +3,4 @@ pytest>=7.4.0
 black>=23.7.0
 mypy>=1.5.0
 ruff>=0.0.285
-
-# Note: srcML is required for integration tests
-# Install from: http://www.srcml.org/downloads.html
-# Or build from source: https://github.com/srcML/srcML
-# Integration tests will skip if srcML is not available
+srcml-caller>=0.4.0

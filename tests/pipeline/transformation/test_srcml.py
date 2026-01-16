@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from implementation.pipeline.transformation.srcml import SrcMLTransformer
+from implementation.pipeline.transformation.srcml import SrcMLTransformer, SRCML_AVAILABLE
 from implementation.struct_data import SourceModification, Modification, Location
 
 
@@ -102,58 +102,40 @@ class TestSrcMLTransformer:
         assert access == 'other'  # Default implementation returns 'other'
     
     @pytest.mark.unit
-    @patch('subprocess.run')
-    def test_source_to_xml_success(self, mock_run):
+    def test_source_to_xml_success(self):
         """Test successful source to XML conversion."""
-        mock_run.return_value = MagicMock(stdout="<xml>content</xml>")
-        
-        with tempfile.NamedTemporaryFile(suffix='.cpp', delete=False) as f:
-            f.write(b"struct Test {};")
+        with tempfile.NamedTemporaryFile(suffix='.cpp', delete=False, mode='w') as f:
+            f.write("struct Test {};")
             temp_path = Path(f.name)
         
         try:
             result = self.transformer._source_to_xml(temp_path)
-            assert result == "<xml>content</xml>"
-            mock_run.assert_called_once_with(
-                ['srcml', str(temp_path)],
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            assert result is not None
+            assert '<struct' in result
+            assert 'Test' in result
         finally:
             temp_path.unlink()
     
     @pytest.mark.unit
-    @patch('subprocess.run')
-    def test_source_to_xml_failure(self, mock_run):
-        """Test failed source to XML conversion."""
-        mock_run.side_effect = FileNotFoundError()
-        
-        with tempfile.NamedTemporaryFile(suffix='.cpp', delete=False) as f:
-            temp_path = Path(f.name)
-        
-        try:
-            result = self.transformer._source_to_xml(temp_path)
-            assert result is None
-        finally:
-            temp_path.unlink()
+    def test_source_to_xml_failure(self):
+        """Test failed source to XML conversion (file doesn't exist)."""
+        result = self.transformer._source_to_xml(Path('/nonexistent/file.cpp'))
+        assert result is None
     
     @pytest.mark.unit
-    @patch('subprocess.run')
-    def test_xml_to_source_success(self, mock_run):
+    def test_xml_to_source_success(self):
         """Test successful XML to source conversion."""
-        mock_run.return_value = MagicMock(stdout="struct Test {};")
-        
-        result = self.transformer._xml_to_source("<xml>content</xml>")
-        assert result == "struct Test {};"
+        xml_content = '<unit revision="1.0.0" language="C++"><struct>struct <name>Test</name> <block>{}</block>;</struct></unit>'
+        result = self.transformer._xml_to_source(xml_content)
+        assert result is not None
+        assert 'struct' in result
+        assert 'Test' in result
     
     @pytest.mark.unit
-    @patch('subprocess.run')
-    def test_xml_to_source_failure(self, mock_run):
-        """Test failed XML to source conversion."""
-        mock_run.side_effect = FileNotFoundError()
-        
-        result = self.transformer._xml_to_source("<xml>content</xml>")
+    @pytest.mark.unit
+    def test_xml_to_source_failure(self):
+        """Test failed XML to source conversion (invalid XML)."""
+        result = self.transformer._xml_to_source("invalid xml content")
         assert result is None
     
     @pytest.mark.unit
@@ -178,13 +160,14 @@ class TestSrcMLTransformer:
 
 @pytest.mark.integration
 class TestSrcMLTransformerIntegration:
-    """Integration tests requiring srcML tool."""
+    """Integration tests requiring srcml-caller library."""
     
     def setup_method(self):
         """Set up test fixtures."""
-        self.transformer = SrcMLTransformer()
+        if SRCML_AVAILABLE:
+            self.transformer = SrcMLTransformer()
     
-    @pytest.mark.skipif(not shutil.which('srcml'), reason="srcML not installed (see http://www.srcml.org)")
+    @pytest.mark.skipif(not SRCML_AVAILABLE, reason="srcml-caller not installed (pip install srcml-caller)")
     def test_transform_real_file(self):
         """Test transformation with real srcML tool."""
         # This test would run if srcML is available
@@ -214,7 +197,7 @@ class TestSrcMLTransformerIntegration:
         finally:
             temp_path.unlink()
     
-    @pytest.mark.skipif(not shutil.which('srcml'), reason="srcML not installed (see http://www.srcml.org)")
+    @pytest.mark.skipif(not SRCML_AVAILABLE, reason="srcml-caller not installed (pip install srcml-caller)")
     def test_end_to_end_transformation(self):
         """Test complete end-to-end transformation."""
         # This would test the full pipeline with real srcML
