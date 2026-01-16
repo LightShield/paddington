@@ -56,8 +56,7 @@ paddington/
 │   │
 │   ├── user_interactions/         # User-facing operations
 │   │   ├── __init__.py
-│   │   ├── analyze.py             # analyze operation
-│   │   └── optimize.py            # optimize operation
+│   │   └── optimize.py            # optimize operation (default: dry-run, --apply to modify)
 │   │
 │   ├── struct_data/               # Data structures
 │   │   ├── __init__.py
@@ -122,7 +121,6 @@ paddington/
     ├── pytest.ini                 # Pytest configuration
     │
     ├── user_interactions/         # Tests for user_interactions/
-    │   ├── test_analyze.py        # Unit + integration tests
     │   └── test_optimize.py       # Unit + integration tests
     │
     ├── struct_data/               # Tests for struct_data/
@@ -171,7 +169,6 @@ paddington/
     │   └── test_validation.py
     │
     ├── end_to_end/                # End-to-end workflow tests
-    │   ├── test_analyze_workflow.py
     │   ├── test_optimize_workflow.py
     │   └── test_full_pipeline.py
     │
@@ -243,62 +240,41 @@ from paddington.implementation.pipeline.extraction import PaholeExtractor
 """Entry point for paddington CLI."""
 import argparse
 from pathlib import Path
-from paddington.implementation.user_interactions import analyze, optimize
+from paddington.implementation.user_interactions import optimize
 
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="paddingTON - C++ struct padding optimizer"
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
     
-    # analyze command
-    analyze_parser = subparsers.add_parser(
-        "analyze", 
-        help="Analyze C++ structs for padding waste"
-    )
-    analyze_parser.add_argument("path", type=Path, help="Path to object files")
-    analyze_parser.add_argument("--include", action="append", help="Include pattern")
-    analyze_parser.add_argument("--exclude", action="append", help="Exclude pattern")
-    analyze_parser.add_argument("--extractor", choices=["pahole", "dwarf"], 
-                                default="pahole", help="Extraction method")
-    analyze_parser.add_argument("-v", "--verbose", action="count", default=1,
-                                help="Increase verbosity")
-    
-    # optimize command
-    optimize_parser = subparsers.add_parser(
-        "optimize",
-        help="Optimize C++ structs to minimize padding"
-    )
-    optimize_parser.add_argument("path", type=Path, help="Path to object files")
-    optimize_parser.add_argument("--apply", action="store_true",
-                                 help="Apply changes (default: dry-run)")
-    optimize_parser.add_argument("--min-savings", type=int, default=0,
-                                 help="Minimum bytes to optimize")
-    optimize_parser.add_argument("--access-modifier-strategy",
-                                 choices=["preserve", "split", "ignore"],
-                                 default="preserve",
-                                 help="How to handle access modifiers")
-    optimize_parser.add_argument("--extractor", choices=["pahole", "dwarf"],
-                                 default="pahole", help="Extraction method")
-    optimize_parser.add_argument("--transformer", choices=["srcml", "line-swap"],
-                                 default="srcml", help="Transformation method")
-    optimize_parser.add_argument("--output", choices=["patch", "file"],
-                                 default="patch", help="Output method")
-    optimize_parser.add_argument("--patch-dir", type=Path, default=Path("./patches"),
-                                 help="Directory for patches")
-    optimize_parser.add_argument("--include", action="append", help="Include pattern")
-    optimize_parser.add_argument("--exclude", action="append", help="Exclude pattern")
-    optimize_parser.add_argument("-v", "--verbose", action="count", default=1,
-                                 help="Increase verbosity")
+    # optimize command (single command, no subparsers needed)
+    parser.add_argument("path", type=Path, help="Path to object files")
+    parser.add_argument("--apply", action="store_true",
+                         help="Apply changes (default: dry-run)")
+    parser.add_argument("--min-savings", type=int, default=0,
+                         help="Minimum bytes to optimize")
+    parser.add_argument("--access-modifier-strategy",
+                         choices=["preserve", "split", "ignore"],
+                         default="preserve",
+                         help="How to handle access modifiers")
+    parser.add_argument("--extractor", choices=["pahole", "dwarf"],
+                         default="pahole", help="Extraction method")
+    parser.add_argument("--transformer", choices=["srcml", "line-swap"],
+                         default="srcml", help="Transformation method")
+    parser.add_argument("--output", choices=["patch", "file"],
+                         default="patch", help="Output method")
+    parser.add_argument("--patch-dir", type=Path, default=Path("./patches"),
+                         help="Directory for patches")
+    parser.add_argument("--include", action="append", help="Include pattern")
+    parser.add_argument("--exclude", action="append", help="Exclude pattern")
+    parser.add_argument("-v", "--verbose", action="count", default=1,
+                         help="Increase verbosity")
     
     args = parser.parse_args()
     
-    # Dispatch to appropriate operation
-    if args.command == "analyze":
-        analyze.run(args)
-    elif args.command == "optimize":
-        optimize.run(args)
+    # Run optimize operation
+    optimize.run(args)
 
 if __name__ == "__main__":
     main()
@@ -310,7 +286,6 @@ if __name__ == "__main__":
 
 ```python
 # From user_interactions
-from paddington.implementation.user_interactions.analyze import run as run_analyze
 from paddington.implementation.user_interactions.optimize import run as run_optimize
 
 # From struct_data
@@ -379,7 +354,6 @@ All agent file paths now start with `implementation/`:
 ### Agent 17: User Interactions
 **Files**: 
 - `__main__.py`
-- `implementation/user_interactions/analyze.py`
 - `implementation/user_interactions/optimize.py`
 
 ---

@@ -201,37 +201,30 @@ paddington optimize --min-savings 8  # Only optimize if saves ≥8 bytes
 
 ### 1.3 Output Modes
 
-#### FR-1.3.1: Analysis Mode (Read-Only)
-**Description**: The system shall analyze without modifying files.
+#### FR-1.3.2: Dry-Run Mode (Default)
+**Description**: The system shall preview changes without applying them by default.
 
 **Acceptance Criteria**:
-- Report all structs with padding
-- Report potential savings per struct
-- Report total potential savings
-- Report skipped structs with reasons
-- No file modifications
-
-**Priority**: P0 (Must Have)
-
-#### FR-1.3.2: Dry-Run Mode
-**Description**: The system shall preview changes without applying them.
-
-**Acceptance Criteria**:
+- `optimize` command runs in dry-run mode by default (safe, no changes)
 - Show what would be changed
 - Show before/after for each struct
 - Show files that would be modified
 - No file modifications
+- To apply changes: use `optimize --apply`
+
+**Note**: Analysis functionality is now `optimize --dry-run` (default behavior)
 
 **Priority**: P0 (Must Have)
 
 #### FR-1.3.3: Direct Modification Mode
-**Description**: The system shall directly modify source files.
+**Description**: The system shall directly modify source files when --apply flag is used.
 
 **Acceptance Criteria**:
 - Overwrite source files with optimized versions
 - Create backup files (`.backup` extension)
 - Report modified files
 - Support rollback (restore from backup)
+- Requires explicit `--apply` flag
 
 **Priority**: P0 (Must Have)
 
@@ -285,9 +278,58 @@ paddington optimize build/ --struct "UserData" --struct "Config*"
 
 ---
 
-### 1.5 Validation & Verification
+### 1.5 Template Handling
 
-#### FR-1.5.1: Build Verification
+#### FR-1.7: Template Handling
+**Description**: The system shall handle C++ templates appropriately.
+
+**Acceptance Criteria**:
+- Optimize template instantiations (concrete types)
+- Skip template definitions (generic templates)
+- Detect template instantiations in DWARF debug info
+- Report template instantiations separately from definitions
+- Handle template specializations as concrete types
+
+**Priority**: P0 (Must Have)
+
+---
+
+### 1.6 Preprocessor Handling
+
+#### FR-1.8: Preprocessor Handling
+**Description**: The system shall handle preprocessor directives safely.
+
+**Acceptance Criteria**:
+- Skip structs containing `#ifdef`, `#ifndef`, `#if` directives
+- Skip structs containing macro definitions
+- Detect preprocessor usage in struct definitions
+- Report skipped structs with preprocessor reason
+- Preserve preprocessor directives in output
+
+**Priority**: P0 (Must Have)
+
+---
+
+### 1.7 Complex C++ Features
+
+#### FR-1.9: Complex C++ Features
+**Description**: The system shall handle complex C++ features appropriately.
+
+**Acceptance Criteria**:
+- Handle inheritance (optimize derived classes considering base class layout)
+- Skip structs with bitfields (bit-level packing)
+- Skip structs with unions (overlapping memory layout)
+- Skip structs with virtual tables (vtables)
+- Report skipped structs with complexity reason
+- Detect virtual functions and virtual inheritance
+
+**Priority**: P0 (Must Have)
+
+---
+
+### 1.8 Validation & Verification
+
+#### FR-1.8.1: Build Verification
 **Description**: The system shall optionally verify changes compile.
 
 **Syntax**:
@@ -303,7 +345,7 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 **Priority**: P1 (Should Have)
 
-#### FR-1.5.2: Syntax Validation
+#### FR-1.8.2: Syntax Validation
 **Description**: The system shall validate transformed code is valid C++.
 
 **Acceptance Criteria**:
@@ -316,9 +358,9 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 ---
 
-### 1.6 Reporting & Observability
+### 1.9 Reporting & Observability
 
-#### FR-1.6.1: Progress Reporting
+#### FR-1.9.1: Progress Reporting
 **Description**: The system shall report progress for long operations.
 
 **Acceptance Criteria**:
@@ -329,7 +371,7 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 **Priority**: P1 (Should Have)
 
-#### FR-1.6.2: Summary Statistics
+#### FR-1.9.2: Summary Statistics
 **Description**: The system shall report summary statistics at end.
 
 **Acceptance Criteria**:
@@ -342,7 +384,7 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 **Priority**: P0 (Must Have)
 
-#### FR-1.6.3: Verbosity Levels
+#### FR-1.9.3: Verbosity Levels
 **Description**: The system shall support multiple verbosity levels.
 
 **Levels**:
@@ -359,7 +401,7 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 **Priority**: P0 (Must Have)
 
-#### FR-1.6.4: Configuration Logging
+#### FR-1.9.4: Configuration Logging
 **Description**: The system shall log the final configuration values used.
 
 **Acceptance Criteria**:
@@ -380,7 +422,7 @@ paddington optimize build/ --verify --build-cmd "make test"
 
 **Priority**: P0 (Must Have)
 
-#### FR-1.6.5: Skip Reason Reporting
+#### FR-1.9.5: Skip Reason Reporting
 **Description**: The system shall report why structs were skipped.
 
 **Skip Reasons**:
@@ -388,7 +430,13 @@ paddington optimize build/ --verify --build-cmd "make test"
 - Below minimum savings threshold
 - Contains zero-size members (opaque types)
 - Marked with `paddington-ignore`
-- Contains preprocessor directives (#ifdef)
+- Contains preprocessor directives (#ifdef, #ifndef, #if)
+- Contains macro definitions
+- Template definition (not instantiation)
+- Contains bitfields
+- Contains unions
+- Contains virtual tables (vtables)
+- Has virtual functions or virtual inheritance
 - No source location in DWARF
 - Source file not found
 - Member declarations not found in source
@@ -711,15 +759,17 @@ tests/pipeline/extraction/test_pahole.py  # Contains unit + integration tests
 - Object files exist in build directory
 
 **Main Flow**:
-1. Developer runs `paddington analyze build/`
+1. Developer runs `paddington optimize build/` (dry-run by default)
 2. System extracts struct info from object files
 3. System calculates padding for each struct
 4. System reports structs with padding waste
 5. System reports total potential savings
 
 **Postconditions**: 
-- No files modified
+- No files modified (dry-run mode)
 - Developer knows which structs have padding
+
+**Note**: The `analyze` command has been removed. Analysis functionality is now the default behavior of `optimize` (dry-run mode).
 
 **Priority**: P0
 
@@ -882,7 +932,11 @@ class DirectiveParser:
 
 **Current (P0)**: CLI flags only
 ```bash
-paddington optimize build/ \
+# Default behavior: dry-run (safe, no changes)
+paddington optimize build/
+
+# Apply changes (requires explicit flag)
+paddington optimize build/ --apply \
   --min-savings 8 \
   --access-modifier-strategy preserve \
   --extractor pahole \

@@ -10,7 +10,7 @@ def run(args):
     Args:
         args: Parsed command-line arguments with:
             - path: Path to object files
-            - apply: Whether to apply changes
+            - apply: Whether to apply changes (default: False for dry-run)
             - min_savings: Minimum bytes to optimize
             - access_modifier_strategy: "preserve", "split", or "ignore"
             - extractor: "pahole" or "dwarf"
@@ -27,6 +27,12 @@ def run(args):
     from implementation.pipeline.planning import PlanningStage
     from implementation.pipeline.transformation import TransformationStage, MockTransformer
     from implementation.pipeline.output import OutputStage, MockOutputWriter
+    
+    # Show mode
+    if args.apply:
+        print("APPLYING CHANGES")
+    else:
+        print("DRY-RUN MODE: No changes will be made")
     
     # Find object files
     path = Path(args.path)

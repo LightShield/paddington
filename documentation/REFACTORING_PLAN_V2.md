@@ -384,21 +384,21 @@ class TransformedSource:
 ### Phase 5: User Interactions & Integration (Sequential)
 
 #### Agent 18: User Interactions
-**Task**: Implement analyze and optimize operations  
+**Task**: Implement optimize operation  
 **Files**: 
 - `__main__.py` (entry point with arg parsing)
-- `implementation/user_interactions/analyze.py`
 - `implementation/user_interactions/optimize.py`
 
 **Tests**: 
-- `tests/user_interactions/test_analyze.py` (mark appropriately)
 - `tests/user_interactions/test_optimize.py`
 
 **Dependencies**: All previous agents  
 **Deliverable**: Working CLI with provider selection
 
 **Key Requirements**:
-- Parse CLI arguments
+- Parse CLI arguments (single command, no subparsers)
+- Default behavior: dry-run (safe)
+- --apply flag to make actual changes
 - Select providers based on flags
 - Build pipeline with selected providers
 - Run pipeline
@@ -410,8 +410,7 @@ class TransformedSource:
 #### Agent 19: End-to-End Tests
 **Task**: Create comprehensive E2E tests  
 **Files**: 
-- `tests/end_to_end/test_analyze_workflow.py` (mark with `@pytest.mark.e2e`)
-- `tests/end_to_end/test_optimize_workflow.py`
+- `tests/end_to_end/test_optimize_workflow.py` (mark with `@pytest.mark.e2e`)
 - `tests/end_to_end/test_full_pipeline.py`
 
 **Tests**: Multiple scenarios with different provider combinations  
@@ -419,8 +418,9 @@ class TransformedSource:
 **Deliverable**: Full pipeline validation
 
 **Test Scenarios**:
-- Analyze with pahole extractor
-- Analyze with dwarf extractor
+- Optimize with pahole extractor (dry-run)
+- Optimize with dwarf extractor (dry-run)
+- Optimize with --apply flag (actual changes)
 - Optimize with srcML transformer + patch output
 - Optimize with line-swap transformer + file output
 - Optimize with access modifier strategy: preserve
@@ -472,11 +472,14 @@ pytest tests/           # All tests
 ### P0 (Must Have)
 
 **Functional**:
+- Single optimize command (simpler, more intuitive)
+- Default: dry-run mode (safe, shows what would change)
+- --apply flag to make actual changes
 - Struct padding detection and optimization
 - Dependency-aware optimization (iterative analysis)
 - Three access modifier strategies (preserve/split/ignore)
 - User directives (paddington-ignore, paddington-lock)
-- Multiple output modes (analyze, dry-run, modify, patch)
+- Multiple output modes (dry-run, modify, patch)
 - File filtering (include/exclude patterns)
 
 **Non-Functional**:
