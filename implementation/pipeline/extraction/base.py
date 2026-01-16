@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
-from implementation.struct_data import StructInfo
+from ...struct_data.struct_info import StructInfo
 
 
 class IStructExtractor(ABC):

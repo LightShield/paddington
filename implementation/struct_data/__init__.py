@@ -3,7 +3,7 @@
 from .member_info import MemberInfo
 from .struct_info import StructInfo
 from .optimization_plan import OptimizationPlan
-from .source_change import SourceModification, TransformedSource, Modification
+from .source_change import SourceModification, TransformedSource, Modification, Location
 
 __all__ = [
     "MemberInfo",
@@ -12,4 +12,5 @@ __all__ = [
     "SourceModification",
     "TransformedSource",
     "Modification",
+    "Location",
 ]
