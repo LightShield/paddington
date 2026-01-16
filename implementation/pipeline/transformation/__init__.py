@@ -1,3 +1,15 @@
-from .srcml import SrcMLTransformer
+"""Transformation pipeline components."""
 
-__all__ = ['SrcMLTransformer']
+from .base import ISourceTransformer
+from .mock import MockTransformer
+from .srcml import SrcMLTransformer
+from .line_swap import LineSwapTransformer
+from .stage import TransformationStage
+
+__all__ = [
+    "ISourceTransformer",
+    "MockTransformer",
+    "SrcMLTransformer",
+    "LineSwapTransformer",
+    "TransformationStage",
+]
