@@ -1,6 +1,7 @@
 """Tests for SrcMLTransformer."""
 
 import pytest
+import shutil
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -183,7 +184,7 @@ class TestSrcMLTransformerIntegration:
         """Set up test fixtures."""
         self.transformer = SrcMLTransformer()
     
-    @pytest.mark.skipif(True, reason="srcML not available in test environment")
+    @pytest.mark.skipif(not shutil.which('srcml'), reason="srcML not installed (see http://www.srcml.org)")
     def test_transform_real_file(self):
         """Test transformation with real srcML tool."""
         # This test would run if srcML is available
@@ -213,7 +214,7 @@ class TestSrcMLTransformerIntegration:
         finally:
             temp_path.unlink()
     
-    @pytest.mark.skipif(True, reason="srcML not available in test environment")
+    @pytest.mark.skipif(not shutil.which('srcml'), reason="srcML not installed (see http://www.srcml.org)")
     def test_end_to_end_transformation(self):
         """Test complete end-to-end transformation."""
         # This would test the full pipeline with real srcML
