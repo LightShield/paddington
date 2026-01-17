@@ -96,7 +96,7 @@ class TestProperVerification(BaseE2ETest):
                 Inner inner; // Size depends on Inner optimization
                 int y;       // 4 bytes
             };
-            int main() { Small s; return 0; }
+            int main() { Inner i; Outer o; return 0; }
             """,
             flags={
                 'apply': True,
@@ -125,7 +125,7 @@ class TestProperVerification(BaseE2ETest):
                 )
             ],
             should_succeed=True,
-            expected_output_contains=["DRY-RUN"],  # Default is dry-run
+            expected_output_contains=["APPLYING CHANGES"],  # apply=True
             expected_patches_count=2  # One patch per struct
         )
         
