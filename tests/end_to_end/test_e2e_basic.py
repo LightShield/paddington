@@ -1,85 +1,146 @@
-"""E2E tests for basic functionality."""
+"""E2E tests for basic functionality with proper verification."""
 
 import pytest
 from pathlib import Path
-from .base_e2e import BaseE2ETest
+from .base_e2e import BaseE2ETest, E2ETestCase, StructExpectation
 
 
 class TestBasicFunctionality(BaseE2ETest):
-    """Basic functionality e2e tests."""
+    """Basic functionality e2e tests with proper verification."""
     
     @pytest.mark.e2e
     def test_simple_struct_dry_run(self, tmp_path):
         """Test simple struct in dry-run mode (default)."""
-        code = """
-        struct Simple {
-            char a;
-            int b;
-            char c;
-        };
-        int main() { return 0; }
-        """
-        obj_file = self.compile_cpp(code, tmp_path)
-        result = self.run_optimize(obj_file, verbose=True)
-        self.assert_success(result)
-        self.assert_output_contains(result, "DRY-RUN")
-        # TODO: Verify structs were extracted and analyzed
-        # self.assert_output_contains(result, "Total structs:")
+        test_case = E2ETestCase(
+            name="simple_struct_dry_run",
+            cpp_code="""
+            struct Simple {
+                char a;
+                int b;
+                char c;
+            };
+            int main() { return 0; }
+            """,
+            flags={'extractor': 'dwarf'},
+            expected_structs=[
+                StructExpectation(
+                    name="Simple",
+                    size_before=12,
+                    size_after=8,
+                    member_order_before=['a', 'b', 'c'],
+                    member_order_after=['b', 'a', 'c'],
+                    padding_saved=4,
+                    should_optimize=True
+                )
+            ],
+            should_succeed=True,
+            expected_output_contains=["DRY-RUN"],
+            expected_patches_count=None
+        )
+        self.run_test_case(test_case, tmp_path)
     
     @pytest.mark.e2e
     def test_simple_struct_with_patch(self, tmp_path):
         """Test patch generation."""
-        code = """
-        struct Data {
-            char flag;
-            int id;
-            double score;
-        };
-        int main() { return 0; }
-        """
-        obj_file = self.compile_cpp(code, tmp_path)
-        patch_dir = tmp_path / "patches"
-        result = self.run_optimize(obj_file, output="patch", patch_dir=str(patch_dir))
-        self.assert_success(result)
-        # TODO: Verify patches were actually generated
-        # if patch_dir.exists():
-        #     patches = list(patch_dir.glob("*.patch"))
-        #     assert len(patches) > 0, "No patches generated"
-        int main() { return 0; }
-        """
-        obj_file = self.compile_cpp(code, tmp_path)
-        patch_dir = tmp_path / "patches"
-        result = self.run_optimize(obj_file, output="patch", patch_dir=str(patch_dir))
-        self.assert_success(result)
+        test_case = E2ETestCase(
+            name="simple_struct_patch",
+            cpp_code="""
+            struct Data {
+                char flag;
+                int id;
+                double score;
+            };
+            int main() { return 0; }
+            """,
+            flags={
+                'output': 'patch',
+                'patch_dir': str(tmp_path / "patches"),
+                'extractor': 'dwarf'
+            },
+            expected_structs=[
+                StructExpectation(
+                    name="Data",
+                    size_before=16,
+                    size_after=16,
+                    member_order_before=['flag', 'id', 'score'],
+                    member_order_after=['score', 'id', 'flag'],
+                    padding_saved=0,
+                    should_optimize=True
+                )
+            ],
+            should_succeed=True,
+            expected_output_contains=["DRY-RUN"],
+            expected_patches_count=1
+        )
+        self.run_test_case(test_case, tmp_path)
     
     @pytest.mark.e2e
     def test_simple_struct_with_file_output(self, tmp_path):
         """Test direct file modification."""
-        code = """
-        struct Data {
-            char a;
-            int b;
-        };
-        int main() { return 0; }
-        """
-        obj_file = self.compile_cpp(code, tmp_path)
-        result = self.run_optimize(obj_file, apply=True, output="file")
-        self.assert_success(result)
+        test_case = E2ETestCase(
+            name="simple_struct_file",
+            cpp_code="""
+            struct Data {
+                char a;
+                int b;
+            };
+            int main() { return 0; }
+            """,
+            flags={
+                'apply': True,
+                'output': 'file',
+                'extractor': 'dwarf'
+            },
+            expected_structs=[
+                StructExpectation(
+                    name="Data",
+                    size_before=8,
+                    size_after=8,
+                    member_order_before=['a', 'b'],
+                    member_order_after=['b', 'a'],
+                    padding_saved=0,
+                    should_optimize=True
+                )
+            ],
+            should_succeed=True,
+            expected_output_contains=["APPLYING CHANGES"],
+            expected_patches_count=None
+        )
+        self.run_test_case(test_case, tmp_path)
     
     @pytest.mark.e2e
     def test_min_savings_threshold(self, tmp_path):
         """Test minimum savings threshold."""
-        code = """
-        struct Small {
-            char a;
-            short b;
-        };
-        int main() { return 0; }
-        """
-        obj_file = self.compile_cpp(code, tmp_path)
-        result = self.run_optimize(obj_file, min_savings=100)  # High threshold
-        self.assert_success(result)
-        # Should skip due to threshold
+        test_case = E2ETestCase(
+            name="min_savings_threshold",
+            cpp_code="""
+            struct Small {
+                char a;
+                short b;
+            };
+            int main() { return 0; }
+            """,
+            flags={
+                'min_savings': 100,
+                'extractor': 'dwarf'
+            },
+            expected_structs=[
+                StructExpectation(
+                    name="Small",
+                    size_before=4,
+                    size_after=4,
+                    member_order_before=['a', 'b'],
+                    member_order_after=['a', 'b'],
+                    padding_saved=0,
+                    should_optimize=False,
+                    skip_reason="below threshold"
+                )
+            ],
+            should_succeed=True,
+            expected_output_contains=["DRY-RUN"],
+            expected_patches_count=0
+        )
+        self.run_test_case(test_case, tmp_path)
     
     @pytest.mark.e2e
     def test_help_documentation(self):
