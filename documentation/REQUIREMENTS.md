@@ -95,13 +95,71 @@ public:
 
 **Acceptance Criteria**:
 - Reorder member declarations in struct definition
-- Reorder constructor initializer lists to match
-- Reorder aggregate initializations `{...}` to match
+- **Reorder constructor initializer lists to match new member order** (CRITICAL)
+  - Members initialize in declaration order, not initializer list order
+  - Initializer list must match declaration order to avoid -Wreorder warnings
+  - Required for compilation with -Werror
+- **Detect member dependencies in constructors** (CRITICAL)
+  - If member A initialization uses member B, they have dependency
+  - Example: `buffer(new char[size])` depends on `size`
+  - Cannot reorder if dependencies would be violated
+  - May need to skip optimization or mark members as locked
+- Reorder aggregate initializations `{...}` to match (CRITICAL)
+  - Aggregate init order must match declaration order
+  - Compilation error if mismatched
 - Reorder smart pointer arguments to match
+  - `make_unique<Data>(a, b)` arguments must match constructor signature
+  - Constructor signature does NOT change (would break all call sites)
 - Preserve formatting, comments, and whitespace (when using srcML)
 - Generate valid C++ code (syntax check)
 
-**Priority**: P0 (Must Have)
+**Critical Notes**:
+- Constructor signature (parameter order) NEVER changes
+- Only initializer list order changes to match new member declaration order
+- Member dependencies must be detected and respected
+- Violating initialization order causes undefined behavior
+
+**Priority**: P0 (Must Have - Required for correct, compilable code)
+
+**Test**: test_e2e_transformation_family.py (8 tests)
+
+#### FR-1.1.5: Constructor Dependency Detection
+**Description**: The system shall detect and respect member dependencies in constructor initializer lists.
+
+**Rationale**:
+- Member initialization may depend on other members
+- Example: `buffer(new char[size])` depends on `size` being initialized first
+- Violating dependency order causes undefined behavior
+- Some optimizations may be impossible due to dependencies
+
+**Acceptance Criteria**:
+- Parse constructor initializer lists
+- Detect if member A initialization references member B
+- Build dependency graph for members
+- Respect dependencies when reordering
+- Skip optimization if dependencies prevent reordering
+- Report skipped structs with reason "constructor dependencies"
+
+**Example**:
+```cpp
+struct Data {
+    int size;
+    char* buffer;
+    Data(int s) : size(s), buffer(new char[size]) {}  // buffer depends on size
+};
+// Cannot reorder to {buffer, size} - would break initialization
+// Must skip optimization or keep size before buffer
+```
+
+**Detection Strategy**:
+- Parse initializer list expressions
+- Find member references in each initialization
+- Build dependency graph
+- Check if reordering would violate dependencies
+
+**Priority**: P0 (Must Have - Prevents undefined behavior)
+
+**Test**: test_e2e_constructor_dependencies.py (to be created)
 
 #### FR-1.1.4: Dependency-Aware Optimization
 **Description**: The system shall optimize structs in dependency order.
@@ -719,9 +777,18 @@ tests/pipeline/extraction/test_pahole.py  # Contains unit + integration tests
 #### C-4.2.1: No Constructor Signature Changes
 **Description**: The system shall NOT change constructor parameter order.
 
-**Rationale**: Would break all call sites
+**Rationale**: 
+- Changing parameter order breaks all call sites
+- Example: `Data(char a, int b)` → `Data(int b, char a)` breaks `Data('x', 42)`
+- Would require updating every instantiation in codebase
+- Too risky and invasive
 
-**Priority**: P0 (Must Have)
+**What DOES change**:
+- Constructor initializer list order (to match new member declaration order)
+- Example: `Data(char a, int b) : a(a), b(b) {}` → `Data(char a, int b) : b(b), a(a) {}`
+- Parameters stay same, only initialization order changes
+
+**Priority**: P0 (Must Have - Critical constraint)
 
 #### C-4.2.2: Preserve Semantics
 **Description**: The system shall NOT change program behavior.
