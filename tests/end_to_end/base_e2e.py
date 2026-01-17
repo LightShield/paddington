@@ -2,10 +2,16 @@
 
 import subprocess
 import re
+import sys
 import pytest
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
+
+
+# Check if we're on a platform that supports ELF (Linux)
+SUPPORTS_ELF = sys.platform.startswith('linux')
+SKIP_REASON_MACOS = "DwarfExtractor requires ELF format (Linux). macOS uses Mach-O. Use Docker or test on Linux."
 
 
 @dataclass
@@ -58,16 +64,20 @@ class BaseE2ETest:
         # 4. Verify expected structs exist in DWARF (if extractor works)
         extraction_works = len(structs_before) > 0
         
-        if extraction_works:
-            for expected in test_case.expected_structs:
-                struct_info = structs_before.get(expected.name)
-                if expected.should_optimize:
-                    assert struct_info is not None, f"Struct {expected.name} not found in DWARF"
-                    assert struct_info['size'] == expected.size_before, \
-                        f"Struct {expected.name} size mismatch: expected {expected.size_before}, got {struct_info['size']}"
-        else:
-            # Extraction doesn't work - mark test as expected to skip optimization
-            pytest.skip("DwarfExtractor not working - cannot verify struct extraction")
+        if not extraction_works:
+            # Check if it's a platform issue
+            if not SUPPORTS_ELF:
+                pytest.skip(SKIP_REASON_MACOS)
+            else:
+                pytest.skip("DwarfExtractor not working - cannot verify struct extraction")
+        
+        # Verify expected structs
+        for expected in test_case.expected_structs:
+            struct_info = structs_before.get(expected.name)
+            if expected.should_optimize:
+                assert struct_info is not None, f"Struct {expected.name} not found in DWARF"
+                assert struct_info['size'] == expected.size_before, \
+                    f"Struct {expected.name} size mismatch: expected {expected.size_before}, got {struct_info['size']}"
         
         # 5. Run paddingTON
         result = self.run_optimize(obj_file, **test_case.flags)
