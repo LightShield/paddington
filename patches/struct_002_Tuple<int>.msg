@@ -1,4 +1,4 @@
-refactor: Optimize padding for Tuple<int, double, char>
+refactor: Optimize padding for Tuple<int>
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.

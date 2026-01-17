@@ -1,4 +1,4 @@
-refactor: Optimize padding for Point
+refactor: Optimize padding for Wrapper<Point>
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.
