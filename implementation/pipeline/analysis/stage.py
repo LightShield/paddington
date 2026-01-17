@@ -9,6 +9,7 @@ from ...padding_analysis.padding_calculator import calculate_padding
 from ...padding_analysis.member_reorderer import get_optimal_order
 from ...padding_analysis.size_calculator import calculate_struct_size
 from ...padding_analysis.constructor_dependency_detector import detect_constructor_dependencies
+from ...padding_analysis.directive_parser import parse_directives
 
 
 class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
@@ -24,13 +25,22 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         if not structs:
             return []
         
+        # Parse directives if source file provided
+        directives = {}
+        if self.source_file:
+            directives = parse_directives(self.source_file)
+        
+        # Filter out ignored structs
+        ignored_structs = directives.get('ignored_structs', set())
+        filtered_structs = [s for s in structs if s.name not in ignored_structs]
+        
         # Build dependency graph and sort
-        graph = build_dependency_graph(structs)
+        graph = build_dependency_graph(filtered_structs)
         ordered_names = topological_sort(graph)
-        struct_map = {s.name: s for s in structs}
+        struct_map = {s.name: s for s in filtered_structs}
         
         # Initialize type sizes with original sizes
-        type_sizes: Dict[str, int] = {s.name: s.size for s in structs}
+        type_sizes: Dict[str, int] = {s.name: s.size for s in filtered_structs}
         plans = []
         
         # Iterative analysis in dependency order
@@ -40,9 +50,11 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             
             struct = struct_map[struct_name]
             
-            # Update member sizes from type table
+            # Update member sizes from type table and apply locked members
+            locked_members = directives.get('locked_members', {}).get(struct_name, set())
             updated_members = []
             for member in struct.members:
+                is_locked = member.name in locked_members
                 if member.type in type_sizes:
                     # Use potentially updated size
                     updated_member = member.__class__(
@@ -52,11 +64,20 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                         optimized_size=member.optimized_size,
                         offset=member.offset,
                         access_modifier=member.access_modifier,
-                        locked=member.locked
+                        locked=is_locked or member.locked
                     )
                     updated_members.append(updated_member)
                 else:
-                    updated_members.append(member)
+                    updated_member = member.__class__(
+                        name=member.name,
+                        type=member.type,
+                        size=member.size,
+                        optimized_size=member.optimized_size,
+                        offset=member.offset,
+                        access_modifier=member.access_modifier,
+                        locked=is_locked or member.locked
+                    )
+                    updated_members.append(updated_member)
             
             # Calculate padding
             actual_size = calculate_struct_size(updated_members)

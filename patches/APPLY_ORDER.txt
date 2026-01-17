@@ -1,3 +1,5 @@
 # Apply patches in this order:
 
-1. struct_000_Optimal.patch
+1. struct_000_BlockWhitespaceIgnored.patch
+2. struct_001_ProcessedStruct.patch
+3. struct_002_WhitespaceIgnored.patch

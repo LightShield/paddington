@@ -29,6 +29,12 @@ def needs_optimization(struct: StructInfo):
         zero_members = [m.name for m in struct.members if m.size == 0]
         return False, (SkipReason.ZERO_SIZE_MEMBER, zero_members)
     
+    # Check for preprocessor directives
+    if struct.file_path:
+        from ..implementation.padding_analysis.preprocessor_detector import has_preprocessor_directives
+        if has_preprocessor_directives(struct.file_path, struct.name):
+            return False, "has preprocessor directives"
+    
     # Simple check: if there's any padding, it might be optimizable
     padding = struct.calculate_padding()
     if padding == 0:
