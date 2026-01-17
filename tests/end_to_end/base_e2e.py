@@ -4,6 +4,7 @@ import subprocess
 import re
 import sys
 import pytest
+import shutil
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
@@ -11,7 +12,20 @@ from typing import List, Optional, Dict
 
 # Check if we're on a platform that supports ELF (Linux)
 SUPPORTS_ELF = sys.platform.startswith('linux')
-SKIP_REASON_MACOS = "DwarfExtractor requires ELF format (Linux). macOS uses Mach-O. Use Docker or test on Linux."
+HAS_DOCKER = shutil.which('docker') is not None
+
+if not SUPPORTS_ELF and not HAS_DOCKER:
+    SKIP_REASON_MACOS = (
+        "DwarfExtractor requires ELF format (Linux). macOS uses Mach-O.\n"
+        "To run e2e tests on macOS:\n"
+        "  1. Install Docker: https://www.docker.com/products/docker-desktop\n"
+        "  2. Run: ./run_tests_docker.sh\n"
+        "Or test on Linux where DwarfExtractor works natively."
+    )
+elif not SUPPORTS_ELF and HAS_DOCKER:
+    SKIP_REASON_MACOS = "Use Docker to run e2e tests: ./run_tests_docker.sh"
+else:
+    SKIP_REASON_MACOS = None
 
 
 @dataclass
@@ -66,8 +80,11 @@ class BaseE2ETest:
         
         if not extraction_works:
             # Check if it's a platform issue
-            if not SUPPORTS_ELF:
+            if not SUPPORTS_ELF and not HAS_DOCKER:
                 pytest.skip(SKIP_REASON_MACOS)
+            elif not SUPPORTS_ELF and HAS_DOCKER:
+                # Docker available - this shouldn't happen, re-raise
+                pytest.fail("Docker available but extraction still failed")
             else:
                 pytest.skip("DwarfExtractor not working - cannot verify struct extraction")
         
@@ -142,7 +159,12 @@ class BaseE2ETest:
         return obj_file
     
     def run_optimize(self, obj_file, **kwargs):
-        """Run optimize command."""
+        """Run optimize command (use Docker on macOS if available)."""
+        # On macOS, use Docker if available
+        if not SUPPORTS_ELF and HAS_DOCKER:
+            return self._run_optimize_docker(obj_file, **kwargs)
+        
+        # Native execution
         cmd = ['python', '__main__.py', str(obj_file)]
         
         if kwargs.get('apply'):
@@ -167,6 +189,38 @@ class BaseE2ETest:
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
+        )
+    
+    def _run_optimize_docker(self, obj_file, **kwargs):
+        """Run optimize in Docker container."""
+        # Build command for Docker
+        cmd = ['docker', 'run', '--rm',
+               '-v', f'{Path.cwd()}:/paddington',
+               '-w', '/paddington',
+               'paddington-test',
+               'python3', '__main__.py', str(obj_file)]
+        
+        if kwargs.get('apply'):
+            cmd.append('--apply')
+        if 'min_savings' in kwargs:
+            cmd.extend(['--min-savings', str(kwargs['min_savings'])])
+        if 'access_modifier_strategy' in kwargs:
+            cmd.extend(['--access-modifier-strategy', kwargs['access_modifier_strategy']])
+        if 'extractor' in kwargs:
+            cmd.extend(['--extractor', kwargs['extractor']])
+        if 'transformer' in kwargs:
+            cmd.extend(['--transformer', kwargs['transformer']])
+        if 'output' in kwargs:
+            cmd.extend(['--output', kwargs['output']])
+        if 'patch_dir' in kwargs:
+            cmd.extend(['--patch-dir', str(kwargs['patch_dir'])])
+        if kwargs.get('verbose'):
+            cmd.append('-vv')
+        
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True
         )
     
     def extract_structs_from_dwarf(self, obj_file) -> Dict[str, Dict]:
