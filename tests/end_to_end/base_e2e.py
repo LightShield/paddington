@@ -129,24 +129,23 @@ class BaseE2ETest:
             # - Recompile and verify size changed
             pass
     
-    def compile_cpp(self, cpp_content, output_name="test.o"):
+    def compile_cpp(self, cpp_content, output_name="test.o", tmp_path=None):
         """Compile C++ content and return .o file path."""
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            cpp_file = tmp_path / "test.cpp"
-            cpp_file.write_text(cpp_content)
-            obj_file = tmp_path / output_name
-            result = subprocess.run(
-                ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],  # -O0 to preserve debug info
-                capture_output=True
-            )
-            assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
-            # Copy to current directory so it persists
-            import shutil
-            persistent_obj = Path(output_name)
-            shutil.copy2(obj_file, persistent_obj)
-            return persistent_obj
+        if tmp_path is None:
+            import tempfile
+            tmp_path = Path(tempfile.mkdtemp())
+        else:
+            tmp_path = Path(tmp_path)
+        
+        cpp_file = tmp_path / "test.cpp"
+        cpp_file.write_text(cpp_content)
+        obj_file = tmp_path / output_name
+        result = subprocess.run(
+            ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],
+            capture_output=True
+        )
+        assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
+        return obj_file
     
     def run_optimize(self, obj_file, **kwargs):
         """Run optimize command (use Docker on macOS if available)."""
