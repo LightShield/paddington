@@ -99,6 +99,12 @@ def run(args):
 
 def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Optional[List[str]]) -> List[Path]:
     """Filter files by patterns."""
+    import fnmatch
+    
+    if include:
+        files = [f for f in files if any(fnmatch.fnmatch(str(f), pattern) for pattern in include)]
+    if exclude:
+        files = [f for f in files if not any(fnmatch.fnmatch(str(f), pattern) for pattern in exclude)]
     return files
 
 
