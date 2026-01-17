@@ -22,7 +22,7 @@ class TestDependencies(BaseE2ETest):
                 Inner inner;
                 double y;
             };
-            int main() { return 0; }
+            int main() { Simple s; return 0; }
             """,
             flags={'extractor': 'dwarf'},
             expected_structs=[
@@ -68,7 +68,7 @@ class TestDependencies(BaseE2ETest):
                 Leaf l;
                 double y;
             };
-            int main() { return 0; }
+            int main() { Simple s; return 0; }
             """,
             flags={'extractor': 'dwarf'},
             expected_structs=[

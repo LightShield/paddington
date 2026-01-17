@@ -19,7 +19,10 @@ class TestBasicFunctionality(BaseE2ETest):
                 int b;
                 char c;
             };
-            int main() { return 0; }
+            int main() {
+                Simple s;  // Must use struct for DWARF
+                return 0;
+            }
             """,
             flags={'extractor': 'dwarf'},
             expected_structs=[
@@ -50,7 +53,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 int id;
                 double score;
             };
-            int main() { return 0; }
+            int main() { Simple s; return 0; }
             """,
             flags={
                 'output': 'patch',
@@ -84,7 +87,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 char a;
                 int b;
             };
-            int main() { return 0; }
+            int main() { Simple s; return 0; }
             """,
             flags={
                 'apply': True,
@@ -118,7 +121,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 char a;
                 short b;
             };
-            int main() { return 0; }
+            int main() { Simple s; return 0; }
             """,
             flags={
                 'min_savings': 100,

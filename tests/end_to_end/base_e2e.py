@@ -152,7 +152,7 @@ class BaseE2ETest:
         """Compile C++ file and return .o file path."""
         obj_file = cpp_file.parent / output_name
         result = subprocess.run(
-            ['g++', '-g', '-c', str(cpp_file), '-o', str(obj_file)],
+            ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],  # -O0 to preserve debug info
             capture_output=True
         )
         assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
@@ -224,48 +224,30 @@ class BaseE2ETest:
         )
     
     def extract_structs_from_dwarf(self, obj_file) -> Dict[str, Dict]:
-        """Extract struct information from DWARF debug info."""
-        result = subprocess.run(
-            ['dwarfdump', str(obj_file)],
-            capture_output=True,
-            text=True
-        )
+        """Extract struct information (platform-aware)."""
+        import sys
         
-        if result.returncode != 0:
-            return {}
+        # Use appropriate extractor
+        if sys.platform == 'darwin':
+            from implementation.pipeline.extraction import MachoExtractor
+            extractor = MachoExtractor()
+        else:
+            from implementation.pipeline.extraction import DwarfExtractor
+            extractor = DwarfExtractor()
         
-        structs = {}
-        lines = result.stdout.split('\n')
-        current_struct = None
+        # Extract
+        structs_list = extractor.extract([obj_file])
         
-        for i, line in enumerate(lines):
-            # Find structure type
-            if 'DW_TAG_structure_type' in line:
-                current_struct = {'members': []}
-            
-            # Get struct name
-            if current_struct is not None and 'DW_AT_name' in line:
-                match = re.search(r'"([^"]+)"', line)
-                if match:
-                    struct_name = match.group(1)
-                    current_struct['name'] = struct_name
-            
-            # Get struct size
-            if current_struct is not None and 'DW_AT_byte_size' in line:
-                match = re.search(r'0x([0-9a-f]+)', line)
-                if match:
-                    current_struct['size'] = int(match.group(1), 16)
-                else:
-                    match = re.search(r'\((\d+)\)', line)
-                    if match:
-                        current_struct['size'] = int(match.group(1))
-                
-                # Save struct
-                if 'name' in current_struct and 'size' in current_struct:
-                    structs[current_struct['name']] = current_struct
-                current_struct = None
+        # Convert to dict
+        structs_dict = {}
+        for struct in structs_list:
+            structs_dict[struct.name] = {
+                'name': struct.name,
+                'size': struct.size,
+                'members': struct.members
+            }
         
-        return structs
+        return structs_dict
     
     def verify_member_order_in_source(self, source_content, struct_name, expected_order):
         """Verify members appear in expected order in source."""

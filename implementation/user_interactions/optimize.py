@@ -51,8 +51,14 @@ def run(args):
     if args.extractor == "pahole":
         extractor = MockExtractor()  # TODO: Use real PaholeExtractor
     else:
-        from implementation.pipeline.extraction.dwarf import DwarfExtractor
-        extractor = DwarfExtractor()
+        # Auto-select based on platform
+        import sys
+        if sys.platform == 'darwin':
+            from implementation.pipeline.extraction import MachoExtractor
+            extractor = MachoExtractor()
+        else:
+            from implementation.pipeline.extraction.dwarf import DwarfExtractor
+            extractor = DwarfExtractor()
     
     if args.transformer == "srcml":
         from implementation.pipeline.transformation import SrcMLTransformer
