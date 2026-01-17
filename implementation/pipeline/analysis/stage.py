@@ -9,6 +9,7 @@ from ...padding_analysis.padding_calculator import calculate_padding
 from ...padding_analysis.member_reorderer import get_optimal_order
 from ...padding_analysis.size_calculator import calculate_struct_size
 from ...padding_analysis.constructor_dependency_detector import detect_constructor_dependencies
+from ...padding_analysis.preprocessor_detector import has_preprocessor_directives
 from ...padding_analysis.directive_parser import parse_directives
 
 
@@ -87,6 +88,19 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             constructor_deps = {}
             if self.source_file:
                 constructor_deps = detect_constructor_dependencies(self.source_file, struct_name)
+            
+            # Check for preprocessor directives
+            if struct.file_path and has_preprocessor_directives(struct.file_path, struct_name):
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(updated_members),
+                    optimal_order=tuple(updated_members),
+                    padding_saved=0,
+                    skip_reason="preprocessor directives"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = actual_size
+                continue
             
             # Check if should optimize
             if padding < self.min_savings or struct.ignore:

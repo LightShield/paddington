@@ -75,19 +75,30 @@ def run(args):
         writer = DirectFileWriter(dry_run=not args.apply)
     
     # Build pipeline
+    extraction_stage = ExtractionStage(extractor)
+    analysis_stage = AnalysisStage(min_savings=args.min_savings, 
+                                   access_modifier_strategy=args.access_modifier_strategy)
+    planning_stage = PlanningStage()
+    transformation_stage = TransformationStage(transformer)
+    output_stage = OutputStage(writer)
+    
     pipeline = Pipeline([
-        ExtractionStage(extractor),
-        AnalysisStage(min_savings=args.min_savings, 
-                      access_modifier_strategy=args.access_modifier_strategy),
-        PlanningStage(),
-        TransformationStage(transformer),
-        OutputStage(writer)
+        extraction_stage,
+        analysis_stage,
+        planning_stage,
+        transformation_stage,
+        output_stage
     ])
     
     # Run pipeline
     try:
+        # Run extraction and analysis separately to capture optimization plans
+        structs = extraction_stage.process(objfiles)
+        optimization_plans = analysis_stage.process(structs)
+        
+        # Continue with full pipeline
         results = pipeline.run(objfiles)
-        _report_optimization(results, args.verbose)
+        _report_optimization(results, optimization_plans, args.verbose)
     except Exception as e:
         print(f"Error: {e}")
         import traceback
@@ -108,10 +119,22 @@ def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Opti
     return files
 
 
-def _report_optimization(results, verbosity: int):
+def _report_optimization(results, optimization_plans, verbosity: int):
     """Report optimization results."""
     print(f"\nOptimization complete:")
     print(f"  Changes applied: {len(results)}")
+    
+    # Report skipped structs
+    skipped_plans = [plan for plan in optimization_plans if plan.skip_reason]
+    optimized_plans = [plan for plan in optimization_plans if not plan.skip_reason]
+    
+    if verbosity >= 1:
+        for plan in skipped_plans:
+            print(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
+        
+        for plan in optimized_plans:
+            if plan.padding_saved > 0:
+                print(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
     
     if verbosity >= 2:
         for result in results:
