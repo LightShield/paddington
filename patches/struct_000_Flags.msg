@@ -1,7 +1,7 @@
-refactor: Optimize padding for Data
+refactor: Optimize padding for Flags
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.
 
-Before: 4 bytes
-After: 4 bytes
+Before: 32 bytes
+After: 32 bytes
