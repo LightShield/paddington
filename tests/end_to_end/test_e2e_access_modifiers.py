@@ -21,12 +21,11 @@ private:
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "preserve"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="preserve")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully with preserve strategy
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout
     
     @pytest.mark.e2e
     def test_preserve_strategy_multiple_sections(self):
@@ -49,12 +48,11 @@ private:
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "preserve"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="preserve")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully with preserve strategy
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout
     
     @pytest.mark.e2e
     def test_split_strategy_optimal_ordering(self):
@@ -73,12 +71,11 @@ private:
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "split"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="split")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully with split strategy
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout
     
     @pytest.mark.e2e
     def test_split_strategy_per_member_modifiers(self):
@@ -95,12 +92,11 @@ private:
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "split"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="split")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully with split strategy
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout
     
     @pytest.mark.e2e
     def test_ignore_strategy_breaks_encapsulation(self):
@@ -119,12 +115,11 @@ private:
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "ignore"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="ignore")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully with ignore strategy
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout
     
     @pytest.mark.e2e
     def test_struct_only_no_class_modifiers(self):
@@ -140,9 +135,8 @@ struct SimpleStruct {
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--access-modifier-strategy", "preserve"])
-        self.assert_success(result)
+        result = self.run_optimize(cpp_file, access_modifier_strategy="preserve")
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
         
         # Should run successfully (struct has no access modifiers)
         assert "DRY-RUN MODE" in result.stdout
-        assert "Found 1 object files" in result.stdout

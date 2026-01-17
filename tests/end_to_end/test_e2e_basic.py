@@ -95,7 +95,14 @@ struct Small {
     @pytest.mark.e2e
     def test_help_documentation(self):
         """Test help text is displayed"""
-        result = self.run_optimize("", ["--help"])
+        import subprocess
+        from pathlib import Path
+        result = subprocess.run(
+            ["python", "__main__.py", "--help"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent.parent
+        )
         
         assert result.returncode == 0
         assert "usage" in result.stdout.lower()

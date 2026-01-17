@@ -9,6 +9,9 @@ from ...struct_data.source_change import SourceModification, Modification, Locat
 class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
     """Convert optimization plans to source modifications."""
     
+    def __init__(self, access_modifier_strategy: str = "preserve"):
+        self.access_modifier_strategy = access_modifier_strategy
+    
     def process(self, plans: List[OptimizationPlan]) -> List[SourceModification]:
         """Create source modifications from plans."""
         modifications = []
@@ -25,20 +28,22 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             new_members = ", ".join(m.name for m in plan.optimal_order)
             
             mod = Modification(
-                type="reorder_member",
+                type="reorder",
                 location=Location(
                     file=plan.struct.file_path,
                     line=plan.struct.line,
                     column=0
                 ),
                 old_content=f"members: {old_members}",
-                new_content=f"members: {new_members}"
+                new_content=f"members: {new_members}",
+                access_strategy=self.access_modifier_strategy
             )
             
             source_mod = SourceModification(
                 file_path=plan.struct.file_path,
                 struct_name=plan.struct.name,
-                modifications=tuple([mod])
+                modifications=tuple([mod]),
+                access_strategy=self.access_modifier_strategy
             )
             modifications.append(source_mod)
         

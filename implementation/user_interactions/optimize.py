@@ -78,7 +78,7 @@ def run(args):
     extraction_stage = ExtractionStage(extractor)
     analysis_stage = AnalysisStage(min_savings=args.min_savings, 
                                    access_modifier_strategy=args.access_modifier_strategy)
-    planning_stage = PlanningStage()
+    planning_stage = PlanningStage(access_modifier_strategy=args.access_modifier_strategy)
     transformation_stage = TransformationStage(transformer)
     output_stage = OutputStage(writer)
     

@@ -1,7 +1,7 @@
 """Source modification dataclasses for code transformations."""
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,7 @@ class Modification:
     location: Location
     old_content: str
     new_content: str
+    access_strategy: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class SourceModification:
     file_path: str
     struct_name: str
     modifications: Tuple[Modification, ...]
+    access_strategy: Optional[str] = None
 
 
 @dataclass(frozen=True)
