@@ -1,7 +1,7 @@
-refactor: Optimize padding for Data
+refactor: Optimize padding for tm
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.
 
-Before: 44 bytes
-After: 44 bytes
+Before: 832 bytes
+After: 832 bytes

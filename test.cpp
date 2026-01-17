@@ -1,1 +1,1 @@
-struct TestStruct { char a; int b; char c; }; int main() { return 0; }
+struct Test { int x; char y; };

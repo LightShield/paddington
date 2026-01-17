@@ -1,7 +1,7 @@
-refactor: Optimize padding for Data
+refactor: Optimize padding for quot
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.
 
-Before: 44 bytes
-After: 44 bytes
+Before: 1616 bytes
+After: 1616 bytes
