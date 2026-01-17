@@ -1,4 +1,6 @@
 import pytest
+import tempfile
+from pathlib import Path
 from .base_e2e import BaseE2ETest
 
 
@@ -19,9 +21,12 @@ Container<int> int_container;
 Container<char> char_container;
 Container<double> double_container;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_with_struct_types(self):
@@ -44,9 +49,12 @@ struct Wrapper {
 Wrapper<Point> point_wrapper;
 Wrapper<Vector> vector_wrapper;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_with_pointer_types(self):
@@ -62,9 +70,12 @@ struct Ptrs {
 Ptrs<int> int_ptrs;
 Ptrs<char> char_ptrs;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_with_reference_types(self):
@@ -82,9 +93,12 @@ struct Mixed {
 int global_int = 42;
 Mixed<int> mixed_int(global_int);
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_partial_specialization(self):
@@ -105,9 +119,12 @@ struct Large<bool> {
 Large<int> large_int;
 Large<bool> large_bool;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_variadic(self):
@@ -123,9 +140,12 @@ Tuple<int> single;
 Tuple<int, double> pair;
 Tuple<int, double, char> triple;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_non_type_param(self):
@@ -140,9 +160,12 @@ struct FixedArray {
 FixedArray<5> small;
 FixedArray<100> large;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_nested(self):
@@ -161,6 +184,9 @@ struct Outer {
 
 Outer outer;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            assert result.returncode == 0 or "template" in result.stderr.lower()

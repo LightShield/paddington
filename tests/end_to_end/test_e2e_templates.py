@@ -19,12 +19,14 @@ struct Container {
 Container<int> int_container;
 Container<double> double_container;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        # At minimum, the system should handle the file without crashing
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            # At minimum, the system should handle the file without crashing
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_with_struct_types(self):
@@ -42,11 +44,13 @@ struct Wrapper {
 
 Wrapper<Point> point_wrapper;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_multiple_instantiations(self):
@@ -62,11 +66,13 @@ Array<int> int_array;
 Array<float> float_array;
 Array<char> char_array;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_partial_specialization(self):
@@ -87,11 +93,13 @@ struct Storage<bool> {
 Storage<int> int_storage;
 Storage<bool> bool_storage;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_with_non_type_params(self):
@@ -106,11 +114,13 @@ struct FixedArray {
 FixedArray<5> small_array;
 FixedArray<100> large_array;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_template_nested_in_struct(self):
@@ -129,11 +139,13 @@ struct Outer {
 
 Outer outer_instance;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
     
     @pytest.mark.e2e
     def test_variadic_template(self):
@@ -148,8 +160,10 @@ struct Tuple {
 Tuple<int> single_tuple;
 Tuple<int, double, char> triple_tuple;
 """
-        cpp_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(cpp_file)
-        
-        # Test should succeed even if templates aren't fully optimized yet
-        assert result.returncode == 0 or "template" in result.stderr.lower()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cpp_file = Path(tmp_dir) / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = self.compile_cpp(cpp_file)
+            result = self.run_optimize(obj_file)
+            # Test should succeed even if templates aren't fully optimized yet
+            assert result.returncode == 0 or "template" in result.stderr.lower()
