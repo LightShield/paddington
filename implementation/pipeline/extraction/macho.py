@@ -70,30 +70,33 @@ class MachoExtractor(IStructExtractor):
         line_num = None
         members = []
         
-        # Parse struct attributes - look ahead from structure_type line
-        i = start_idx
-        indent_level = len(lines[i]) - len(lines[i].lstrip())
+        # Count spaces after colon for structure line
+        struct_line = lines[start_idx]
+        if ':' not in struct_line:
+            return None
+        after_colon = struct_line.split(':', 1)[1]
+        struct_spaces = len(after_colon) - len(after_colon.lstrip())
         
-        # Continue while we're in this DIE (same or deeper indentation)
-        i += 1
+        # Parse struct and children
+        i = start_idx + 1
         while i < len(lines):
             line = lines[i]
             
-            # Stop if we hit a new top-level DIE (0x at start)
-            if line.strip().startswith('0x') and 'DW_TAG' in line:
-                # Check if it's a sibling (same level) or child (deeper)
-                current_indent = len(line) - len(line.lstrip())
-                if current_indent <= indent_level:
+            # Stop at next sibling (0x line with same or fewer spaces after colon)
+            if ':' in line and line.lstrip().startswith('0x'):
+                after_colon = line.split(':', 1)[1]
+                current_spaces = len(after_colon) - len(after_colon.lstrip())
+                if current_spaces <= struct_spaces:
                     break
             
-            # Get name
-            if 'DW_AT_name' in line and name is None:  # First name is struct name
+            # Get struct name
+            if 'DW_AT_name' in line and name is None:
                 match = re.search(r'"([^"]+)"', line)
                 if match:
                     name = match.group(1)
             
-            # Get size
-            if 'DW_AT_byte_size' in line and size is None:  # First size is struct size
+            # Get struct size
+            if 'DW_AT_byte_size' in line and size is None:
                 match = re.search(r'0x([0-9a-f]+)', line)
                 if match:
                     size = int(match.group(1), 16)
@@ -102,17 +105,23 @@ class MachoExtractor(IStructExtractor):
                     if match:
                         size = int(match.group(1))
             
-            # Get file (first occurrence)
+            # Get file
             if 'DW_AT_decl_file' in line and file_path is None:
                 match = re.search(r'"([^"]+)"', line)
                 if match:
                     file_path = match.group(1)
             
-            # Get line
+            # Get line number
             if 'DW_AT_decl_line' in line and line_num is None:
                 match = re.search(r'\((\d+)\)', line)
                 if match:
                     line_num = int(match.group(1))
+            
+            # Parse member
+            if 'DW_TAG_member' in line:
+                member = self._parse_member_die(lines, i)
+                if member:
+                    members.append(member)
             
             i += 1
         
@@ -131,34 +140,63 @@ class MachoExtractor(IStructExtractor):
         """Parse a member DIE from dwarfdump output."""
         name = None
         offset = None
-        size = None
-        type_name = "unknown"
+        type_name = None
+        type_size = None
         
+        # Parse member attributes
         i = start_idx + 1
-        while i < len(lines) and not (lines[i].strip().startswith('0x') and 'DW_TAG' in lines[i]):
+        while i < len(lines):
             line = lines[i]
             
-            if 'DW_AT_name' in line:
+            # Stop at next DIE
+            if line and line[0] == '0' and 'DW_TAG' in line:
+                break
+            
+            # Get member name
+            if 'DW_AT_name' in line and name is None:
                 match = re.search(r'"([^"]+)"', line)
                 if match:
                     name = match.group(1)
             
+            # Get offset
             if 'DW_AT_data_member_location' in line:
-                match = re.search(r'\((\d+)\)', line)
+                match = re.search(r'0x([0-9a-f]+)', line)
                 if match:
-                    offset = int(match.group(1))
+                    offset = int(match.group(1), 16)
+                else:
+                    match = re.search(r'\((\d+)\)', line)
+                    if match:
+                        offset = int(match.group(1))
             
-            # Type info would require following DW_AT_type reference
-            # For now, use placeholder
+            # Get type info (DW_AT_type shows type name and reference)
+            if 'DW_AT_type' in line and type_name is None:
+                # Format: DW_AT_type (0x0000006a "char")
+                match = re.search(r'"([^"]+)"', line)
+                if match:
+                    type_name = match.group(1)
+                    # Get size based on type
+                    if type_name == 'char':
+                        type_size = 1
+                    elif type_name == 'short':
+                        type_size = 2
+                    elif type_name == 'int':
+                        type_size = 4
+                    elif type_name == 'long':
+                        type_size = 8
+                    elif type_name == 'float':
+                        type_size = 4
+                    elif type_name == 'double':
+                        type_size = 8
+                    else:
+                        type_size = 4  # Default for unknown types
             
             i += 1
         
-        # Estimate size from offset differences (simplified)
-        if name and offset is not None:
+        if name and offset is not None and type_name and type_size:
             return MemberInfo(
                 name=name,
                 type=type_name,
-                size=4,  # Placeholder - would need type resolution
+                size=type_size,
                 offset=offset,
                 access_modifier="none"
             )
