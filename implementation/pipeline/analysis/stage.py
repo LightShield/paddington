@@ -8,14 +8,16 @@ from ...padding_analysis.dependency_graph import build_dependency_graph, topolog
 from ...padding_analysis.padding_calculator import calculate_padding
 from ...padding_analysis.member_reorderer import get_optimal_order
 from ...padding_analysis.size_calculator import calculate_struct_size
+from ...padding_analysis.constructor_dependency_detector import detect_constructor_dependencies
 
 
 class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
     """Analyze structs iteratively with size propagation."""
     
-    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve"):
+    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve", source_file: str = ""):
         self.min_savings = min_savings
         self.access_modifier_strategy = access_modifier_strategy
+        self.source_file = source_file
     
     def process(self, structs: List[StructInfo]) -> List[OptimizationPlan]:
         """Process structs in dependency order with size propagation."""
@@ -60,6 +62,11 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             actual_size = calculate_struct_size(updated_members)
             padding = calculate_padding(updated_members, actual_size)
             
+            # Check constructor dependencies
+            constructor_deps = {}
+            if self.source_file:
+                constructor_deps = detect_constructor_dependencies(self.source_file, struct_name)
+            
             # Check if should optimize
             if padding < self.min_savings or struct.ignore:
                 skip_reason = f"padding {padding} < min_savings {self.min_savings}" if padding < self.min_savings else "marked ignore"
@@ -71,6 +78,43 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                     skip_reason=skip_reason
                 )
                 type_sizes[struct_name] = actual_size
+            elif constructor_deps:
+                # Check if reordering would violate constructor dependencies
+                optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
+                if _violates_dependencies(updated_members, optimal_members, constructor_deps):
+                    # Try to find a safe reordering that respects dependencies
+                    safe_members = _get_dependency_safe_order(updated_members, constructor_deps, self.access_modifier_strategy)
+                    if safe_members != updated_members:
+                        safe_size = calculate_struct_size(safe_members)
+                        padding_saved = actual_size - safe_size
+                        plan = OptimizationPlan(
+                            struct=struct,
+                            original_order=tuple(updated_members),
+                            optimal_order=tuple(safe_members),
+                            padding_saved=padding_saved,
+                            skip_reason=None
+                        )
+                        type_sizes[struct_name] = safe_size
+                    else:
+                        plan = OptimizationPlan(
+                            struct=struct,
+                            original_order=tuple(updated_members),
+                            optimal_order=tuple(updated_members),
+                            padding_saved=0,
+                            skip_reason="constructor dependencies"
+                        )
+                        type_sizes[struct_name] = actual_size
+                else:
+                    optimal_size = calculate_struct_size(optimal_members)
+                    padding_saved = actual_size - optimal_size
+                    plan = OptimizationPlan(
+                        struct=struct,
+                        original_order=tuple(updated_members),
+                        optimal_order=tuple(optimal_members),
+                        padding_saved=padding_saved,
+                        skip_reason=None
+                    )
+                    type_sizes[struct_name] = optimal_size
             else:
                 # Get optimal order
                 optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
@@ -93,3 +137,73 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
     def validate_input(self, structs: List[StructInfo]) -> bool:
         """Validate input structs."""
         return isinstance(structs, list) and all(isinstance(s, StructInfo) for s in structs)
+
+
+def _violates_dependencies(original_members, optimal_members, dependencies):
+    """Check if reordering violates constructor dependencies."""
+    # Create position maps
+    original_pos = {m.name: i for i, m in enumerate(original_members)}
+    optimal_pos = {m.name: i for i, m in enumerate(optimal_members)}
+    
+    # Check each dependency
+    for dependent, deps in dependencies.items():
+        if dependent not in optimal_pos:
+            continue
+        
+        for dependency in deps:
+            if dependency not in optimal_pos:
+                continue
+            
+            # In optimal order, dependency must come before dependent
+            if optimal_pos[dependency] >= optimal_pos[dependent]:
+                return True
+    
+    return False
+
+
+def _get_dependency_safe_order(members, dependencies, access_modifier_strategy):
+    """Get optimal order that respects constructor dependencies."""
+    from ...padding_analysis.member_reorderer import get_optimal_order
+    
+    # Start with optimal order
+    optimal_members = get_optimal_order(members, access_modifier_strategy)
+    
+    # If no violations, return optimal
+    if not _violates_dependencies(members, optimal_members, dependencies):
+        return optimal_members
+    
+    # Create dependency constraints
+    constraints = set()
+    for dependent, deps in dependencies.items():
+        for dep in deps:
+            constraints.add((dep, dependent))  # dep must come before dependent
+    
+    # Try to find a valid ordering using topological sort with size optimization
+    member_map = {m.name: m for m in members}
+    
+    # Build dependency graph
+    graph = {m.name: set() for m in members}
+    in_degree = {m.name: 0 for m in members}
+    
+    for dep, dependent in constraints:
+        if dep in graph and dependent in graph:
+            graph[dep].add(dependent)
+            in_degree[dependent] += 1
+    
+    # Topological sort with size-based tie breaking
+    result = []
+    available = [name for name, degree in in_degree.items() if degree == 0]
+    
+    while available:
+        # Sort by size (largest first for better packing)
+        available.sort(key=lambda name: member_map[name].size, reverse=True)
+        current = available.pop(0)
+        result.append(member_map[current])
+        
+        # Update dependencies
+        for neighbor in graph[current]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                available.append(neighbor)
+    
+    return result
