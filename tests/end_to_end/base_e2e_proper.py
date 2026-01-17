@@ -1,0 +1,228 @@
+"""Base infrastructure for end-to-end tests with proper verification."""
+
+import subprocess
+import re
+from pathlib import Path
+from dataclasses import dataclass
+from typing import List, Optional, Dict
+
+
+@dataclass
+class StructExpectation:
+    """Expected results for a struct optimization."""
+    name: str
+    size_before: int
+    size_after: int
+    member_order_before: List[str]
+    member_order_after: List[str]
+    padding_saved: int
+    should_optimize: bool
+    skip_reason: Optional[str] = None
+
+
+@dataclass
+class E2ETestCase:
+    """Complete e2e test case definition."""
+    name: str
+    cpp_code: str
+    flags: Dict[str, any]  # paddington flags
+    expected_structs: List[StructExpectation]
+    should_succeed: bool
+    expected_output_contains: Optional[List[str]] = None
+    expected_patches_count: Optional[int] = None
+
+
+class BaseE2ETest:
+    """Base class for E2E tests with proper verification."""
+    
+    def run_test_case(self, test_case: E2ETestCase, tmp_path):
+        """Run a complete test case with verification."""
+        # 1. Compile C++ code
+        cpp_file = tmp_path / "test.cpp"
+        cpp_file.write_text(test_case.cpp_code)
+        obj_file = self.compile_cpp(cpp_file)
+        
+        # 2. Verify compilation
+        assert obj_file.exists(), "Compilation failed"
+        
+        # 3. Extract struct info BEFORE optimization
+        structs_before = self.extract_structs_from_dwarf(obj_file)
+        
+        # 4. Verify expected structs exist in DWARF
+        for expected in test_case.expected_structs:
+            struct_info = structs_before.get(expected.name)
+            if expected.should_optimize:
+                assert struct_info is not None, f"Struct {expected.name} not found in DWARF"
+                assert struct_info['size'] == expected.size_before, \
+                    f"Struct {expected.name} size mismatch: expected {expected.size_before}, got {struct_info['size']}"
+        
+        # 5. Run paddingTON
+        result = self.run_optimize(obj_file, **test_case.flags)
+        
+        # 6. Verify command result
+        if test_case.should_succeed:
+            assert result.returncode == 0, f"Command failed: {result.stderr}"
+        else:
+            assert result.returncode != 0, "Command should have failed"
+            return
+        
+        # 7. Verify output contains expected text
+        if test_case.expected_output_contains:
+            for text in test_case.expected_output_contains:
+                assert text in result.stdout, f"Expected '{text}' in output"
+        
+        # 8. Verify patches generated (if patch mode)
+        if test_case.flags.get('output') == 'patch' and test_case.expected_patches_count is not None:
+            patch_dir = Path(test_case.flags.get('patch_dir', './patches'))
+            if patch_dir.exists():
+                patches = list(patch_dir.glob("*.patch"))
+                assert len(patches) == test_case.expected_patches_count, \
+                    f"Expected {test_case.expected_patches_count} patches, got {len(patches)}"
+        
+        # 9. If --apply was used, verify source was modified
+        if test_case.flags.get('apply'):
+            # Verify source file changed
+            modified_content = cpp_file.read_text()
+            
+            # Verify member order changed for optimized structs
+            for expected in test_case.expected_structs:
+                if expected.should_optimize and expected.member_order_before != expected.member_order_after:
+                    # Verify new order in source
+                    order_changed = self.verify_member_order_in_source(
+                        modified_content,
+                        expected.name,
+                        expected.member_order_after
+                    )
+                    assert order_changed, f"Member order not changed for {expected.name}"
+            
+            # 10. Recompile and verify size changed
+            obj_file_after = self.compile_cpp(cpp_file, output_name="test_after.o")
+            structs_after = self.extract_structs_from_dwarf(obj_file_after)
+            
+            for expected in test_case.expected_structs:
+                if expected.should_optimize:
+                    struct_info = structs_after.get(expected.name)
+                    assert struct_info is not None, f"Struct {expected.name} not found after optimization"
+                    assert struct_info['size'] == expected.size_after, \
+                        f"Struct {expected.name} size after optimization: expected {expected.size_after}, got {struct_info['size']}"
+    
+    def compile_cpp(self, cpp_file, output_name="test.o"):
+        """Compile C++ file and return .o file path."""
+        obj_file = cpp_file.parent / output_name
+        result = subprocess.run(
+            ['g++', '-g', '-c', str(cpp_file), '-o', str(obj_file)],
+            capture_output=True
+        )
+        assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
+        return obj_file
+    
+    def run_optimize(self, obj_file, **kwargs):
+        """Run optimize command."""
+        cmd = ['python', '__main__.py', str(obj_file)]
+        
+        if kwargs.get('apply'):
+            cmd.append('--apply')
+        if 'min_savings' in kwargs:
+            cmd.extend(['--min-savings', str(kwargs['min_savings'])])
+        if 'access_modifier_strategy' in kwargs:
+            cmd.extend(['--access-modifier-strategy', kwargs['access_modifier_strategy']])
+        if 'extractor' in kwargs:
+            cmd.extend(['--extractor', kwargs['extractor']])
+        if 'transformer' in kwargs:
+            cmd.extend(['--transformer', kwargs['transformer']])
+        if 'output' in kwargs:
+            cmd.extend(['--output', kwargs['output']])
+        if 'patch_dir' in kwargs:
+            cmd.extend(['--patch-dir', str(kwargs['patch_dir'])])
+        if kwargs.get('verbose'):
+            cmd.append('-vv')
+        
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent.parent
+        )
+    
+    def extract_structs_from_dwarf(self, obj_file) -> Dict[str, Dict]:
+        """Extract struct information from DWARF debug info."""
+        result = subprocess.run(
+            ['dwarfdump', str(obj_file)],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            return {}
+        
+        structs = {}
+        lines = result.stdout.split('\n')
+        current_struct = None
+        
+        for i, line in enumerate(lines):
+            # Find structure type
+            if 'DW_TAG_structure_type' in line:
+                current_struct = {'members': []}
+            
+            # Get struct name
+            if current_struct is not None and 'DW_AT_name' in line:
+                match = re.search(r'"([^"]+)"', line)
+                if match:
+                    struct_name = match.group(1)
+                    current_struct['name'] = struct_name
+            
+            # Get struct size
+            if current_struct is not None and 'DW_AT_byte_size' in line:
+                match = re.search(r'0x([0-9a-f]+)', line)
+                if match:
+                    current_struct['size'] = int(match.group(1), 16)
+                else:
+                    match = re.search(r'\((\d+)\)', line)
+                    if match:
+                        current_struct['size'] = int(match.group(1))
+                
+                # Save struct
+                if 'name' in current_struct and 'size' in current_struct:
+                    structs[current_struct['name']] = current_struct
+                current_struct = None
+        
+        return structs
+    
+    def verify_member_order_in_source(self, source_content, struct_name, expected_order):
+        """Verify members appear in expected order in source."""
+        # Find struct definition
+        struct_pattern = rf'struct\s+{struct_name}\s*\{{'
+        match = re.search(struct_pattern, source_content)
+        if not match:
+            return False
+        
+        # Extract struct body
+        start = match.end()
+        brace_count = 1
+        end = start
+        for i in range(start, len(source_content)):
+            if source_content[i] == '{':
+                brace_count += 1
+            elif source_content[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end = i
+                    break
+        
+        struct_body = source_content[start:end]
+        
+        # Find member positions
+        member_positions = {}
+        for member in expected_order:
+            match = re.search(rf'\b{member}\b', struct_body)
+            if match:
+                member_positions[member] = match.start()
+        
+        if len(member_positions) != len(expected_order):
+            return False
+        
+        # Check order
+        sorted_members = sorted(member_positions.items(), key=lambda x: x[1])
+        actual_order = [m[0] for m in sorted_members]
+        
+        return actual_order == expected_order
