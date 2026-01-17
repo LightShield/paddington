@@ -21,7 +21,7 @@ class TestAccessModifiers(BaseE2ETest):
                 char c;
                 double d;
             };
-            int main() { Simple s; return 0; }
+            int main() { Data d; return 0; }
             """,
             flags={
                 'access_modifier_strategy': 'preserve',
@@ -57,7 +57,7 @@ class TestAccessModifiers(BaseE2ETest):
             public:
                 int b;
             };
-            int main() { Simple s; return 0; }
+            int main() { Data d; return 0; }
             """,
             flags={
                 'access_modifier_strategy': 'split',
@@ -93,7 +93,7 @@ class TestAccessModifiers(BaseE2ETest):
             public:
                 int b;
             };
-            int main() { Simple s; return 0; }
+            int main() { Data d; return 0; }
             """,
             flags={
                 'access_modifier_strategy': 'ignore',

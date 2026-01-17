@@ -56,7 +56,7 @@ class TestProperVerification(BaseE2ETest):
                 int b;       // 4 bytes
                 char c;      // 1 byte
             };
-            int main() { Simple s; return 0; }
+            int main() { Optimal o; return 0; }
             """,
             flags={
                 'extractor': 'dwarf'
@@ -96,7 +96,7 @@ class TestProperVerification(BaseE2ETest):
                 Inner inner; // Size depends on Inner optimization
                 int y;       // 4 bytes
             };
-            int main() { Simple s; return 0; }
+            int main() { Small s; return 0; }
             """,
             flags={
                 'apply': True,
@@ -141,7 +141,7 @@ class TestProperVerification(BaseE2ETest):
                 char a;
                 short b;  // Only 1 byte padding
             };
-            int main() { Simple s; return 0; }
+            int main() { Small s; return 0; }
             """,
             flags={
                 'min_savings': 10,  # Require at least 10 bytes savings

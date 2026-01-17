@@ -53,7 +53,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 int id;
                 double score;
             };
-            int main() { Simple s; return 0; }
+            int main() { Data d; return 0; }
             """,
             flags={
                 'output': 'patch',
@@ -87,7 +87,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 char a;
                 int b;
             };
-            int main() { Simple s; return 0; }
+            int main() { Data d; return 0; }
             """,
             flags={
                 'apply': True,
@@ -121,7 +121,7 @@ class TestBasicFunctionality(BaseE2ETest):
                 char a;
                 short b;
             };
-            int main() { Simple s; return 0; }
+            int main() { Small s; return 0; }
             """,
             flags={
                 'min_savings': 100,
