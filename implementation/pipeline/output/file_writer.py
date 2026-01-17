@@ -25,25 +25,40 @@ class DirectFileWriter(IOutputWriter):
         self._dry_run = dry_run
     
     def apply(self, transformed: List[TransformedSource]) -> List[AppliedChange]:
-        """Apply transformed source code."""
+        """Apply transformed source code with atomic operations."""
         changes = []
         timestamp = datetime.now()
         
+        if self._dry_run:
+            for source in transformed:
+                changes.append(DirectFileWriterAppliedChange(
+                    file_path=source.file_path,
+                    backup_path=str(Path(source.file_path)) + ".backup",
+                    timestamp=timestamp
+                ))
+            return changes
+        
+        # Process all files atomically
         for source in transformed:
             file_path = Path(source.file_path)
+            backup_path = None
             
-            if not self._dry_run:
+            try:
                 self._validate_writable(file_path)
                 backup_path = self._create_backup(file_path)
                 self._write_atomic(file_path, source.new_content)
-            else:
-                backup_path = str(file_path) + ".backup"
-            
-            changes.append(DirectFileWriterAppliedChange(
-                file_path=str(file_path),
-                backup_path=backup_path,
-                timestamp=timestamp
-            ))
+                
+                changes.append(DirectFileWriterAppliedChange(
+                    file_path=str(file_path),
+                    backup_path=backup_path,
+                    timestamp=timestamp
+                ))
+                
+            except Exception as e:
+                # Rollback on error
+                if backup_path and Path(backup_path).exists():
+                    self._restore_from_backup(file_path, backup_path)
+                raise e
         
         return changes
     
@@ -84,3 +99,9 @@ class DirectFileWriter(IOutputWriter):
             temp_path = Path(temp_file.name)
         
         temp_path.replace(file_path)
+    
+    def _restore_from_backup(self, file_path: Path, backup_path: str) -> None:
+        """Restore file from backup."""
+        backup = Path(backup_path)
+        if backup.exists():
+            backup.replace(file_path)
