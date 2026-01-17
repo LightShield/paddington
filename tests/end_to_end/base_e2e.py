@@ -129,15 +129,24 @@ class BaseE2ETest:
             # - Recompile and verify size changed
             pass
     
-    def compile_cpp(self, cpp_file, output_name="test.o"):
-        """Compile C++ file and return .o file path."""
-        obj_file = cpp_file.parent / output_name
-        result = subprocess.run(
-            ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],  # -O0 to preserve debug info
-            capture_output=True
-        )
-        assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
-        return obj_file
+    def compile_cpp(self, cpp_content, output_name="test.o"):
+        """Compile C++ content and return .o file path."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cpp_file = tmp_path / "test.cpp"
+            cpp_file.write_text(cpp_content)
+            obj_file = tmp_path / output_name
+            result = subprocess.run(
+                ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],  # -O0 to preserve debug info
+                capture_output=True
+            )
+            assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
+            # Copy to current directory so it persists
+            import shutil
+            persistent_obj = Path(output_name)
+            shutil.copy2(obj_file, persistent_obj)
+            return persistent_obj
     
     def run_optimize(self, obj_file, **kwargs):
         """Run optimize command (use Docker on macOS if available)."""
