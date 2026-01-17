@@ -46,7 +46,14 @@ class TestSourceTransformationFamily(BaseE2ETest):
     
     @pytest.mark.e2e
     def test_transform_constructor_init_list(self, tmp_path):
-        """Verifies: FR-1.1.3 - Initializer list: a(x), b(y) → b(y), a(x)"""
+        """Test constructor initializer list reordering.
+        
+        Verifies: FR-1.1.3 (Source Code Transformation - Constructor Init Lists)
+        
+        CRITICAL: Initializer list must match member declaration order.
+        Members initialize in declaration order, not init list order.
+        Mismatched order causes -Wreorder warnings and -Werror failures.
+        """
         test_case = E2ETestCase(
             name="transform_constructor_init_list",
             cpp_code="""
@@ -83,7 +90,13 @@ class TestSourceTransformationFamily(BaseE2ETest):
     
     @pytest.mark.e2e
     def test_transform_aggregate_init(self, tmp_path):
-        """Verifies: FR-1.1.3 - {1, 2, 3} → {2, 1, 3}"""
+        """Test aggregate initialization reordering.
+        
+        Verifies: FR-1.1.3 (Source Code Transformation - Aggregate Init)
+        
+        CRITICAL: Aggregate init order must match member declaration order.
+        Compilation error if mismatched.
+        """
         test_case = E2ETestCase(
             name="transform_aggregate_init",
             cpp_code="""
