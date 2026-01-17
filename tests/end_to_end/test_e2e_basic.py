@@ -44,14 +44,15 @@ class TestBasicFunctionality(BaseE2ETest):
     
     @pytest.mark.e2e
     def test_simple_struct_with_patch(self, tmp_path):
-        """Test patch generation."""
+        """Test patch generation with actual padding savings."""
         test_case = E2ETestCase(
             name="simple_struct_patch",
             cpp_code="""
             struct Data {
-                char flag;
-                int id;
-                double score;
+                char flag;     // 1 byte
+                int id;        // 4 bytes (3 bytes padding before)
+                char status;   // 1 byte
+                double score;  // 8 bytes (7 bytes padding before)
             };
             int main() { Data d; return 0; }
             """,
@@ -63,11 +64,11 @@ class TestBasicFunctionality(BaseE2ETest):
             expected_structs=[
                 StructExpectation(
                     name="Data",
-                    size_before=16,
-                    size_after=16,
-                    member_order_before=['flag', 'id', 'score'],
-                    member_order_after=['score', 'id', 'flag'],
-                    padding_saved=0,
+                    size_before=24,  # char + pad(3) + int + char + pad(7) + double
+                    size_after=16,   # double + int + char + char + pad(2)
+                    member_order_before=['flag', 'id', 'status', 'score'],
+                    member_order_after=['score', 'id', 'flag', 'status'],
+                    padding_saved=8,
                     should_optimize=True
                 )
             ],
@@ -79,13 +80,14 @@ class TestBasicFunctionality(BaseE2ETest):
     
     @pytest.mark.e2e
     def test_simple_struct_with_file_output(self, tmp_path):
-        """Test direct file modification."""
+        """Test direct file modification with padding savings."""
         test_case = E2ETestCase(
             name="simple_struct_file",
             cpp_code="""
             struct Data {
-                char a;
-                int b;
+                char a;        // 1 byte
+                int b;         // 4 bytes (3 bytes padding before)
+                char c;        // 1 byte
             };
             int main() { Data d; return 0; }
             """,
@@ -97,11 +99,11 @@ class TestBasicFunctionality(BaseE2ETest):
             expected_structs=[
                 StructExpectation(
                     name="Data",
-                    size_before=8,
-                    size_after=8,
-                    member_order_before=['a', 'b'],
-                    member_order_after=['b', 'a'],
-                    padding_saved=0,
+                    size_before=12,  # char + pad(3) + int + char + pad(3)
+                    size_after=8,    # int + char + char + pad(2)
+                    member_order_before=['a', 'b', 'c'],
+                    member_order_after=['b', 'a', 'c'],
+                    padding_saved=4,
                     should_optimize=True
                 )
             ],
