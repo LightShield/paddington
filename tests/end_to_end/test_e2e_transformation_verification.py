@@ -32,8 +32,14 @@ struct Data {
             temp_file = f.name
         
         try:
+            # Compile to .o file
+            obj_file = temp_file.replace('.cpp', '.o')
+            import subprocess
+            compile_result = subprocess.run(['g++', '-g', '-O0', '-c', temp_file, '-o', obj_file], capture_output=True)
+            assert compile_result.returncode == 0, f"Compilation failed: {compile_result.stderr.decode()}"
+            
             # Apply optimization
-            result = self.run_paddington([temp_file, '--apply'])
+            result = self.run_paddington([obj_file, '--apply'])
             assert result.returncode == 0
             
             # Read transformed source
@@ -80,8 +86,14 @@ struct Data {
             temp_file = f.name
         
         try:
+            # Compile to .o file
+            obj_file = temp_file.replace('.cpp', '.o')
+            import subprocess
+            compile_result = subprocess.run(['g++', '-g', '-O0', '-c', temp_file, '-o', obj_file], capture_output=True)
+            assert compile_result.returncode == 0, f"Compilation failed: {compile_result.stderr.decode()}"
+            
             # Apply optimization
-            result = self.run_paddington([temp_file, '--apply'])
+            result = self.run_paddington([obj_file, '--apply'])
             assert result.returncode == 0
             
             # Read transformed source
@@ -118,8 +130,14 @@ int main() {
             temp_file = f.name
         
         try:
+            # Compile to .o file
+            obj_file = temp_file.replace('.cpp', '.o')
+            import subprocess
+            compile_result = subprocess.run(['g++', '-g', '-O0', '-c', temp_file, '-o', obj_file], capture_output=True)
+            assert compile_result.returncode == 0, f"Compilation failed: {compile_result.stderr.decode()}"
+            
             # Apply optimization
-            result = self.run_paddington([temp_file, '--apply'])
+            result = self.run_paddington([obj_file, '--apply'])
             assert result.returncode == 0
             
             # Read transformed source
@@ -160,8 +178,14 @@ int main() {
             temp_file = f.name
         
         try:
+            # Compile to .o file
+            obj_file = temp_file.replace('.cpp', '.o')
+            import subprocess
+            compile_result = subprocess.run(['g++', '-g', '-O0', '-c', temp_file, '-o', obj_file], capture_output=True)
+            assert compile_result.returncode == 0, f"Compilation failed: {compile_result.stderr.decode()}"
+            
             # Apply optimization
-            result = self.run_paddington([temp_file, '--apply'])
+            result = self.run_paddington([obj_file, '--apply'])
             assert result.returncode == 0
             
             # Read transformed source
