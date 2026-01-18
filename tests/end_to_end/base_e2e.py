@@ -314,3 +314,13 @@ class BaseE2ETest:
     def assert_output_contains(self, result, text):
         """Assert output contains text (backward compatibility)."""
         assert text in result.stdout, f"Expected '{text}' in output"
+    
+    def run_paddington(self, args):
+        """Run paddington command (backward compatibility)."""
+        cmd = ['python', '__main__.py'] + args
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent.parent
+        )
