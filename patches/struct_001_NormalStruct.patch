@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpztpjgwdv.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpeki6two5.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmphj37yy_9.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3gvwyw53.cpp
 index 6d0f0b6..daa39cc 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpztpjgwdv.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpeki6two5.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmphj37yy_9.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3gvwyw53.cpp
 @@ -8,7 +8,7 @@ struct IgnoredStruct {
  
  struct NormalStruct {
