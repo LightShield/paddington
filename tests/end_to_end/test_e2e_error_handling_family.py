@@ -183,7 +183,7 @@ struct GracefulStruct {
         obj_file = self.compile_cpp(cpp_content)
         
         # Test with potentially problematic but not fatal conditions
-        result = self.run_optimize(obj_file, ["optimize", "--verbose"])
+        result = self.run_optimize(obj_file, ["--verbose"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
