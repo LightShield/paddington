@@ -23,12 +23,12 @@ struct Point {
         if "ImportError" in result_dwarf.stderr or "ModuleNotFoundError" in result_dwarf.stderr:
             pytest.skip("Application has import issues")
         
-        # Test with Mach-O extractor (if available)
-        result_macho = self.run_optimize(cpp_file, ["--extractor", "macho"])
+        # Test with pahole extractor
+        result_pahole = self.run_optimize(cpp_file, ["--extractor", "pahole"])
         
         # Both should succeed or gracefully handle unavailable extractors
         assert result_dwarf.returncode == 0 or "not available" in result_dwarf.stderr.lower()
-        assert result_macho.returncode == 0 or "not available" in result_macho.stderr.lower()
+        assert result_pahole.returncode == 0 or "not available" in result_pahole.stderr.lower()
     
     @pytest.mark.e2e
     def test_swap_transformer_srcml_to_lineswap(self):
