@@ -288,3 +288,11 @@ class BaseE2ETest:
         actual_order = [m[0] for m in sorted_members]
         
         return actual_order == expected_order
+    
+    def assert_success(self, result):
+        """Assert command succeeded (backward compatibility)."""
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+    
+    def assert_output_contains(self, result, text):
+        """Assert output contains text (backward compatibility)."""
+        assert text in result.stdout, f"Expected '{text}' in output"
