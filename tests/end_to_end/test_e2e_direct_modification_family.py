@@ -81,7 +81,7 @@ struct Data {
         self.assert_success(result)
         
         # Check for backup file (common patterns)
-        backup_patterns = [cpp_file + ".bak", cpp_file + ".backup", cpp_file + "~"]
+        backup_patterns = [str(cpp_file) + ".bak", str(cpp_file) + ".backup", str(cpp_file) + "~"]
         backup_exists = any(os.path.exists(pattern) for pattern in backup_patterns)
         # Note: backup creation is implementation dependent
     
