@@ -233,12 +233,13 @@ class TestMemberReordering(BaseE2ETest):
             expected_structs=[
                 StructExpectation(
                     name="Bits",
-                    size_before=12,
-                    size_after=8,
+                    size_before=4,   # Bitfields pack tightly
+                    size_after=4,    # No optimization possible
                     member_order_before=['a', 'b', 'c', 'd'],
-                    member_order_after=['b', 'c', 'a', 'd'],
-                    padding_saved=4,
-                    should_optimize=True
+                    member_order_after=['a', 'b', 'c', 'd'],
+                    padding_saved=0,
+                    should_optimize=False,  # Bitfields shouldn't be reordered
+                    skip_reason="bitfields"
                 )
             ],
             should_succeed=True,
