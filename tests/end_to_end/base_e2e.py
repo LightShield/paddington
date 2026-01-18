@@ -140,16 +140,23 @@ class BaseE2ETest:
             # - Recompile and verify size changed
             pass
     
-    def compile_cpp(self, cpp_content, output_name="test.o", tmp_path=None):
-        """Compile C++ content and return .o file path."""
+    def compile_cpp(self, cpp_content_or_file, output_name="test.o", tmp_path=None):
+        """Compile C++ content or file and return .o file path."""
         if tmp_path is None:
             import tempfile
             tmp_path = Path(tempfile.mkdtemp())
         else:
             tmp_path = Path(tmp_path)
         
-        cpp_file = tmp_path / "test.cpp"
-        cpp_file.write_text(cpp_content)
+        # Handle both string content and Path to existing file
+        if isinstance(cpp_content_or_file, (str, Path)) and Path(cpp_content_or_file).exists():
+            # It's a path to existing file
+            cpp_file = Path(cpp_content_or_file)
+        else:
+            # It's string content
+            cpp_file = tmp_path / "test.cpp"
+            cpp_file.write_text(str(cpp_content_or_file))
+        
         obj_file = tmp_path / output_name
         result = subprocess.run(
             ['g++', '-g', '-O0', '-c', str(cpp_file), '-o', str(obj_file)],
