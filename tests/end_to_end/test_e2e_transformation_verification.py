@@ -44,7 +44,7 @@ int main() {
             assert compile_result.returncode == 0, f"Compilation failed: {compile_result.stderr.decode()}"
             
             # Apply optimization
-            result = self.run_paddington([obj_file, '--apply', '--output', 'file'])
+            result = self.run_paddington([obj_file, '--apply', '--output', 'file', '--transformer', 'line-swap'])
             assert result.returncode == 0
             
             # Read transformed source
