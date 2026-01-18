@@ -145,12 +145,13 @@ class TestE2EConstructorDependencies(BaseE2ETest):
             flags={'extractor': 'dwarf'},
             expected_structs=[StructExpectation(
                 name="Partial",
-                size_before=32,
-                size_after=24,
+                size_before=24,  # char + pad(3) + int + char* + char + pad(7)
+                size_after=24,   # No optimization due to dependencies
                 member_order_before=["free1", "size", "buffer", "free2"],
-                member_order_after=["size", "buffer", "free1", "free2"],
-                padding_saved=8,
-                should_optimize=True
+                member_order_after=["free1", "size", "buffer", "free2"],  # Can't reorder due to buffer depending on size
+                padding_saved=0,
+                should_optimize=False,
+                skip_reason="constructor dependencies"
             )],
             should_succeed=True
         )
