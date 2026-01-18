@@ -1,4 +1,4 @@
-refactor: Optimize padding for AfterRegion
+refactor: Optimize padding for OuterRegion
 
 Reorder members from largest to smallest.
 Saves 0 bytes per instance.

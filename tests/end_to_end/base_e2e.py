@@ -147,8 +147,20 @@ class BaseE2ETest:
         assert result.returncode == 0, f"Compilation failed: {result.stderr.decode()}"
         return obj_file
     
-    def run_optimize(self, obj_file, **kwargs):
+    def run_optimize(self, obj_file, extra_args=None, **kwargs):
         """Run optimize command (use Docker on macOS if available)."""
+        # Handle old API (list of args) and new API (kwargs)
+        if extra_args is not None:
+            # Old API: run_optimize(obj_file, ["--apply", "--output", "file"])
+            cmd = ['python', '__main__.py', str(obj_file)] + extra_args
+            return subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent.parent.parent
+            )
+        
+        # New API: run_optimize(obj_file, apply=True, output="file")
         # On macOS, use Docker if available
         if not SUPPORTS_ELF and HAS_DOCKER:
             return self._run_optimize_docker(obj_file, **kwargs)
