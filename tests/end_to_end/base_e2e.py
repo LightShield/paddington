@@ -87,7 +87,9 @@ class BaseE2ETest:
         structs_before = self.extract_structs_from_dwarf(obj_file)
         
         # 4. Verify expected structs exist in DWARF (if extractor works)
-        extraction_works = len(structs_before) > 0
+        # If test expects 0 structs, extraction returning 0 is valid
+        expects_structs = any(e.should_optimize for e in test_case.expected_structs)
+        extraction_works = len(structs_before) > 0 or not expects_structs
         
         if not extraction_works:
             # Check if it's a platform issue
