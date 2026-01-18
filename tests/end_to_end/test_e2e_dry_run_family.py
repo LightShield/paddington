@@ -38,7 +38,7 @@ struct Data {
         cpp_file = self.compile_cpp(cpp_content)
         original_mtime = os.path.getmtime(cpp_file)
         
-        result = self.run_optimize(cpp_file, ["--dry-run"])
+        result = self.run_optimize(cpp_file, [])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -77,7 +77,7 @@ struct Item {
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--dry-run"])
+        result = self.run_optimize(cpp_file, [])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -102,7 +102,7 @@ struct Vector {
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--dry-run"])
+        result = self.run_optimize(cpp_file, [])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
