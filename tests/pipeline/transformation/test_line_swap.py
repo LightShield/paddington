@@ -83,7 +83,9 @@ class TestLineSwapTransformer:
         member_lines = {"a": 1, "b": 2, "c": 3}
         new_order = ["b", "c", "a"]  # Swap order
         
-        result = transformer._apply_swaps(lines, member_lines, new_order)
+        result = transformer._apply_swaps_with_access_modifiers(
+            lines, member_lines, {}, new_order, "preserve", 0, len(lines)-1
+        )
         
         # Check that lines were swapped correctly
         assert result[1] == "    double b;\n"  # b moved to first position
