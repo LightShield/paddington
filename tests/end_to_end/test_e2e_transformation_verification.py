@@ -25,6 +25,11 @@ struct Data {
     int b;
     char c;
 };
+
+int main() {
+    Data d;
+    return 0;
+}
 """
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.cpp', delete=False) as f:
