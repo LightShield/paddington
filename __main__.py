@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--extractor", choices=["pahole", "dwarf"],
                          default="dwarf", help="Extraction method")
     parser.add_argument("--transformer", choices=["srcml", "line-swap"],
-                         default="line-swap", help="Transformation method")
+                         default="line-swap", help="Transformation method (default: line-swap, srcml for better formatting)")
     parser.add_argument("--output", choices=["patch", "file"],
                          default="patch", help="Output method")
     parser.add_argument("--patch-dir", type=Path, default=Path("./patches"),

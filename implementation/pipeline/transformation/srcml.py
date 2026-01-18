@@ -55,7 +55,7 @@ class SrcMLTransformer(ISourceTransformer):
         # Parse and modify XML
         modified_xml = self._modify_xml(xml_content, modification.struct_name)
         if not modified_xml:
-            return original_content  # Return original if no changes
+            return None  # Return None if no changes
             
         # Convert XML back to source
         new_content = self._xml_to_source(modified_xml)
