@@ -1,0 +1,14 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpm7j_zukp.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_1phw0qs.cpp
+index 742238f..11385d8 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpm7j_zukp.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_1phw0qs.cpp
+@@ -1,8 +1,8 @@
+ 
+             // PADDINGTON-IGNORE
+             struct UpperCaseIgnored {
+-                char a;
+                 int b;
++                char a;
+             };
+             // Paddington-Ignore
+             struct MixedCaseIgnored {

@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpu7kcmu9j.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpnpun3plq.cpp
+index 5983060..b4fecbe 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpu7kcmu9j.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpnpun3plq.cpp
+@@ -1,7 +1,7 @@
+ 
+             struct Base {
+-                char a;
+                 int b;
++                char a;
+             };
+             struct Derived : Base {
+                 char c;

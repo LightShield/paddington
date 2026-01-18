@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdx6ry4x_.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw6f_a188.cpp
+index 24427e0..4c088d5 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdx6ry4x_.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw6f_a188.cpp
+@@ -1,7 +1,7 @@
+ 
+ struct FirstBefore {
+     char small1;
+-    int large[30];
++    char small1;
+     char small2;
+ };
+ 

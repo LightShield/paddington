@@ -1,0 +1,15 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdwuiitv9.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn4c2jtep.cpp
+index 5983060..42fe5e5 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdwuiitv9.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn4c2jtep.cpp
+@@ -4,8 +4,8 @@
+                 int b;
+             };
+             struct Derived : Base {
+-                char c;
+                 double d;
++                char c;
+             };
+             int main() { Derived d; return 0; }
+             
+\ No newline at end of file

@@ -1,0 +1,14 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd7z_xzb3.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpz8uq3gxb.cpp
+index 1d95166..68bce3c 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd7z_xzb3.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpz8uq3gxb.cpp
+@@ -10,8 +10,8 @@
+             };
+             // paddington-ignore
+             struct SecondIgnored {
+-                char a;
+                 int b;
++                char a;
+             };
+             int main() {
+                 FirstIgnored first;

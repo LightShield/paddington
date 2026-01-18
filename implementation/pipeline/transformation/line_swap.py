@@ -159,20 +159,16 @@ class LineSwapTransformer(ISourceTransformer):
     
     def _extract_new_order(self, mod: SourceModification) -> List[str]:
         """Extract new member order from modifications."""
-        # Simple approach: extract from modification content
         new_order = []
         for modification in mod.modifications:
             if modification.type == 'reorder':
                 # Parse new content for member names
+                # Format: "members: a, b, c"
                 content = modification.new_content
-                for line in content.split('\n'):
-                    line = line.strip()
-                    if ';' in line and '(' not in line[:line.find(';')]:
-                        tokens = line[:line.find(';')].split()
-                        if tokens:
-                            member_name = tokens[-1].rstrip('[]')
-                            if member_name not in new_order:
-                                new_order.append(member_name)
+                if content.startswith("members: "):
+                    members_str = content[9:]  # Skip "members: "
+                    new_order = [m.strip() for m in members_str.split(',')]
+                    break
         return new_order
     
     def _get_access_strategy(self, mod: SourceModification) -> str:

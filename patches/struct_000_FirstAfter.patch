@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd3h8_s8m.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpv5s4tb7e.cpp
+index 24427e0..7e2d220 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd3h8_s8m.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpv5s4tb7e.cpp
+@@ -21,7 +21,7 @@ struct InRegion {
+ 
+ struct FirstAfter {
+     char small1;
+-    int large[40];
++    char small1;
+     char small2;
+ };
+ 

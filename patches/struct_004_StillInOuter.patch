@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd502ysmt.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp30a2qgon.cpp
+index 8bc95d4..4f3e176 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd502ysmt.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp30a2qgon.cpp
+@@ -22,7 +22,7 @@ struct InnerRegion {
+ 
+ struct StillInOuter {
+     char small1;
+-    int large[150];
++    char small1;
+     char small2;
+ };
+ // paddington-on

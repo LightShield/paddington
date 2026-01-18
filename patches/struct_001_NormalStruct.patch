@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0feqqdrk.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpyjadunso.cpp
+index 6d0f0b6..daa39cc 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0feqqdrk.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpyjadunso.cpp
+@@ -8,7 +8,7 @@ struct IgnoredStruct {
+ 
+ struct NormalStruct {
+     char small1;
+-    int large[50];
++    char small1;
+     char small2;
+ };
+ 

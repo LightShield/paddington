@@ -1,0 +1,13 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp67m0r585.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3wv66xhd.cpp
+index 8bc95d4..156ae1a 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp67m0r585.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3wv66xhd.cpp
+@@ -1,7 +1,7 @@
+ 
+ struct BeforeRegion {
+     char small1;
+-    int large[30];
++    char small1;
+     char small2;
+ };
+ 

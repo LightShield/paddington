@@ -1,0 +1,14 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_35gewga.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf9iw6coe.cpp
+index d091f74..e643147 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_35gewga.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf9iw6coe.cpp
+@@ -2,8 +2,8 @@
+ #include <memory>
+ 
+ struct Data {
+-    char a;
+     int b;
++    char a;
+     char c;
+     
+     Data(char a, int b, char c) : a(a), b(b), c(c) {}

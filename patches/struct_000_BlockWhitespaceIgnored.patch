@@ -1,0 +1,14 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7_9i_c61.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpzbx_w2tp.cpp
+index 420b9bb..7c69872 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7_9i_c61.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpzbx_w2tp.cpp
+@@ -6,8 +6,8 @@
+             };
+             /*  paddington-ignore  */
+             struct BlockWhitespaceIgnored {
+-                char a;
+                 int b;
++                char a;
+             };
+             struct ProcessedStruct {
+                 char a;
