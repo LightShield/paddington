@@ -1,6 +1,7 @@
 import pytest
 import os
 import subprocess
+from pathlib import Path
 from .base_e2e import BaseE2ETest
 
 
@@ -29,12 +30,12 @@ struct SingleFile {
     @pytest.mark.e2e
     def test_progress_multiple_files(self):
         """Verifies: FR-1.9.1 - Progress reporting for multiple files"""
-        cpp1 = "struct A { char x; int y; };"
-        cpp2 = "struct B { char x; int y; };"
+        cpp1 = "struct A { char x; int y; }; int main() { A a; return 0; }"
+        cpp2 = "struct B { char x; int y; }; int main() { B b; return 0; }"
         
-        self.compile_cpp(cpp1)
-        self.create_file("test2.cpp", cpp2)
-        subprocess.run(["g++", "-c", "-g", "test2.cpp", "-o", "test2.o"], 
+        self.compile_cpp(cpp1, tmp_path=self.temp_dir)
+        cpp2_file = self.create_file("test2.cpp", cpp2)
+        subprocess.run(["g++", "-c", "-g", "-O0", str(cpp2_file), "-o", str(Path(self.temp_dir) / "test2.o")], 
                       capture_output=True, text=True)
         
         result = self.run_optimize(self.temp_dir, [])
