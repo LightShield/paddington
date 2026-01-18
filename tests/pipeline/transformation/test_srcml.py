@@ -87,7 +87,7 @@ class TestSrcMLTransformer:
         struct_node = ET.fromstring(xml_content)
         original_children = len(list(struct_node))
         
-        self.transformer._reorder_members(struct_node)
+        self.transformer._reorder_members(struct_node, ['member'])
         
         # Should not change structure with single member
         assert len(list(struct_node)) == original_children
@@ -147,6 +147,8 @@ class TestSrcMLTransformer:
     @pytest.mark.unit
     def test_modify_xml_struct_not_found(self):
         """Test XML modification when struct is not found."""
+        from implementation.struct_data import SourceModification, Modification, Location
+        
         xml_content = '''
         <unit xmlns="http://www.srcML.org/srcML/src">
             <struct>
@@ -154,7 +156,19 @@ class TestSrcMLTransformer:
             </struct>
         </unit>
         '''
-        result = self.transformer._modify_xml(xml_content, "TestStruct")
+        mod = SourceModification(
+            file_path="test.cpp",
+            struct_name="TestStruct",
+            modifications=tuple([
+                Modification(
+                    type="reorder",
+                    location=Location(file="test.cpp", line=1, column=0),
+                    old_content="members: a, b",
+                    new_content="members: b, a"
+                )
+            ])
+        )
+        result = self.transformer._modify_xml(xml_content, mod)
         assert result is None
 
 

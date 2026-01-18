@@ -53,7 +53,7 @@ class SrcMLTransformer(ISourceTransformer):
             return None
             
         # Parse and modify XML
-        modified_xml = self._modify_xml(xml_content, modification.struct_name)
+        modified_xml = self._modify_xml(xml_content, modification)
         if not modified_xml:
             return None  # Return None if no changes
             
@@ -96,22 +96,36 @@ class SrcMLTransformer(ISourceTransformer):
         except Exception:
             return None
     
-    def _modify_xml(self, xml_content: str, struct_name: str) -> Optional[str]:
+    def _modify_xml(self, xml_content: str, modification: SourceModification) -> Optional[str]:
         """Modify XML to reorder struct members."""
         try:
             root = ET.fromstring(xml_content)
             
+            # Extract new member order from modification
+            new_order = self._extract_new_order(modification)
+            if not new_order:
+                return None
+            
             # Find struct node by name
-            struct_node = self._find_struct_node(root, struct_name)
+            struct_node = self._find_struct_node(root, modification.struct_name)
             if struct_node is None:
                 return None
                 
             # Reorder member declarations
-            self._reorder_members(struct_node)
+            self._reorder_members(struct_node, new_order)
             
             return ET.tostring(root, encoding='unicode')
         except ET.ParseError:
             return None
+    
+    def _extract_new_order(self, mod: SourceModification) -> list:
+        """Extract new member order from modifications."""
+        for m in mod.modifications:
+            if m.type == 'reorder':
+                content = m.new_content
+                if content.startswith("members: "):
+                    return [n.strip() for n in content[9:].split(',')]
+        return []
     
     def _find_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
         """Find struct node by name in XML tree."""
@@ -124,30 +138,50 @@ class SrcMLTransformer(ISourceTransformer):
                         return elem
         return None
     
-    def _reorder_members(self, struct_node: ET.Element) -> None:
-        """Reorder member declarations within struct."""
-        # Find all member declarations
-        members = []
-        for elem in struct_node:
-            if elem.tag.endswith('decl_stmt') or elem.tag.endswith('function_decl'):
-                members.append(elem)
+    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> None:
+        """Reorder member declarations within struct according to new_order."""
+        # Find block element (struct body)
+        block = None
+        for child in struct_node:
+            if child.tag.endswith('block'):
+                block = child
+                break
         
-        if len(members) <= 1:
+        if block is None:
             return
-            
-        # Simple reordering strategy: group by access modifiers
-        public_members = []
-        private_members = []
-        protected_members = []
-        other_members = []
         
-        for member in members:
-            access_type = self._get_access_modifier(member)
-            if access_type == 'public':
-                public_members.append(member)
-            elif access_type == 'private':
-                private_members.append(member)
-            elif access_type == 'protected':
+        # Find all member declaration statements
+        member_decls = {}
+        for elem in list(block):
+            if elem.tag.endswith('decl_stmt'):
+                # Extract member name
+                for decl in elem.iter():
+                    if decl.tag.endswith('name') and decl.text:
+                        member_name = decl.text
+                        if member_name in new_order:
+                            member_decls[member_name] = elem
+                            break
+        
+        if not member_decls or len(member_decls) != len(new_order):
+            return
+        
+        # Remove all member declarations from block
+        for elem in list(block):
+            if elem.tag.endswith('decl_stmt'):
+                block.remove(elem)
+        
+        # Re-add in new order
+        # Find where to insert (after access specifiers, before methods)
+        insert_index = 0
+        for i, elem in enumerate(block):
+            if elem.tag.endswith('public') or elem.tag.endswith('private') or elem.tag.endswith('protected'):
+                insert_index = i + 1
+                break
+        
+        # Insert members in new order
+        for i, member_name in enumerate(new_order):
+            if member_name in member_decls:
+                block.insert(insert_index + i, member_decls[member_name])
                 protected_members.append(member)
             else:
                 other_members.append(member)
