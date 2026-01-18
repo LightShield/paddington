@@ -16,10 +16,11 @@ from ...padding_analysis.directive_parser import parse_directives
 class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
     """Analyze structs iteratively with size propagation."""
     
-    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve", source_file: str = ""):
+    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve", source_file: str = "", struct_names: list = None):
         self.min_savings = min_savings
         self.access_modifier_strategy = access_modifier_strategy
         self.source_file = source_file
+        self.struct_names = struct_names or []
     
     def process(self, structs: List[StructInfo]) -> List[OptimizationPlan]:
         """Process structs in dependency order with size propagation."""
@@ -28,6 +29,11 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         
         # Filter out system headers
         structs = [s for s in structs if s.file_path and not self._is_system_header(s.file_path)]
+        
+        # Filter by struct names if specified
+        if self.struct_names:
+            import fnmatch
+            structs = [s for s in structs if any(fnmatch.fnmatch(s.name, pattern) for pattern in self.struct_names)]
         
         if not structs:
             return []

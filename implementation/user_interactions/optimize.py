@@ -77,7 +77,8 @@ def run(args):
     # Build pipeline
     extraction_stage = ExtractionStage(extractor)
     analysis_stage = AnalysisStage(min_savings=args.min_savings, 
-                                   access_modifier_strategy=args.access_modifier_strategy)
+                                   access_modifier_strategy=args.access_modifier_strategy,
+                                   struct_names=args.struct_names or [])
     planning_stage = PlanningStage(access_modifier_strategy=args.access_modifier_strategy)
     transformation_stage = TransformationStage(transformer)
     output_stage = OutputStage(writer)

@@ -31,6 +31,7 @@ def main():
                          help="Directory for patches (default: ./patches)")
     parser.add_argument("--include", action="append", help="Include file pattern")
     parser.add_argument("--exclude", action="append", help="Exclude file pattern")
+    parser.add_argument("--struct-names", action="append", help="Only optimize specific struct names")
     parser.add_argument("-v", "--verbose", action="count", default=1,
                          help="Increase verbosity (-v, -vv, -vvv)")
     
