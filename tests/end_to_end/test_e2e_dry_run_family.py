@@ -58,7 +58,7 @@ struct Config {
 """
         cpp_file = self.compile_cpp(cpp_content)
         
-        result = self.run_optimize(cpp_file, ["--dry-run", "--output", "patch", "--patch-dir", self.temp_dir])
+        result = self.run_optimize(cpp_file, ["--output", "patch", "--patch-dir", self.temp_dir])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")

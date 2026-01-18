@@ -149,7 +149,17 @@ class BaseE2ETest:
             tmp_path = Path(tmp_path)
         
         # Handle both string content and Path to existing file
-        if isinstance(cpp_content_or_file, (str, Path)) and Path(cpp_content_or_file).exists():
+        is_file = False
+        if isinstance(cpp_content_or_file, Path):
+            is_file = cpp_content_or_file.exists()
+        elif isinstance(cpp_content_or_file, str) and len(cpp_content_or_file) < 256:
+            # Only check exists if string is short (could be a path)
+            try:
+                is_file = Path(cpp_content_or_file).exists()
+            except (OSError, ValueError):
+                is_file = False
+        
+        if is_file:
             # It's a path to existing file
             cpp_file = Path(cpp_content_or_file)
         else:
