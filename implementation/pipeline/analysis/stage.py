@@ -26,6 +26,12 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         if not structs:
             return []
         
+        # Filter out system headers
+        structs = [s for s in structs if s.file_path and not self._is_system_header(s.file_path)]
+        
+        if not structs:
+            return []
+        
         # Parse directives if source file provided
         directives = {}
         if self.source_file:
@@ -172,6 +178,16 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
     def validate_input(self, structs: List[StructInfo]) -> bool:
         """Validate input structs."""
         return isinstance(structs, list) and all(isinstance(s, StructInfo) for s in structs)
+    
+    def _is_system_header(self, file_path: str) -> bool:
+        """Check if file is a system header."""
+        system_paths = [
+            '/usr/include/',
+            '/usr/local/include/',
+            '/Library/Developer/',
+            '/Applications/Xcode.app/',
+        ]
+        return any(file_path.startswith(path) for path in system_paths)
 
 
 def _violates_dependencies(original_members, optimal_members, dependencies):
