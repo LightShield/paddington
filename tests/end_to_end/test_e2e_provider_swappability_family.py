@@ -138,7 +138,7 @@ struct Point {
         cpp_file = self.compile_cpp(cpp_content)
         
         # Test with potentially unavailable provider
-        result = self.run_optimize(cpp_file, ["--extractor", "macho"])
+        result = self.run_optimize(cpp_file, ["--extractor", "dwarf"])
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
         
