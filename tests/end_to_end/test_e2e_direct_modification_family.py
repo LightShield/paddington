@@ -2,6 +2,7 @@ import pytest
 import os
 import stat
 import shutil
+import subprocess
 from .base_e2e import BaseE2ETest
 
 
@@ -50,10 +51,11 @@ struct Vector {
         obj_file2 = os.path.join(self.temp_dir, "test2.o")
         
         # Compile second file
-        cmd = ["g++", "-c", "-g", cpp_file2, "-o", obj_file2]
+        cmd = ["g++", "-c", "-g", str(cpp_file2), "-o", obj_file2]
         subprocess.run(cmd, capture_output=True, text=True)
         
-        result = self.run_paddington([cpp_file1, obj_file2], ["--apply", "--output", "file"])
+        # Run on directory (not individual files)
+        result = self.run_paddington([self.temp_dir, "--apply", "--output", "file"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
