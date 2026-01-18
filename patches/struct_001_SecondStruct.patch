@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps15ov3hx.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdjrtq6pf.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4h80t61f.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqlwdb20n.cpp
 index cb6de31..2972601 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps15ov3hx.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdjrtq6pf.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4h80t61f.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqlwdb20n.cpp
 @@ -8,7 +8,7 @@ struct FirstStruct {
  
  struct SecondStruct {
