@@ -48,7 +48,7 @@ struct Point {
             pytest.skip("Application has import issues")
         
         # Test with lineswap transformer
-        result_lineswap = self.run_optimize(cpp_file, ["--transformer", "lineswap"])
+        result_lineswap = self.run_optimize(cpp_file, ["--transformer", "line-swap"])
         
         # Both should succeed or gracefully handle unavailable transformers
         assert result_srcml.returncode == 0 or "not available" in result_srcml.stderr.lower()
@@ -92,7 +92,7 @@ struct Point {
         
         combinations = [
             ["--extractor", "dwarf", "--transformer", "srcml", "--output", "patch"],
-            ["--extractor", "dwarf", "--transformer", "lineswap", "--output", "file"],
+            ["--extractor", "dwarf", "--transformer", "line-swap", "--output", "file"],
         ]
         
         for combo in combinations:
