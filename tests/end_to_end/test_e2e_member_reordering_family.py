@@ -172,11 +172,11 @@ class TestMemberReordering(BaseE2ETest):
             expected_structs=[
                 StructExpectation(
                     name="Arrays",
-                    size_before=20,
-                    size_after=18,
+                    size_before=24,  # char + pad(3) + int[2](8) + char + pad(3) + int[2](8)
+                    size_after=20,   # int[2](8) + int[2](8) + char + char + pad(2)
                     member_order_before=['a', 'b', 'c', 'd'],
                     member_order_after=['b', 'd', 'a', 'c'],
-                    padding_saved=2,
+                    padding_saved=4,
                     should_optimize=True
                 )
             ],
