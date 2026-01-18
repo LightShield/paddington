@@ -324,3 +324,9 @@ class BaseE2ETest:
             text=True,
             cwd=Path(__file__).parent.parent.parent
         )
+    
+    def create_file(self, filename, content):
+        """Create a file with content (backward compatibility)."""
+        filepath = Path(self.temp_dir) / filename
+        filepath.write_text(content)
+        return filepath
