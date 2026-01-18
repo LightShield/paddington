@@ -56,6 +56,17 @@ class E2ETestCase:
 class BaseE2ETest:
     """Base class for E2E tests with proper verification."""
     
+    def setup_method(self):
+        """Set up test fixtures."""
+        import tempfile
+        self.temp_dir = tempfile.mkdtemp()
+    
+    def teardown_method(self):
+        """Clean up test fixtures."""
+        import shutil
+        if hasattr(self, 'temp_dir') and Path(self.temp_dir).exists():
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+    
     def run_test_case(self, test_case: E2ETestCase, tmp_path):
         """Run a complete test case with verification."""
         # 1. Write and compile C++ code
