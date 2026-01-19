@@ -1,13 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0t6fc31g.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp09g9zsd4.cpp
-index 815d49e..f145d3c 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0t6fc31g.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp09g9zsd4.cpp
-@@ -1,7 +1,7 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgfra4wvc.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpq0mu8cn9.cpp
+index 815d49e..d17315e 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgfra4wvc.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpq0mu8cn9.cpp
+@@ -1,8 +1,8 @@
  
              struct Data {
 -                char a;  // first member
-                 int b;   // second member
-+                char a;  // first member
-                 char c;  // third member
+-                int b;   // second member
+-                char c;  // third member
++                int b;   char a;  char c;  // first member
++                // second member
++                // third member
              };
              int main() {
+                 Data d;  // instance

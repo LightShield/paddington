@@ -1,14 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp2j9btxyj.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmppz7_tzy6.cpp
-index 420b9bb..b9fa2fc 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp2j9btxyj.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmppz7_tzy6.cpp
-@@ -10,8 +10,8 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi67t41jg.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp28_xcpgs.cpp
+index 420b9bb..c9ddb27 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi67t41jg.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp28_xcpgs.cpp
+@@ -10,9 +10,9 @@
                  int b;
              };
              struct ProcessedStruct {
 -                char a;
                  int b;
-+                char a;
-             };
+-            };
++            char a;
++                };
              int main() {
                  WhitespaceIgnored whitespace;
+                 BlockWhitespaceIgnored blockWhitespace;

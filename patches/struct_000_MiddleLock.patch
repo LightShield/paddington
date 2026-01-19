@@ -1,16 +1,20 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpany3vguw.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpaxy_5tx9.cpp
-index ded2a44..c01722b 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpany3vguw.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpaxy_5tx9.cpp
-@@ -1,9 +1,9 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpg3swaq19.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwh21b8v4.cpp
+index ded2a44..f851253 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpg3swaq19.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwh21b8v4.cpp
+@@ -1,11 +1,11 @@
  
  struct MiddleLock {
-     char small1;
--    int large1[30];
-     int locked_middle; // paddington-lock
+-    char small1;
+     int large1[30];
+-    int locked_middle; // paddington-lock
 -    int large2[30];
-+    int locked_middle; // paddington-lock
++    int locked_middle; int large2[30];
 +    char small1;
      char small2;
- };
+-};
++// paddington-lock
++    };
  
+ int main() {
+     MiddleLock m;

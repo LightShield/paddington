@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpbv7o2pos.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpksn840a9.cpp
-index 24427e0..2135f8e 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpbv7o2pos.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpksn840a9.cpp
-@@ -14,7 +14,7 @@ struct SecondBefore {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpx8jtch81.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7mtsyjhe.cpp
+index 24427e0..2c8d828 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpx8jtch81.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7mtsyjhe.cpp
+@@ -13,8 +13,8 @@ struct SecondBefore {
+ 
  // paddington-off
  struct InRegion {
-     char small1;
--    int large[100];
+-    char small1;
+     int large[100];
 +    char small1;
      char small2;
  };

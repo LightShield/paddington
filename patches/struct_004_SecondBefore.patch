@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpiww6wwzv.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkxiahseg.cpp
-index 24427e0..eb9ae75 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpiww6wwzv.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkxiahseg.cpp
-@@ -7,7 +7,7 @@ struct FirstBefore {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpe7cxs3he.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1sclkxel.cpp
+index 24427e0..1ea8176 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpe7cxs3he.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1sclkxel.cpp
+@@ -6,8 +6,8 @@ struct FirstBefore {
+ };
  
  struct SecondBefore {
-     char small1;
--    int large[35];
+-    char small1;
+     int large[35];
 +    char small1;
      char small2;
  };

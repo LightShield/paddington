@@ -1,14 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpr3zrednv.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpytlg729t.cpp
-index 1d95166..ad10c0b 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpr3zrednv.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpytlg729t.cpp
-@@ -1,8 +1,8 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpt7adxg2_.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxof7ohjq.cpp
+index 1d95166..ebe12f2 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpt7adxg2_.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxof7ohjq.cpp
+@@ -1,9 +1,9 @@
  
              // paddington-ignore
              struct FirstIgnored {
 -                char a;
                  int b;
-+                char a;
-             };
+-            };
++            char a;
++                };
              struct ProcessedStruct {
                  char a;
+                 int b;

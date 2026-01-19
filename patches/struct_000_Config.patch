@@ -1,0 +1,18 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp5t1yj8qi.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqium_a2l.cpp
+index 323a733..47d384c 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp5t1yj8qi.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqium_a2l.cpp
+@@ -1,11 +1,9 @@
+ 
+ struct Config {
+-    char mode;
+-    static int count;
+     double value;
+-    static const char* name;
+     short id;
+-};
++char mode;
++    };
+ 
+ int Config::count = 0;
+ const char* Config::name = "config";

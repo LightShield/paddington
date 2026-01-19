@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4ymos98r.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp8ldl6d68.cpp
-index 8bc95d4..d5761b0 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4ymos98r.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp8ldl6d68.cpp
-@@ -15,7 +15,7 @@ struct OuterRegion {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpk2qycz0j.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpku0m9txr.cpp
+index 8bc95d4..56e1032 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpk2qycz0j.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpku0m9txr.cpp
+@@ -14,8 +14,8 @@ struct OuterRegion {
+ 
  // paddington-off
  struct InnerRegion {
-     char small1;
--    int large[200];
+-    char small1;
+     int large[200];
 +    char small1;
      char small2;
  };

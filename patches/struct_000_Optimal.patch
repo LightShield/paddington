@@ -1,0 +1,17 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp16d03b0h.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps0oim8dp.cpp
+index eb39cf3..2562cbc 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp16d03b0h.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps0oim8dp.cpp
+@@ -1,8 +1,8 @@
+ 
+             struct Optimal {
+-                double a;    // 8 bytes (largest first)
+-                int b;       // 4 bytes
+-                char c;      // 1 byte
++                double a;    int b;       char c;      // 8 bytes (largest first)
++                // 4 bytes
++                // 1 byte
+             };
+             int main() { Optimal o; return 0; }
+             
+\ No newline at end of file

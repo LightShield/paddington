@@ -1,13 +1,18 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvuyjnzqy.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_wd585gw.cpp
-index 920b9be..ec11599 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvuyjnzqy.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_wd585gw.cpp
-@@ -2,7 +2,7 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1ld35kd2.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkesfl5gg.cpp
+index 920b9be..9237298 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1ld35kd2.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkesfl5gg.cpp
+@@ -1,10 +1,10 @@
+ 
  struct FirstLock {
-     int locked_first; // paddington-lock
+-    int locked_first; // paddington-lock
++    int locked_first; int large[50];
      char small1;
 -    int large[50];
-+    char small1;
      char small2;
- };
+-};
++// paddington-lock
++    };
  
+ int main() {
+     FirstLock f;

@@ -1,13 +1,17 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpyzt7ty9_.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmptfzv8drb.cpp
-index 7ac341a..e3b4782 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpyzt7ty9_.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmptfzv8drb.cpp
-@@ -1,7 +1,7 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw9lrh743.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4zt6rb9y.cpp
+index 7ac341a..5ed5fc3 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw9lrh743.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4zt6rb9y.cpp
+@@ -1,9 +1,9 @@
  
  struct SingleLock {
 -    char small1;
-     int locked_field; // paddington-lock
-+    char small1;
+-    int locked_field; // paddington-lock
++    int locked_field; char small1;
      char small2;
- };
+-};
++// paddington-lock
++    };
  
+ int main() {
+     SingleLock s;

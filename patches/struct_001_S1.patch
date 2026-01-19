@@ -1,0 +1,9 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp947xc3zg.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkjgjos21.cpp
+index 86eda3f..3349c73 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp947xc3zg.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkjgjos21.cpp
+@@ -1 +1 @@
+-struct S1 { char a; int b; }; int main() { S1 s; return 0; }
+\ No newline at end of file
++struct S1 { int b; char a; }; int main() { S1 s; return 0; }
+\ No newline at end of file

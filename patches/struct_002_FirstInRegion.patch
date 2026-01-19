@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpbfidc3_f.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpj9hx7cvs.cpp
-index 9fbcf4a..fff4e50 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpbfidc3_f.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpj9hx7cvs.cpp
-@@ -8,7 +8,7 @@ struct BeforeRegion {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmphgnydxk8.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp6juvtqbd.cpp
+index 9fbcf4a..82836ea 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmphgnydxk8.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp6juvtqbd.cpp
+@@ -7,8 +7,8 @@ struct BeforeRegion {
+ 
  // paddington-off
  struct FirstInRegion {
-     char small1;
--    int large[100];
+-    char small1;
+     int large[100];
 +    char small1;
      char small2;
  };

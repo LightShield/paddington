@@ -1,0 +1,9 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf5ascenv.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmprikk8r1u.cpp
+index dee2635..aa2b485 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf5ascenv.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmprikk8r1u.cpp
+@@ -1 +1 @@
+-struct Locked { char flag; int size; char* buffer; Locked(int s) : flag(1), size(s), buffer(size > 0 ? new char[size] : nullptr) {} }; int main() { Locked l(100); return 0; }
+\ No newline at end of file
++struct Locked { int size; char* buffer; char flag; Locked(int s) : flag(1), size(s), buffer(size > 0 ? new char[size] : nullptr) {} }; int main() { Locked l(100); return 0; }
+\ No newline at end of file

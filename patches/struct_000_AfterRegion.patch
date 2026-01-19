@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp9l9vmxdf.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwcmspogm.cpp
-index 8bc95d4..795de04 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp9l9vmxdf.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwcmspogm.cpp
-@@ -29,7 +29,7 @@ struct StillInOuter {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpemadpc1y.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpoxyxlv2o.cpp
+index 8bc95d4..3c6c23d 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpemadpc1y.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpoxyxlv2o.cpp
+@@ -28,8 +28,8 @@ struct StillInOuter {
+ // paddington-on
  
  struct AfterRegion {
-     char small1;
--    int large[40];
+-    char small1;
+     int large[40];
 +    char small1;
      char small2;
  };

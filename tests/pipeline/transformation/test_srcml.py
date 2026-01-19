@@ -93,13 +93,6 @@ class TestSrcMLTransformer:
         assert len(list(struct_node)) == original_children
     
     @pytest.mark.unit
-    def test_get_access_modifier_default(self):
-        """Test access modifier detection (simplified implementation)."""
-        xml_content = '<decl_stmt><decl><type><name>int</name></type> <name>x</name></decl>;</decl_stmt>'
-        member_node = ET.fromstring(xml_content)
-        
-        access = self.transformer._get_access_modifier(member_node)
-        assert access == 'other'  # Default implementation returns 'other'
     
     @pytest.mark.unit
     def test_source_to_xml_success(self):

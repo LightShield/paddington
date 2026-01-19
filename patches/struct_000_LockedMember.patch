@@ -1,16 +1,19 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp8ho04ygh.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7j_7n38k.cpp
-index e6eb78f..93fa39f 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp8ho04ygh.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7j_7n38k.cpp
-@@ -1,9 +1,9 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0gaw_bl7.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpj0sw9esu.cpp
+index e6eb78f..842d254 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp0gaw_bl7.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpj0sw9esu.cpp
+@@ -1,11 +1,11 @@
  
  struct LockedMember {
--    char small1;
-     int locked_field; // paddington-lock
-+    int locked_field; // paddington-lock
-+    char small1;
++    int locked_field; int large[50];
+     char small1;
+-    int locked_field; // paddington-lock
      char small2;
 -    int large[50];
      char small3;
- };
+-};
++// paddington-lock
++    };
  
+ int main() {
+     LockedMember locked;

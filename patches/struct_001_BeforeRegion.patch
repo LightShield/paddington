@@ -1,12 +1,12 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4my753um.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi9ameul1.cpp
-index 8bc95d4..156ae1a 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4my753um.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi9ameul1.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpb114xjjj.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp81i78qkg.cpp
+index 8bc95d4..36a3211 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpb114xjjj.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp81i78qkg.cpp
 @@ -1,7 +1,7 @@
  
  struct BeforeRegion {
-     char small1;
--    int large[30];
+-    char small1;
+     int large[30];
 +    char small1;
      char small2;
  };

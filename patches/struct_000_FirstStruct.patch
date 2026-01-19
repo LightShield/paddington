@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3trbhn46.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxdk5st5e.cpp
-index cb6de31..fe4bab5 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp3trbhn46.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxdk5st5e.cpp
-@@ -2,7 +2,7 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4jide4jk.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_mff8b0f.cpp
+index cb6de31..cfb3afb 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4jide4jk.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_mff8b0f.cpp
+@@ -1,8 +1,8 @@
+ 
  // paddington-off
  struct FirstStruct {
-     char small1;
--    int large[100];
+-    char small1;
+     int large[100];
 +    char small1;
      char small2;
  };

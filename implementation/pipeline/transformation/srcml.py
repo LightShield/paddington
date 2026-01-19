@@ -99,6 +99,18 @@ class SrcMLTransformer(ISourceTransformer):
     def _modify_xml(self, xml_content: str, modification: SourceModification) -> Optional[str]:
         """Modify XML to reorder struct members."""
         try:
+            # Fix srcML XML namespace issue - add pos namespace declaration if missing
+            if 'pos:' in xml_content and 'xmlns:pos=' not in xml_content:
+                xml_content = xml_content.replace(
+                    '<unit ',
+                    '<unit xmlns:pos="http://www.srcML.org/srcML/position" '
+                )
+            
+            # Register srcML namespaces
+            ET.register_namespace('', 'http://www.srcML.org/srcML/src')
+            ET.register_namespace('pos', 'http://www.srcML.org/srcML/position')
+            
+            # Parse XML
             root = ET.fromstring(xml_content)
             
             # Extract new member order from modification
@@ -114,8 +126,9 @@ class SrcMLTransformer(ISourceTransformer):
             # Reorder member declarations
             self._reorder_members(struct_node, new_order)
             
+            # Convert back to string, preserving namespaces
             return ET.tostring(root, encoding='unicode')
-        except ET.ParseError:
+        except (ET.ParseError, Exception) as e:
             return None
     
     def _extract_new_order(self, mod: SourceModification) -> list:
@@ -128,13 +141,14 @@ class SrcMLTransformer(ISourceTransformer):
         return []
     
     def _find_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
-        """Find struct node by name in XML tree."""
-        # Handle namespaced XML from srcML
+        """Find struct node by name in XML tree (namespace-aware)."""
+        # srcML uses namespaces, so we need to check tag endings
         for elem in root.iter():
-            if elem.tag.endswith('struct'):
-                # Look for name element - handle both namespaced and non-namespaced
+            # Check if it's a struct/class element
+            if elem.tag.endswith('}struct') or elem.tag.endswith('}class') or elem.tag == 'struct' or elem.tag == 'class':
+                # Look for name child element
                 for child in elem:
-                    if child.tag.endswith('name') and child.text == struct_name:
+                    if (child.tag.endswith('}name') or child.tag == 'name') and child.text == struct_name:
                         return elem
         return None
     
@@ -143,60 +157,61 @@ class SrcMLTransformer(ISourceTransformer):
         # Find block element (struct body)
         block = None
         for child in struct_node:
-            if child.tag.endswith('block'):
+            if 'block' in child.tag:
                 block = child
                 break
         
         if block is None:
             return
         
-        # Find all member declaration statements
+        # Find access modifier container (public/private/protected) or use block directly
+        # srcML structure: block -> public -> decl_stmt
+        container = None
+        for child in block:
+            if 'public' in child.tag or 'private' in child.tag or 'protected' in child.tag:
+                container = child
+                break
+        
+        if container is None:
+            container = block
+        
+        # Find all member declaration statements and map by name
         member_decls = {}
-        for elem in list(block):
-            if elem.tag.endswith('decl_stmt'):
-                # Extract member name
-                for decl in elem.iter():
-                    if decl.tag.endswith('name') and decl.text:
-                        member_name = decl.text
-                        if member_name in new_order:
-                            member_decls[member_name] = elem
-                            break
+        for elem in list(container):
+            if 'decl_stmt' in elem.tag:
+                # Extract member name from this declaration
+                member_name = self._extract_member_name(elem)
+                if member_name and member_name in new_order:
+                    member_decls[member_name] = elem
         
         if not member_decls or len(member_decls) != len(new_order):
             return
         
-        # Remove all member declarations from block
-        for elem in list(block):
-            if elem.tag.endswith('decl_stmt'):
-                block.remove(elem)
+        # Remove all member declarations
+        for elem in list(container):
+            if 'decl_stmt' in elem.tag:
+                container.remove(elem)
         
-        # Re-add in new order
-        # Find where to insert (after access specifiers, before methods)
-        insert_index = 0
-        for i, elem in enumerate(block):
-            if elem.tag.endswith('public') or elem.tag.endswith('private') or elem.tag.endswith('protected'):
-                insert_index = i + 1
-                break
-        
-        # Insert members in new order
+        # Re-insert in new order at the beginning of container
         for i, member_name in enumerate(new_order):
             if member_name in member_decls:
-                block.insert(insert_index + i, member_decls[member_name])
-                protected_members.append(member)
-            else:
-                other_members.append(member)
-        
-        # Remove original members
-        for member in members:
-            struct_node.remove(member)
-        
-        # Add back in order: public, protected, private, others
-        for member_list in [public_members, protected_members, private_members, other_members]:
-            for member in member_list:
-                struct_node.append(member)
+                container.insert(i, member_decls[member_name])
     
-    def _get_access_modifier(self, member_node: ET.Element) -> str:
-        """Get access modifier for a member (simplified)."""
-        # This is a simplified implementation
-        # In practice, you'd need more sophisticated parsing
-        return 'other'
+    def _extract_member_name(self, decl_stmt: ET.Element) -> Optional[str]:
+        """Extract member name from declaration statement."""
+        # Navigate through decl_stmt -> decl -> name
+        # Get the LAST name element (variable name, not type name)
+        names = []
+        for elem in decl_stmt.iter():
+            if 'name' in elem.tag and elem.text:
+                names.append(elem.text)
+        
+        # Return last name (variable name), skip type names
+        if names:
+            # Filter out common type names
+            type_names = {'char', 'int', 'double', 'float', 'long', 'short', 'bool', 'void'}
+            for name in reversed(names):
+                if name not in type_names:
+                    return name
+        
+        return None

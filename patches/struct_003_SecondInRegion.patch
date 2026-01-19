@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmput56ejs0.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf3a04pv2.cpp
-index 9fbcf4a..3926de0 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmput56ejs0.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpf3a04pv2.cpp
-@@ -14,7 +14,7 @@ struct FirstInRegion {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4_8n3iq0.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpzqbn2lku.cpp
+index 9fbcf4a..c279c38 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4_8n3iq0.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpzqbn2lku.cpp
+@@ -13,8 +13,8 @@ struct FirstInRegion {
+ };
  
  struct SecondInRegion {
-     char small1;
--    int large[200];
+-    char small1;
+     int large[200];
 +    char small1;
      char small2;
  };

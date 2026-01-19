@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1jx259kj.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpl1gxxwzn.cpp
-index 24427e0..8428007 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1jx259kj.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpl1gxxwzn.cpp
-@@ -27,7 +27,7 @@ struct FirstAfter {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp12p3mxzz.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkb2x2fop.cpp
+index 24427e0..82b56c4 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp12p3mxzz.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkb2x2fop.cpp
+@@ -26,8 +26,8 @@ struct FirstAfter {
+ };
  
  struct SecondAfter {
-     char small1;
--    int large[45];
+-    char small1;
+     int large[45];
 +    char small1;
      char small2;
  };

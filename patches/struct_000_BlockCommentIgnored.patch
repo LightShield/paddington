@@ -1,14 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgaqv3ppt.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd_xyhh7e.cpp
-index 4c04dff..9386ce3 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgaqv3ppt.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpd_xyhh7e.cpp
-@@ -6,8 +6,8 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1cvuj6r8.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpupky_v09.cpp
+index 4c04dff..b1ad742 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1cvuj6r8.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpupky_v09.cpp
+@@ -6,9 +6,9 @@
              };
              /* paddington-ignore */
              struct BlockCommentIgnored {
 -                char a;
                  int b;
-+                char a;
-             };
+-            };
++            char a;
++                };
              struct ProcessedStruct {
                  char a;
+                 int b;

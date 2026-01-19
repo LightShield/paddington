@@ -1,16 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4am9u6u1.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpro_wg1j_.cpp
-index a2c9b15..bbec5e0 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp4am9u6u1.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpro_wg1j_.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi_g8pqzm.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkxugjlf0.cpp
+index a2c9b15..2b371b1 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi_g8pqzm.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkxugjlf0.cpp
 @@ -1,9 +1,9 @@
  
  struct LastLock {
-     char small1;
--    int large[50];
--    char small2;
-     int locked_last; // paddington-lock
-+    char small1;
-+    char small2;
+-    char small1;
+     int large[50];
++    int locked_last; char small1;
+     char small2;
+-    int locked_last; // paddington-lock
++    // paddington-lock
  };
  
  int main() {

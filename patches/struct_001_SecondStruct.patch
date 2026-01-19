@@ -1,12 +1,13 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps8oihcqe.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1ebd9fdn.cpp
-index cb6de31..2972601 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmps8oihcqe.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp1ebd9fdn.cpp
-@@ -8,7 +8,7 @@ struct FirstStruct {
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqf46xbz6.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmptcxjxdyj.cpp
+index cb6de31..9b7833f 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpqf46xbz6.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmptcxjxdyj.cpp
+@@ -7,8 +7,8 @@ struct FirstStruct {
+ };
  
  struct SecondStruct {
-     char small1;
--    int large[200];
+-    char small1;
+     int large[200];
 +    char small1;
      char small2;
  };

@@ -1,16 +1,20 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvb72xsz2.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmplq9eto1g.cpp
-index eb4efc9..f8ce905 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvb72xsz2.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmplq9eto1g.cpp
-@@ -1,9 +1,9 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpfzg4ncdv.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpb2q1i2nf.cpp
+index eb4efc9..2acc498 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpfzg4ncdv.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpb2q1i2nf.cpp
+@@ -1,11 +1,11 @@
  
  struct MultipleLocks {
 -    char small1;
-     int locked1; // paddington-lock
--    char small2;
-     int locked2; // paddington-lock
-+    char small1;
-+    char small2;
+-    int locked1; // paddington-lock
++    int locked1; int locked2; char small1;
+     char small2;
+-    int locked2; // paddington-lock
      char small3;
- };
+-};
++// paddington-lock
++    // paddington-lock
++    };
  
+ int main() {
+     MultipleLocks m;

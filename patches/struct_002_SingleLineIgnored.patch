@@ -1,14 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkcr954gw.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvlzfxub6.cpp
-index 4c04dff..17b0256 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpkcr954gw.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpvlzfxub6.cpp
-@@ -1,8 +1,8 @@
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmprl0jxyos.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpuy187d85.cpp
+index 4c04dff..3f3b57c 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmprl0jxyos.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpuy187d85.cpp
+@@ -1,9 +1,9 @@
  
              // paddington-ignore
              struct SingleLineIgnored {
 -                char a;
                  int b;
-+                char a;
-             };
+-            };
++            char a;
++                };
              /* paddington-ignore */
              struct BlockCommentIgnored {
+                 char a;
