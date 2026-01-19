@@ -73,8 +73,9 @@ def run(args):
     log.debug(f"Selecting providers...")
     
     if args.extractor == "pahole":
-        extractor = MockExtractor()  # TODO: Use real PaholeExtractor
-        log.info("Extractor: pahole (mock)")
+        from implementation.pipeline.extraction import PaholeExtractor
+        extractor = PaholeExtractor()
+        log.info("Extractor: PaholeExtractor (100x faster)")
     else:
         # Auto-select based on platform
         import sys

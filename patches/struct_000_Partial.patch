@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpau1dhs9f.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp5v5ymnkn.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpce3q1abn.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp9i9j4hv6.cpp
 index 2a029c6..eea5c4e 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpau1dhs9f.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp5v5ymnkn.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpce3q1abn.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp9i9j4hv6.cpp
 @@ -1 +1 @@
 -struct Partial { char free1; int size; char* buffer; char free2; Partial(int s) : size(s), buffer(new char[size]), free1('a'), free2('b') {} }; int main() { Partial p(50); return 0; }
 \ No newline at end of file
