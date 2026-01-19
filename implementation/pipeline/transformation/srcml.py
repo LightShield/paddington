@@ -202,25 +202,48 @@ class SrcMLTransformer(ISourceTransformer):
                 if 'decl_stmt' in elem.tag:
                     # Extract member name from this declaration
                     member_name = self._extract_member_name(elem)
+                    # Only include members that are in the new_order (from DWARF)
                     if member_name and member_name in new_order:
                         member_decls[member_name] = elem
                         member_containers[member_name] = container
         
-        if not member_decls or len(member_decls) != len(new_order):
+        # Check if we found all the members we need to reorder
+        if not member_decls:
             return
+        
+        # Allow partial match if we found at least 80% of members
+        # (some members may be in #ifdef blocks that srcML doesn't parse as decl_stmt)
+        match_ratio = len(member_decls) / len(new_order)
+        if match_ratio < 0.8:
+            # Too many missing members - unsafe to reorder
+            return
+        
+        # Filter new_order to only include members we actually found
+        new_order_filtered = [name for name in new_order if name in member_decls]
         
         # Remove all member declarations from their containers
         for container in containers:
             for elem in list(container):
                 if 'decl_stmt' in elem.tag:
-                    container.remove(elem)
+                    member_name = self._extract_member_name(elem)
+                    if member_name in member_decls:
+                        container.remove(elem)
         
-        # Re-insert in new order, preserving access modifier grouping
-        # For now, put all in the first non-empty container
-        target_container = containers[0] if containers else block
-        for i, member_name in enumerate(new_order):
-            if member_name in member_decls:
-                target_container.insert(i, member_decls[member_name])
+        # Re-insert in new order, keeping each member in its original container
+        # Group by container to maintain access modifier boundaries
+        members_by_container = {}
+        for member_name in new_order_filtered:
+            if member_name in member_containers:
+                container = member_containers[member_name]
+                if container not in members_by_container:
+                    members_by_container[container] = []
+                members_by_container[container].append(member_name)
+        
+        # Insert members back into their original containers in new order
+        for container, member_names in members_by_container.items():
+            for i, member_name in enumerate(member_names):
+                if member_name in member_decls:
+                    container.insert(i, member_decls[member_name])
     
     def _extract_member_name(self, decl_stmt: ET.Element) -> Optional[str]:
         """Extract member name from declaration statement."""
