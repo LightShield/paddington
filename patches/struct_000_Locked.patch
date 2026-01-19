@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpk2uungvi.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7pjih7u_.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpo5tfrezt.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwv4bza6a.cpp
 index dee2635..aa2b485 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpk2uungvi.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp7pjih7u_.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpo5tfrezt.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpwv4bza6a.cpp
 @@ -1 +1 @@
 -struct Locked { char flag; int size; char* buffer; Locked(int s) : flag(1), size(s), buffer(size > 0 ? new char[size] : nullptr) {} }; int main() { Locked l(100); return 0; }
 \ No newline at end of file

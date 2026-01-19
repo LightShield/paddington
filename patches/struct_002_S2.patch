@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpevh9hq_x.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpp1vnkep9.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgp5ovzew.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdn4errsl.cpp
 index 28ea84a..e5efbc7 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpevh9hq_x.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpp1vnkep9.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpgp5ovzew.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpdn4errsl.cpp
 @@ -1 +1 @@
 -struct S2 { char a; int b; }; int main() { S2 s; return 0; }
 \ No newline at end of file

@@ -187,7 +187,7 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
     
     for plan in optimized_plans:
         if plan.padding_saved > 0:
-            log.info(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
+            log.user(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
             log.debug(f"  File: {plan.struct.file_path}")
     
     for result in results:

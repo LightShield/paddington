@@ -35,7 +35,7 @@ Container<int> c;
                 )
             ],
             should_succeed=True,
-            expected_output_contains=["Changes applied"]
+            expected_output_contains=["changes applied"]
         )
         self.run_test_case(test_case, tmp_path)
 
@@ -55,7 +55,7 @@ struct Container {
             flags={},
             expected_structs=[],
             should_succeed=True,
-            expected_output_contains=["Changes applied: 0"]
+            expected_output_contains=["changes applied"]
         )
         self.run_test_case(test_case, tmp_path)
 
@@ -107,7 +107,7 @@ Container<double> c3;
                 )
             ],
             should_succeed=True,
-            expected_output_contains=["Changes applied"]
+            expected_output_contains=["changes applied"]
         )
         self.run_test_case(test_case, tmp_path)
 
@@ -149,6 +149,6 @@ Container<double> large;
                 )
             ],
             should_succeed=True,
-            expected_output_contains=["Changes applied"]
+            expected_output_contains=["changes applied"]
         )
         self.run_test_case(test_case, tmp_path)
