@@ -102,7 +102,7 @@ class TestProperVerification(BaseE2ETest):
                 'apply': True,
                 'output': 'patch',
                 'patch_dir': str(tmp_path / "patches"),
-                'extractor': 'dwarf',
+                'extractor': 'auto',
                 'transformer': 'line-swap'
             },
             expected_structs=[
