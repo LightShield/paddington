@@ -39,7 +39,7 @@ class TestE2EMinSavingsFamily:
         if args is None:
             args = []
         
-        cmd = ["python", "-m", "paddington", "optimize"] + args + [str(obj_file)]
+        cmd = ["python", "__main__.py"] + args + [str(obj_file)]
         result = subprocess.run(
             cmd,
             cwd=self.original_cwd,
