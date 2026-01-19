@@ -8,13 +8,18 @@ from typing import List, Dict, Optional
 from .base import IStructExtractor
 from ...struct_data.struct_info import StructInfo
 from ...struct_data.member_info import MemberInfo
+from ...utils import Logger
 
 
 class MachoExtractor(IStructExtractor):
     """Extract struct info from Mach-O files using dwarfdump (macOS)."""
     
+    def __init__(self):
+        self.log = Logger()
+    
     def extract(self, objfiles: List[Path]) -> List[StructInfo]:
         """Extract struct information from Mach-O object files."""
+        self.log.info(f"Extracting from {len(objfiles)} files")
         all_structs = []
         
         for objfile in objfiles:
@@ -32,6 +37,7 @@ class MachoExtractor(IStructExtractor):
     
     def _extract_from_file(self, objfile: Path) -> List[StructInfo]:
         """Extract structs from a single Mach-O file using dwarfdump."""
+        self.log.debug(f"Processing {objfile.name}")
         result = subprocess.run(
             ['dwarfdump', str(objfile)],
             capture_output=True,
@@ -60,6 +66,7 @@ class MachoExtractor(IStructExtractor):
             
             i += 1
         
+        self.log.debug(f"Found {len(structs)} structs")
         return structs
     
     def _parse_struct_die(self, lines: List[str], start_idx: int) -> Optional[StructInfo]:
@@ -126,6 +133,7 @@ class MachoExtractor(IStructExtractor):
             i += 1
         
         if name and size is not None:
+            self.log.debug(f"Parsed struct {name}")
             return StructInfo(
                 name=name,
                 size=size,
@@ -214,4 +222,5 @@ class MachoExtractor(IStructExtractor):
                 seen[key] = True
                 unique.append(struct)
         
+        self.log.debug(f"Deduplication: {len(structs)} -> {len(unique)} structs")
         return unique
