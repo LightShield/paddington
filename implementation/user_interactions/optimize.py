@@ -183,7 +183,7 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
     log.info(f"Total padding saved: {total_savings} bytes")
     
     for plan in skipped_plans:
-        log.info(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
+        log.user(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
     
     for plan in optimized_plans:
         if plan.padding_saved > 0:

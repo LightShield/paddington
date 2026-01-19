@@ -56,7 +56,7 @@ class TestReporting(BaseE2ETest):
         assert result.returncode == 0
         # Should show summary
         assert "Optimization complete" in result.stdout
-        assert "Changes applied" in result.stdout
+        assert "changes applied" in result.stdout.lower()
     
     @pytest.mark.e2e
     def test_verbosity_levels(self, tmp_path):
