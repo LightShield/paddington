@@ -77,13 +77,30 @@ class PaholeExtractor(IStructExtractor):
             if loc_match:
                 file_path = loc_match.group(1)
                 line_num = int(loc_match.group(2))
+                
+                # Skip built-in types with line 0
+                if line_num == 0:
+                    i += 1
+                    continue
+                
                 i += 1
                 
                 # Next line should be struct/class
                 if i < len(lines):
-                    struct_match = re.match(r'^(struct|class)\s+(\S+)\s*\{', lines[i])
+                    # Match struct/class with name, handle inheritance, typedef, templates
+                    struct_match = re.match(r'^(struct|class)\s+(.+?)\s*\{', lines[i])
                     if struct_match:
-                        struct_name = struct_match.group(2)
+                        # Extract struct name from complex declarations
+                        full_decl = struct_match.group(2)
+                        if ' : ' in full_decl:
+                            # Inheritance: "Name : public Base" -> "Name"
+                            struct_name = full_decl.split(' : ')[0].strip().split()[-1]
+                        elif 'typedef' in full_decl:
+                            # Typedef: "typedef Name Name" -> last word
+                            struct_name = full_decl.strip().split()[-1]
+                        else:
+                            # Simple/template: "Name" or "Name<T>" -> first word
+                            struct_name = full_decl.split()[0] if ' ' in full_decl else full_decl
                         i += 1
                         members = []
                         struct_size = 0
@@ -102,16 +119,20 @@ class PaholeExtractor(IStructExtractor):
                                 i += 1
                                 continue
                             
-                            # Skip holes, cacheline, access specifiers
-                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', '']:
+                            # Skip holes, cacheline, access specifiers, vtable pointers
+                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', ''] or '()(void)' in mline:
                                 i += 1
                                 continue
                             
                             # Member line: type name; /* offset size */
-                            member_match = re.match(r'\s+(\S+)\s+(\S+);\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
+                            # Use non-greedy match to handle complex types with spaces
+                            member_match = re.match(r'\s+(.+?)\s+(\S+);?\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
                             if member_match:
-                                member_type = member_match.group(1)
-                                member_name = member_match.group(2)
+                                # Extract member name (last word, handle arrays like name[4])
+                                full_member = member_match.group(1) + ' ' + member_match.group(2)
+                                parts = full_member.split()
+                                member_name = parts[-1].rstrip(';').split('[')[0]
+                                member_type = ' '.join(parts[:-1])  # Type may have spaces
                                 member_offset = int(member_match.group(3))
                                 member_size = int(member_match.group(4))
                                 
