@@ -41,10 +41,13 @@ class SrcMLTransformer(ISourceTransformer):
                 transformed = self._transform_file(mod)
                 if transformed:
                     results.append(transformed)
+                else:
+                    self.log.debug(f"Transformation returned None for {mod.file_path}")
             except Exception as e:
                 # Log error but continue processing other files
                 self.log.warning(f"Failed to transform {mod.file_path}: {e}")
-                print(f"Error transforming {mod.file_path}: {e}")
+                import traceback
+                self.log.debug(f"Traceback: {traceback.format_exc()}")
                 
         return results
     
@@ -72,12 +75,13 @@ class SrcMLTransformer(ISourceTransformer):
         if not new_content:
             return None
             
-        return TransformedSource(
+        result = TransformedSource(
             file_path=str(file_path),
             original_content=original_content,
             new_content=new_content,
             modifications=(modification,)
         )
+        return result
     
     def _source_to_xml(self, file_path: Path) -> Optional[str]:
         """Convert source file to srcML XML using srcml-caller library."""
@@ -98,23 +102,27 @@ class SrcMLTransformer(ISourceTransformer):
     def _xml_to_source(self, xml_content: str) -> Optional[str]:
         """Convert srcML XML back to source code using srcml-caller library."""
         if not SRCML_AVAILABLE:
+            print("DEBUG: srcml not available")
             return None
         
         try:
             source = srcml_caller.to_code(xml_content)
             return source
-        except Exception:
+        except Exception as e:
             return None
     
     def _modify_xml(self, xml_content: str, modification: SourceModification) -> Optional[str]:
         """Modify XML to reorder struct members."""
         try:
-            # Fix srcML XML namespace issue - add pos namespace declaration if missing
-            if 'pos:' in xml_content and 'xmlns:pos=' not in xml_content:
-                xml_content = xml_content.replace(
-                    '<unit ',
-                    '<unit xmlns:pos="http://www.srcML.org/srcML/position" '
+            # Fix srcML XML namespace issue - add all required namespace declarations
+            if 'xmlns:' not in xml_content or 'xmlns:cpp=' not in xml_content:
+                # Add all srcML namespaces to unit tag
+                namespaces = (
+                    'xmlns="http://www.srcML.org/srcML/src" '
+                    'xmlns:cpp="http://www.srcML.org/srcML/cpp" '
+                    'xmlns:pos="http://www.srcML.org/srcML/position" '
                 )
+                xml_content = xml_content.replace('<unit', f'<unit {namespaces}', 1)
             
             # Register srcML namespaces
             ET.register_namespace('', 'http://www.srcML.org/srcML/src')
@@ -137,7 +145,8 @@ class SrcMLTransformer(ISourceTransformer):
             self._reorder_members(struct_node, new_order)
             
             # Convert back to string, preserving namespaces
-            return ET.tostring(root, encoding='unicode')
+            result = ET.tostring(root, encoding='unicode')
+            return result
         except (ET.ParseError, Exception) as e:
             return None
     
