@@ -25,7 +25,7 @@ class TestPreprocessorDirectives(BaseE2ETest):
                 return 0;
             }
             """,
-            flags={'extractor': 'dwarf'},
+            flags={'extractor': 'auto'},
             expected_structs=[
                 StructExpectation(
                     name="ConditionalMembers",
@@ -60,7 +60,7 @@ class TestPreprocessorDirectives(BaseE2ETest):
                 return 0;
             }
             """,
-            flags={'extractor': 'dwarf'},
+            flags={'extractor': 'auto'},
             expected_structs=[
                 StructExpectation(
                     name="MacroData",
@@ -95,7 +95,7 @@ class TestPreprocessorDirectives(BaseE2ETest):
                 return 0;
             }
             """,
-            flags={'extractor': 'dwarf'},
+            flags={'extractor': 'auto'},
             expected_structs=[
                 StructExpectation(
                     name="PackedStruct",
@@ -135,7 +135,7 @@ class TestPreprocessorDirectives(BaseE2ETest):
                 return 0;
             }
             """,
-            flags={'extractor': 'dwarf'},
+            flags={'extractor': 'auto'},
             expected_structs=[
                 StructExpectation(
                     name="PlatformStruct",

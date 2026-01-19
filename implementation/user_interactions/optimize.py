@@ -76,17 +76,22 @@ def run(args):
         from implementation.pipeline.extraction import PaholeExtractor
         extractor = PaholeExtractor()
         log.info("Extractor: PaholeExtractor (100x faster)")
-    else:
-        # Auto-select based on platform
+    elif args.extractor == "dwarf":
+        from implementation.pipeline.extraction.dwarf import DwarfExtractor
+        extractor = DwarfExtractor()
+        log.info("Extractor: DwarfExtractor")
+    else:  # auto
+        # Auto-select best extractor for platform
         import sys
         if sys.platform == 'darwin':
             from implementation.pipeline.extraction import MachoExtractor
             extractor = MachoExtractor()
-            log.info("Extractor: MachoExtractor (macOS)")
+            log.info("Extractor: MachoExtractor (auto-selected for macOS)")
         else:
-            from implementation.pipeline.extraction.dwarf import DwarfExtractor
-            extractor = DwarfExtractor()
-            log.info("Extractor: DwarfExtractor (Linux)")
+            # Linux: Use pahole (100x faster than dwarf)
+            from implementation.pipeline.extraction import PaholeExtractor
+            extractor = PaholeExtractor()
+            log.info("Extractor: PaholeExtractor (auto-selected for Linux, 100x faster)")
     
     if args.transformer == "srcml":
         from implementation.pipeline.transformation import SrcMLTransformer

@@ -1,9 +1,9 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpys4i0m6i.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpv3ka39g5.cpp
-index b338cd8..a6fe1f7 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpys4i0m6i.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpv3ka39g5.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw9n8jbm8.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpscpebtqc.cpp
+index dd6c09b..93be954 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw9n8jbm8.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpscpebtqc.cpp
 @@ -1 +1 @@
--struct A { char a; int b; }; int main() { A a; return 0; }
+-struct A { char x; int y; }; int main() { A a; return 0; }
 \ No newline at end of file
-+struct A { int b; char a; }; int main() { A a; return 0; }
++struct A { int y; char x; }; int main() { A a; return 0; }
 \ No newline at end of file

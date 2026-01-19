@@ -21,8 +21,8 @@ def main():
                          choices=["preserve", "split", "ignore"],
                          default="preserve",
                          help="How to handle access modifiers (default: preserve)")
-    parser.add_argument("--extractor", choices=["pahole", "dwarf"],
-                         default="dwarf", help="Extraction method")
+    parser.add_argument("--extractor", choices=["pahole", "dwarf", "auto"],
+                         default="auto", help="Extraction method (default: auto - pahole on Linux, macho on macOS)")
     parser.add_argument("--transformer", choices=["srcml", "line-swap"],
                          default="srcml", help="Transformation method (default: srcml)")
     parser.add_argument("--output", choices=["patch", "file"],
