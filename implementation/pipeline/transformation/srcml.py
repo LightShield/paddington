@@ -143,6 +143,9 @@ class SrcMLTransformer(ISourceTransformer):
             # Reorder member declarations
             self._reorder_members(struct_node, new_order)
             
+            # Reorder constructor initializer lists
+            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+            
             # Convert back to string, preserving namespaces
             result = ET.tostring(root, encoding='unicode')
             return result
@@ -261,5 +264,112 @@ class SrcMLTransformer(ISourceTransformer):
             for name in reversed(names):
                 if name not in type_names:
                     return name
+        
+        return None
+
+    def _reorder_constructor_initializers(self, root: ET.Element, struct_name: str, new_order: list) -> None:
+        """Reorder constructor initializer lists to match new member order."""
+        # Find all constructor definitions for this struct/class
+        constructors = self._find_constructors(root, struct_name)
+        
+        for constructor in constructors:
+            # Find member initializer list
+            init_list = self._find_initializer_list(constructor)
+            if init_list:
+                self._reorder_initializer_list(init_list, new_order)
+
+    def _find_constructors(self, root: ET.Element, struct_name: str) -> list:
+        """Find all constructor definitions for the given struct/class."""
+        constructors = []
+        
+        # Look for constructor definitions (both inline and out-of-line)
+        for elem in root.iter():
+            if self._is_constructor(elem, struct_name):
+                constructors.append(elem)
+        
+        return constructors
+
+    def _is_constructor(self, elem: ET.Element, struct_name: str) -> bool:
+        """Check if element is a constructor for the given struct/class."""
+        # Check for constructor element
+        if not (elem.tag.endswith('}constructor') or elem.tag == 'constructor'):
+            return False
+        
+        # Look for constructor name matching struct name
+        for child in elem:
+            if (child.tag.endswith('}name') or child.tag == 'name') and child.text == struct_name:
+                return True
+        
+        return False
+
+    def _find_initializer_list(self, constructor: ET.Element) -> Optional[ET.Element]:
+        """Find the member initializer list in a constructor."""
+        # Look for member_init_list element
+        for child in constructor:
+            if (child.tag.endswith('}member_init_list') or child.tag == 'member_init_list'):
+                return child
+        
+        return None
+
+    def _reorder_initializer_list(self, init_list: ET.Element, new_order: list) -> None:
+        """Reorder initializers in the member initializer list."""
+        # Extract current initializers (call elements)
+        initializers = {}
+        call_elements = []
+        non_call_elements = []
+        
+        for child in list(init_list):
+            if self._is_member_initializer_call(child):
+                member_name = self._extract_initializer_member_name(child)
+                if member_name and member_name in new_order:
+                    initializers[member_name] = child
+                    call_elements.append(child)
+                else:
+                    # Keep non-member initializers (like base class calls) in place
+                    non_call_elements.append(child)
+            else:
+                # Keep text nodes, commas, etc.
+                non_call_elements.append(child)
+        
+        if not initializers:
+            return
+        
+        # Clear the initializer list
+        init_list.clear()
+        
+        # Re-add elements in new order
+        # First add the colon and any leading text
+        if init_list.text:
+            init_list.text = ": "
+        else:
+            init_list.text = ": "
+        
+        # Add initializers in new order with proper spacing
+        first = True
+        for member_name in new_order:
+            if member_name in initializers:
+                if not first:
+                    # Add comma and space before subsequent initializers
+                    prev_elem = list(init_list)[-1] if list(init_list) else None
+                    if prev_elem is not None:
+                        prev_elem.tail = ", "
+                
+                init_list.append(initializers[member_name])
+                first = False
+        
+        # Add trailing space
+        if list(init_list):
+            list(init_list)[-1].tail = " "
+
+    def _is_member_initializer_call(self, elem: ET.Element) -> bool:
+        """Check if element is a member initializer call."""
+        return (elem.tag.endswith('}call') or elem.tag == 'call')
+
+    def _extract_initializer_member_name(self, call_elem: ET.Element) -> Optional[str]:
+        """Extract member name from initializer call element."""
+        # Look for the name child element in the call
+        for child in call_elem:
+            if (child.tag.endswith('}name') or child.tag == 'name') and child.text:
+                return child.text
         
         return None

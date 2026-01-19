@@ -138,6 +138,135 @@ class TestSrcMLTransformer:
         assert result is None
     
     @pytest.mark.unit
+    def test_reorder_constructor_initializers(self):
+        """Test reordering constructor initializer lists."""
+        # Create a simple XML structure with constructor and member_init_list
+        xml_content = '''
+        <unit xmlns="http://www.srcML.org/srcML/src">
+            <struct>
+                <name>TestStruct</name>
+                <block>{
+                    <decl_stmt><decl><type><name>int</name></type> <name>b</name></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>a</name></decl>;</decl_stmt>
+                    <constructor>
+                        <name>TestStruct</name>
+                        <parameter_list>(<parameter><decl><type><name>int</name></type> <name>x</name></decl></parameter>, <parameter><decl><type><name>int</name></type> <name>y</name></decl></parameter>)</parameter_list>
+                        <member_init_list>: <call><name>a</name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call>, <call><name>b</name><argument_list>(<argument><expr><name>y</name></expr></argument>)</argument_list></call> </member_init_list>
+                        <block>{}</block>
+                    </constructor>
+                }</block>
+            </struct>
+        </unit>
+        '''
+        
+        root = ET.fromstring(xml_content)
+        
+        # Test reordering initializers
+        self.transformer._reorder_constructor_initializers(root, "TestStruct", ["b", "a"])
+        
+        # Verify the initializer list was reordered
+        result_xml = ET.tostring(root, encoding='unicode')
+        
+        # Should have b before a in the initializer list
+        b_pos = result_xml.find('<call><name>b</name>')
+        a_pos = result_xml.find('<call><name>a</name>')
+        
+        assert b_pos != -1, "Should find b initializer"
+        assert a_pos != -1, "Should find a initializer"
+        assert b_pos < a_pos, "b should come before a in reordered list"
+    
+    @pytest.mark.unit
+    def test_find_constructors(self):
+        """Test finding constructors in XML."""
+        xml_content = '''
+        <unit xmlns="http://www.srcML.org/srcML/src">
+            <struct>
+                <name>TestStruct</name>
+                <block>{
+                    <constructor>
+                        <name>TestStruct</name>
+                        <parameter_list>()</parameter_list>
+                        <block>{}</block>
+                    </constructor>
+                    <constructor>
+                        <name>TestStruct</name>
+                        <parameter_list>(<parameter><decl><type><name>int</name></type> <name>x</name></decl></parameter>)</parameter_list>
+                        <block>{}</block>
+                    </constructor>
+                }</block>
+            </struct>
+        </unit>
+        '''
+        
+        root = ET.fromstring(xml_content)
+        constructors = self.transformer._find_constructors(root, "TestStruct")
+        
+        assert len(constructors) == 2, "Should find 2 constructors"
+        
+        # Test with non-existent struct
+        constructors = self.transformer._find_constructors(root, "NonExistent")
+        assert len(constructors) == 0, "Should find 0 constructors for non-existent struct"
+    
+    @pytest.mark.unit
+    def test_find_initializer_list(self):
+        """Test finding initializer list in constructor."""
+        constructor_xml = '''
+        <constructor xmlns="http://www.srcML.org/srcML/src">
+            <name>TestStruct</name>
+            <parameter_list>(<parameter><decl><type><name>int</name></type> <name>x</name></decl></parameter>)</parameter_list>
+            <member_init_list>: <call><name>a</name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call> </member_init_list>
+            <block>{}</block>
+        </constructor>
+        '''
+        
+        constructor = ET.fromstring(constructor_xml)
+        init_list = self.transformer._find_initializer_list(constructor)
+        
+        assert init_list is not None, "Should find initializer list"
+        assert init_list.tag.endswith('member_init_list'), "Should be member_init_list element"
+        
+        # Test constructor without initializer list
+        constructor_xml_no_init = '''
+        <constructor xmlns="http://www.srcML.org/srcML/src">
+            <name>TestStruct</name>
+            <parameter_list>()</parameter_list>
+            <block>{}</block>
+        </constructor>
+        '''
+        
+        constructor_no_init = ET.fromstring(constructor_xml_no_init)
+        init_list = self.transformer._find_initializer_list(constructor_no_init)
+        
+        assert init_list is None, "Should not find initializer list"
+    
+    @pytest.mark.unit
+    def test_extract_initializer_member_name(self):
+        """Test extracting member name from initializer call."""
+        call_xml = '''
+        <call xmlns="http://www.srcML.org/srcML/src">
+            <name>member_name</name>
+            <argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list>
+        </call>
+        '''
+        
+        call_elem = ET.fromstring(call_xml)
+        member_name = self.transformer._extract_initializer_member_name(call_elem)
+        
+        assert member_name == "member_name", "Should extract correct member name"
+        
+        # Test with invalid call element
+        invalid_xml = '''
+        <call xmlns="http://www.srcML.org/srcML/src">
+            <argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list>
+        </call>
+        '''
+        
+        invalid_elem = ET.fromstring(invalid_xml)
+        member_name = self.transformer._extract_initializer_member_name(invalid_elem)
+        
+        assert member_name is None, "Should return None for call without name"
+    
+    @pytest.mark.unit
     def test_modify_xml_struct_not_found(self):
         """Test XML modification when struct is not found."""
         from implementation.struct_data import SourceModification, Modification, Location
