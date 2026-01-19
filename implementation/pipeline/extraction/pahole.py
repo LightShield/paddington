@@ -73,7 +73,7 @@ class PaholeExtractor(IStructExtractor):
             line = lines[i]
             
             # Source location: /* <offset> /path/file.h:line */
-            loc_match = re.match(r'/\\*\\s*<[0-9a-f]+>\\s*(.+):(\\d+)\\s*\\*/', line)
+            loc_match = re.match(r'/\*\s*<[0-9a-f]+>\s*(.+):(\d+)\s*\*/', line)
             if loc_match:
                 file_path = loc_match.group(1)
                 line_num = int(loc_match.group(2))
@@ -81,7 +81,7 @@ class PaholeExtractor(IStructExtractor):
                 
                 # Next line should be struct/class
                 if i < len(lines):
-                    struct_match = re.match(r'^(struct|class)\\s+(\\S+)\\s*\\{', lines[i])
+                    struct_match = re.match(r'^(struct|class)\s+(\S+)\s*\{', lines[i])
                     if struct_match:
                         struct_name = struct_match.group(2)
                         i += 1
@@ -96,7 +96,7 @@ class PaholeExtractor(IStructExtractor):
                                 break
                             
                             # Size line
-                            size_match = re.search(r'/\\*\\s*size:\\s*(\\d+)', mline)
+                            size_match = re.search(r'/\*\s*size:\s*(\d+)', mline)
                             if size_match:
                                 struct_size = int(size_match.group(1))
                                 i += 1
@@ -108,7 +108,7 @@ class PaholeExtractor(IStructExtractor):
                                 continue
                             
                             # Member line: type name; /* offset size */
-                            member_match = re.match(r'\\s+(\\S+)\\s+(\\S+);\\s*/\\*\\s*(\\d+)\\s+(\\d+)\\s*\\*/', mline)
+                            member_match = re.match(r'\s+(\S+)\s+(\S+);\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
                             if member_match:
                                 member_type = member_match.group(1)
                                 member_name = member_match.group(2)
