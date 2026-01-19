@@ -1,9 +1,15 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi8pkkecu.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxyntw1if.cpp
-index b83699b..4607e8d 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpi8pkkecu.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxyntw1if.cpp
-@@ -1 +1 @@
--struct Inner { char x; int y; }; struct Outer { char a; Inner b; char c; }; int main() { Outer o; return 0; }
-\ No newline at end of file
-+struct Inner { int y; char x; }; struct Outer { char a; Inner b; char c; }; int main() { Outer o; return 0; }
-\ No newline at end of file
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxtn6fi5g.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmppaj2kwjt.cpp
+index fef37da..b804515 100644
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpxtn6fi5g.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmppaj2kwjt.cpp
+@@ -1,8 +1,8 @@
+ 
+             struct Inner {
+-                char x;
+                 int y;
+-            };
++            char x;
++                };
+             struct Outer {
+                 char a;
+                 Inner inner;

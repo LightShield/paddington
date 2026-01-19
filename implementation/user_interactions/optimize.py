@@ -35,16 +35,16 @@ def run(args):
         log.set_level('DEBUG')
     elif args.verbose >= 2:
         log.set_level('INFO')
+    elif args.verbose >= 1:
+        log.set_level('USER')  # Show user-facing output
     else:
-        log.set_level('WARNING')
+        log.set_level('USER')  # Default: show user output
     
     # Show mode
     if args.apply:
-        print("APPLYING CHANGES")
-        log.info("Mode: Applying changes to source files")
+        log.user("APPLYING CHANGES")
     else:
-        print("DRY-RUN MODE: No changes will be made")
-        log.info("Mode: Dry-run (no changes)")
+        log.user("DRY-RUN MODE: No changes will be made")
     
     # Find object files
     path = Path(args.path)
@@ -67,8 +67,7 @@ def run(args):
         if args.exclude:
             log.debug(f"Exclude patterns: {args.exclude}")
     
-    print(f"Found {len(objfiles)} object files")
-    log.info(f"Processing {len(objfiles)} object files")
+    log.user(f"Found {len(objfiles)} object files")
     
     # Select providers
     log.debug(f"Selecting providers...")
@@ -172,8 +171,7 @@ def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Opti
 
 def _report_optimization(results, optimization_plans, verbosity: int, log):
     """Report optimization results."""
-    print(f"\nOptimization complete:")
-    print(f"  Changes applied: {len(results)}")
+    log.user(f"\nOptimization complete: {len(results)} changes applied")
     
     # Report skipped structs
     skipped_plans = [plan for plan in optimization_plans if plan.skip_reason]
@@ -186,15 +184,13 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
         log.info(f"Total padding saved: {total_savings} bytes")
         
         for plan in skipped_plans:
-            print(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
-            log.debug(f"Skipped {plan.struct.name}: {plan.skip_reason}")
+            log.info(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
         
         for plan in optimized_plans:
             if plan.padding_saved > 0:
-                print(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
+                log.info(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
                 log.debug(f"  File: {plan.struct.file_path}")
     
     if verbosity >= 2:
         for result in results:
-            print(f"  {result.file_path}")
-            log.debug(f"  Modified: {result.file_path}")
+            log.info(f"  Modified: {result.file_path}")
