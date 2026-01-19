@@ -11,6 +11,7 @@ from ...padding_analysis.size_calculator import calculate_struct_size
 from ...padding_analysis.constructor_dependency_detector import detect_constructor_dependencies
 from ...padding_analysis.preprocessor_detector import has_preprocessor_directives
 from ...padding_analysis.directive_parser import parse_directives
+from ...utils import Logger
 
 
 class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
@@ -21,6 +22,7 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         self.access_modifier_strategy = access_modifier_strategy
         self.source_file = source_file
         self.struct_names = struct_names or []
+        self.log = Logger()
     
     def process(self, structs: List[StructInfo]) -> List[OptimizationPlan]:
         """Process structs in dependency order with size propagation."""
@@ -57,11 +59,18 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         plans = []
         
         # Iterative analysis in dependency order
-        for struct_name in ordered_names:
+        self.log.info(f"Analyzing {len(ordered_names)} structs in dependency order")
+        
+        for i, struct_name in enumerate(ordered_names, 1):
             if struct_name not in struct_map:
                 continue
             
+            # Show progress for large numbers
+            if i % 100 == 0 or (i % 10 == 0 and len(ordered_names) < 100):
+                self.log.info(f"  Analyzing: {i}/{len(ordered_names)}")
+            
             struct = struct_map[struct_name]
+            self.log.debug(f"Analyzing {struct.name}: size={struct.size} bytes")
             
             # Update member sizes from type table and apply locked members
             locked_members = directives.get('locked_members', {}).get(struct_name, set())

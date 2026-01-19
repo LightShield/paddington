@@ -22,7 +22,11 @@ class MachoExtractor(IStructExtractor):
         self.log.info(f"Extracting from {len(objfiles)} files")
         all_structs = []
         
-        for objfile in objfiles:
+        for i, objfile in enumerate(objfiles, 1):
+            # Show progress every 10 files or at milestones
+            if i % 10 == 0 or i in [1, 100, 500, 1000]:
+                self.log.info(f"  Processing: {i}/{len(objfiles)}")
+            
             try:
                 structs = self._extract_from_file(objfile)
                 all_structs.extend(structs)

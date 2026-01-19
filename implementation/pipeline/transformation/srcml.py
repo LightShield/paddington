@@ -12,6 +12,7 @@ except ImportError:
 
 from .base import ISourceTransformer
 from ...struct_data import SourceModification, TransformedSource
+from ...utils import Logger
 
 
 class SrcMLTransformer(ISourceTransformer):
@@ -19,21 +20,30 @@ class SrcMLTransformer(ISourceTransformer):
     
     SUPPORTED_EXTENSIONS = {'.cpp', '.h', '.hpp', '.cc', '.cxx'}
     
+    def __init__(self):
+        self.log = Logger()
+    
     def can_handle_file(self, file_path: str) -> bool:
         """Check if this transformer can handle the file type."""
         return Path(file_path).suffix in self.SUPPORTED_EXTENSIONS
     
     def transform(self, modifications: List[SourceModification]) -> List[TransformedSource]:
         """Transform source code based on modifications."""
+        self.log.info(f"Transforming {len(modifications)} files")
         results = []
         
-        for mod in modifications:
+        for i, mod in enumerate(modifications, 1):
+            if i % 10 == 0:
+                self.log.info(f"  Transforming: {i}/{len(modifications)}")
+            
             try:
+                self.log.debug(f"Transforming {mod.file_path}")
                 transformed = self._transform_file(mod)
                 if transformed:
                     results.append(transformed)
             except Exception as e:
                 # Log error but continue processing other files
+                self.log.warning(f"Failed to transform {mod.file_path}: {e}")
                 print(f"Error transforming {mod.file_path}: {e}")
                 
         return results
