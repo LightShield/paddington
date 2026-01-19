@@ -171,7 +171,7 @@ def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Opti
 
 def _report_optimization(results, optimization_plans, verbosity: int, log):
     """Report optimization results."""
-    log.user(f"\nOptimization complete: {len(results)} changes applied")
+    log.user("Optimization complete: {} changes applied".format(len(results)))
     
     # Report skipped structs
     skipped_plans = [plan for plan in optimization_plans if plan.skip_reason]
@@ -179,18 +179,16 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
     
     log.info(f"Summary: {len(optimized_plans)} optimized, {len(skipped_plans)} skipped")
     
-    if verbosity >= 1:
-        total_savings = sum(p.padding_saved for p in optimized_plans)
-        log.info(f"Total padding saved: {total_savings} bytes")
-        
-        for plan in skipped_plans:
-            log.info(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
-        
-        for plan in optimized_plans:
-            if plan.padding_saved > 0:
-                log.info(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
-                log.debug(f"  File: {plan.struct.file_path}")
+    total_savings = sum(p.padding_saved for p in optimized_plans)
+    log.info(f"Total padding saved: {total_savings} bytes")
     
-    if verbosity >= 2:
-        for result in results:
-            log.info(f"  Modified: {result.file_path}")
+    for plan in skipped_plans:
+        log.info(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
+    
+    for plan in optimized_plans:
+        if plan.padding_saved > 0:
+            log.info(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
+            log.debug(f"  File: {plan.struct.file_path}")
+    
+    for result in results:
+        log.info(f"  Modified: {result.file_path}")

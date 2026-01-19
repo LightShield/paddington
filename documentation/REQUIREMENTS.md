@@ -611,6 +611,31 @@ tests/pipeline/extraction/test_pahole.py  # Contains unit + integration tests
 
 **Priority**: P0 (Must Have)
 
+#### NFR-2.3.3: Logging and Observability
+**Description**: The system shall provide comprehensive logging for debugging and monitoring.
+
+**Acceptance Criteria**:
+- Logger with 5 levels: DEBUG, INFO, USER, WARNING, ERROR
+- Colored output (blue, green, cyan, yellow, red)
+- Timestamps on all log messages
+- Source location (filename:line or ClassName:line)
+- Logging in ALL modules:
+  - Extraction: Log file processing, struct extraction
+  - Analysis: Log dependency graph, size propagation, optimization decisions
+  - Planning: Log modification creation
+  - Transformation: Log source file modifications
+  - Output: Log file writes, patch generation
+- Verbosity control via -v flags:
+  - Default: USER level (user-facing output only)
+  - -v: INFO level (progress and results)
+  - -vv: DEBUG level (detailed operations)
+- No print() statements (all output via logger)
+- No verbosity checks outside logger (logger decides what to show)
+
+**Priority**: P0 (Must Have - Critical for debugging)
+
+**Test**: test_e2e_logging_comprehensive.py (to be created)
+
 ---
 
 ### 2.4 Flexibility
