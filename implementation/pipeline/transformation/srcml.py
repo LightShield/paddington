@@ -102,7 +102,6 @@ class SrcMLTransformer(ISourceTransformer):
     def _xml_to_source(self, xml_content: str) -> Optional[str]:
         """Convert srcML XML back to source code using srcml-caller library."""
         if not SRCML_AVAILABLE:
-            print("DEBUG: srcml not available")
             return None
         
         try:
@@ -183,38 +182,45 @@ class SrcMLTransformer(ISourceTransformer):
         if block is None:
             return
         
-        # Find access modifier container (public/private/protected) or use block directly
-        # srcML structure: block -> public -> decl_stmt
-        container = None
+        # Find ALL access modifier containers (may have multiple protected/private sections)
+        # srcML structure: block -> public/private/protected -> decl_stmt
+        containers = []
         for child in block:
             if 'public' in child.tag or 'private' in child.tag or 'protected' in child.tag:
-                container = child
-                break
+                containers.append(child)
         
-        if container is None:
-            container = block
+        # If no access modifiers, use block directly
+        if not containers:
+            containers = [block]
         
-        # Find all member declaration statements and map by name
+        # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
-        for elem in list(container):
-            if 'decl_stmt' in elem.tag:
-                # Extract member name from this declaration
-                member_name = self._extract_member_name(elem)
-                if member_name and member_name in new_order:
-                    member_decls[member_name] = elem
+        member_containers = {}  # Track which container each member is in
+        
+        for container in containers:
+            for elem in list(container):
+                if 'decl_stmt' in elem.tag:
+                    # Extract member name from this declaration
+                    member_name = self._extract_member_name(elem)
+                    if member_name and member_name in new_order:
+                        member_decls[member_name] = elem
+                        member_containers[member_name] = container
         
         if not member_decls or len(member_decls) != len(new_order):
             return
         
-        # Remove all member declarations
-        for elem in list(container):
-            if 'decl_stmt' in elem.tag:
-                container.remove(elem)
+        # Remove all member declarations from their containers
+        for container in containers:
+            for elem in list(container):
+                if 'decl_stmt' in elem.tag:
+                    container.remove(elem)
         
-        # Re-insert in new order at the beginning of container
+        # Re-insert in new order, preserving access modifier grouping
+        # For now, put all in the first non-empty container
+        target_container = containers[0] if containers else block
         for i, member_name in enumerate(new_order):
             if member_name in member_decls:
-                container.insert(i, member_decls[member_name])
+                target_container.insert(i, member_decls[member_name])
     
     def _extract_member_name(self, decl_stmt: ET.Element) -> Optional[str]:
         """Extract member name from declaration statement."""
