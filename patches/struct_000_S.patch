@@ -1,7 +1,7 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpctrtbq0d.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpu_f__8pa.cpp
+diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn1m8qj4h.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpaiyt7qy5.cpp
 index 8ac55b1..403bd80 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpctrtbq0d.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpu_f__8pa.cpp
+--- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn1m8qj4h.cpp
++++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpaiyt7qy5.cpp
 @@ -1 +1 @@
 -struct S { char a; int b; }; int main() { S s; return 0; }
 +struct S { int b; char a; }; int main() { S s; return 0; }
