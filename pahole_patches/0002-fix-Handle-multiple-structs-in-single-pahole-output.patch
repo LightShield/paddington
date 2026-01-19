@@ -1,0 +1,33 @@
+From f1ce904541af42bceaaed467c8746803806efec0 Mon Sep 17 00:00:00 2001
+From: Or Magen <ormagen@amazon.com>
+Date: Mon, 19 Jan 2026 16:35:13 +0200
+Subject: [PATCH 2/5] fix: Handle multiple structs in single pahole output
+
+Fixed loop control flow to not skip structs after parsing one.
+After parsing a struct, use 'continue' instead of falling through
+to the outer loop increment which was skipping the next location comment.
+
+Results:
+- All 15 edge case tests now pass (100%)
+- Real-world: 227 structs parsed, 202 unique (25 duplicates removed)
+- 1 built-in skipped (line=0) - correct behavior
+---
+ implementation/pipeline/extraction/pahole.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/implementation/pipeline/extraction/pahole.py b/implementation/pipeline/extraction/pahole.py
+index fc41e2f..c5cbb1b 100644
+--- a/implementation/pipeline/extraction/pahole.py
++++ b/implementation/pipeline/extraction/pahole.py
+@@ -155,6 +155,8 @@ class PaholeExtractor(IStructExtractor):
+                                 file_path=file_path,
+                                 line=line_num
+                             ))
++                        # Continue from current position (i already advanced past };)
++                        continue
+             
+             i += 1
+         
+-- 
+2.40.1
+

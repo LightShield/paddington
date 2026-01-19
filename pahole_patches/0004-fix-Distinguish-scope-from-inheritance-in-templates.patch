@@ -1,0 +1,47 @@
+From 76783ed7a164d87e68bd550c912db9c0c5aadba7 Mon Sep 17 00:00:00 2001
+From: Or Magen <ormagen@amazon.com>
+Date: Mon, 19 Jan 2026 17:04:36 +0200
+Subject: [PATCH 4/5] fix: Distinguish :: (scope) from : (inheritance) in
+ templates
+
+Fixed false positive where std::pair was detected as inheritance.
+Now checks for ' : ' (with spaces) to detect inheritance, not just ':'.
+
+Results:
+- 227 unique structs extracted (was 202 with false deduplication)
+- 0 duplicate names (was 13 false duplicates)
+- All template names preserved correctly
+- All 15 edge case tests still pass
+---
+ implementation/pipeline/extraction/pahole.py | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/implementation/pipeline/extraction/pahole.py b/implementation/pipeline/extraction/pahole.py
+index c5cbb1b..1869838 100644
+--- a/implementation/pipeline/extraction/pahole.py
++++ b/implementation/pipeline/extraction/pahole.py
+@@ -92,14 +92,17 @@ class PaholeExtractor(IStructExtractor):
+                     if struct_match:
+                         # Extract struct name from complex declarations
+                         full_decl = struct_match.group(2)
+-                        if ':' in full_decl:
+-                            # Inheritance: "Name : public Base" -> "Name"
+-                            struct_name = full_decl.split(':')[0].strip().split()[-1]
++                        if ' : ' in full_decl:
++                            # Inheritance: "Name : public Base" (note: space before colon)
++                            struct_name = full_decl.split(' : ')[0].strip()
+                         elif 'typedef' in full_decl:
+                             # Typedef: "typedef Name Name" -> last word
+                             struct_name = full_decl.strip().split()[-1]
++                        elif '<' in full_decl and '>' in full_decl:
++                            # Template: keep whole thing (may have spaces inside <>)
++                            struct_name = full_decl.strip()
+                         else:
+-                            # Simple/template: "Name" or "Name<T>" -> first word
++                            # Simple: take first word
+                             struct_name = full_decl.split()[0] if ' ' in full_decl else full_decl
+                         
+                         i += 1
+-- 
+2.40.1
+
