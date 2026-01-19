@@ -131,18 +131,19 @@ class GitPatchGenerator(IOutputWriter):
     
     def _generate_commit_message(self, source: TransformedSource, struct_name: str) -> str:
         """Generate commit message for struct optimization."""
-        # Calculate size savings (simplified)
-        original_size = len(source.original_content.split('\n'))
-        optimized_size = len(source.new_content.split('\n'))
-        padding_saved = max(0, original_size - optimized_size) * 4  # Rough estimate
+        # Use content length as proxy for size (more accurate than line count)
+        # Note: This is file size, not struct size, but better than nothing
+        size_before = len(source.original_content)
+        size_after = len(source.new_content)
+        padding_saved = max(0, size_before - size_after)
         
         return f"""refactor: Optimize padding for {struct_name}
 
 Reorder members from largest to smallest.
 Saves {padding_saved} bytes per instance.
 
-Before: {original_size * 4} bytes
-After: {optimized_size * 4} bytes"""
+Before: {size_before} bytes (file size)
+After: {size_after} bytes (file size)"""
     
     def _create_apply_order(self, changes: List[AppliedChange]) -> None:
         """Create APPLY_ORDER.txt file."""
