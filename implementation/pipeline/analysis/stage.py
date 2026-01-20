@@ -143,14 +143,26 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                     if safe_members != updated_members:
                         safe_size = calculate_struct_size(safe_members)
                         padding_saved = actual_size - safe_size
-                        plan = OptimizationPlan(
-                            struct=struct,
-                            original_order=tuple(updated_members),
-                            optimal_order=tuple(safe_members),
-                            padding_saved=padding_saved,
-                            skip_reason=None
-                        )
-                        type_sizes[struct_name] = safe_size
+                        
+                        # Handle case where safe reordering makes struct larger
+                        if padding_saved < 0:
+                            plan = OptimizationPlan(
+                                struct=struct,
+                                original_order=tuple(updated_members),
+                                optimal_order=tuple(updated_members),  # Keep original order
+                                padding_saved=0,
+                                skip_reason=f"safe reordering increases size by {-padding_saved} bytes"
+                            )
+                            type_sizes[struct_name] = actual_size
+                        else:
+                            plan = OptimizationPlan(
+                                struct=struct,
+                                original_order=tuple(updated_members),
+                                optimal_order=tuple(safe_members),
+                                padding_saved=padding_saved,
+                                skip_reason=None
+                            )
+                            type_sizes[struct_name] = safe_size
                     else:
                         plan = OptimizationPlan(
                             struct=struct,
@@ -163,6 +175,43 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 else:
                     optimal_size = calculate_struct_size(optimal_members)
                     padding_saved = actual_size - optimal_size
+                    
+                    # Handle case where reordering makes struct larger
+                    if padding_saved < 0:
+                        plan = OptimizationPlan(
+                            struct=struct,
+                            original_order=tuple(updated_members),
+                            optimal_order=tuple(updated_members),  # Keep original order
+                            padding_saved=0,
+                            skip_reason=f"reordering increases size by {-padding_saved} bytes"
+                        )
+                        type_sizes[struct_name] = actual_size
+                    else:
+                        plan = OptimizationPlan(
+                            struct=struct,
+                            original_order=tuple(updated_members),
+                            optimal_order=tuple(optimal_members),
+                            padding_saved=padding_saved,
+                            skip_reason=None
+                        )
+                        type_sizes[struct_name] = optimal_size
+            else:
+                # Get optimal order
+                optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
+                optimal_size = calculate_struct_size(optimal_members)
+                padding_saved = actual_size - optimal_size
+                
+                # Handle case where reordering makes struct larger (negative padding)
+                if padding_saved < 0:
+                    plan = OptimizationPlan(
+                        struct=struct,
+                        original_order=tuple(updated_members),
+                        optimal_order=tuple(updated_members),  # Keep original order
+                        padding_saved=0,
+                        skip_reason=f"reordering increases size by {-padding_saved} bytes"
+                    )
+                    type_sizes[struct_name] = actual_size
+                else:
                     plan = OptimizationPlan(
                         struct=struct,
                         original_order=tuple(updated_members),
@@ -171,20 +220,6 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                         skip_reason=None
                     )
                     type_sizes[struct_name] = optimal_size
-            else:
-                # Get optimal order
-                optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
-                optimal_size = calculate_struct_size(optimal_members)
-                padding_saved = actual_size - optimal_size
-                
-                plan = OptimizationPlan(
-                    struct=struct,
-                    original_order=tuple(updated_members),
-                    optimal_order=tuple(optimal_members),
-                    padding_saved=padding_saved,
-                    skip_reason=None
-                )
-                type_sizes[struct_name] = optimal_size
             
             plans.append(plan)
         
