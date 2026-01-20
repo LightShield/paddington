@@ -39,27 +39,26 @@ class PaholeExtractor(IStructExtractor):
     
     def extract(self, objfiles: List[Path]) -> List[StructInfo]:
         """Extract struct information from object files using pahole."""
-        self.log.info(f"Extracting from {len(objfiles)} files using pahole")
         all_structs = []
         
         for i, objfile in enumerate(objfiles, 1):
-            if i % 10 == 0 or i in [1, 100, 500, 1000]:
-                self.log.info(f"  Processing: {i}/{len(objfiles)}")
+            if i % 100 == 0 or i == len(objfiles):
+                self.log.info(f"Extracting: {i}/{len(objfiles)} files")
             
             try:
-                self.log.debug(f"Running pahole on {objfile.name}")
+                self.log.debug(f"Processing {objfile.name}")
                 cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 
                 if result.returncode != 0:
-                    self.log.debug(f"  Skipped: pahole returned {result.returncode}")
+                    self.log.debug(f"  Skipped {objfile.name}: pahole error")
                     continue
                 
                 structs = self._parse_pahole_output(result.stdout)
                 all_structs.extend(structs)
-                self.log.debug(f"  Found {len(structs)} structs")
+                self.log.debug(f"  {objfile.name}: {len(structs)} structs")
             except Exception as e:
-                self.log.debug(f"  Skipped: {type(e).__name__}: {e}")
+                self.log.debug(f"  Skipped {objfile.name}: {type(e).__name__}")
                 continue
         
         return self._deduplicate_structs(all_structs)
