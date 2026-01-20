@@ -154,9 +154,17 @@ def run(args):
         optimization_plans = analysis_stage.process(structs)
         log.info(f"Analyzed {len(optimization_plans)} structs")
         
-        # Continue with full pipeline
-        log.debug("Stage 3-5: Planning, Transformation, Output...")
-        results = pipeline.run(objfiles)
+        # Run remaining stages manually (not via pipeline.run) to preserve compilation data
+        log.debug("Stage 3: Planning...")
+        modifications = planning_stage.process(optimization_plans)
+        log.info(f"Planned {len(modifications)} modifications")
+        
+        log.debug("Stage 4: Transformation...")
+        transformed = transformation_stage.process(modifications)
+        log.info(f"Transformed {len(transformed)} sources")
+        
+        log.debug("Stage 5: Output...")
+        results = output_stage.process(transformed)
         log.info(f"Pipeline complete: {len(results)} changes")
         
         _report_optimization(results, optimization_plans, args.verbose, log)
