@@ -135,12 +135,23 @@ class SrcMLTransformer(ISourceTransformer):
             if not new_order:
                 return None
             
-            # Find struct node by name
-            struct_node = self._find_struct_node(root, modification.struct_name)
-            if struct_node is None:
-                return None
+            # Determine if this is a header file (with struct definition) or cpp file (constructors only)
+            is_constructor_only = any(m.type == 'reorder_constructors' for m in modification.modifications)
             
-            # Check for constructor dependencies before making any changes
+            # For header files, find and reorder struct members
+            if not is_constructor_only:
+                # Find struct node by name
+                struct_node = self._find_struct_node(root, modification.struct_name)
+                if struct_node is None:
+                    return None
+                
+                # Reorder member declarations
+                original_xml = ET.tostring(root, encoding='unicode')
+                self._reorder_members(struct_node, new_order)
+            else:
+                original_xml = ET.tostring(root, encoding='unicode')
+            
+            # Check for constructor dependencies before reordering constructors
             constructors = self._find_constructors(root, modification.struct_name)
             has_dependencies = False
             
@@ -152,12 +163,8 @@ class SrcMLTransformer(ISourceTransformer):
             if has_dependencies:
                 self.log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
-                
-            # Reorder member declarations
-            original_xml = ET.tostring(root, encoding='unicode')
-            self._reorder_members(struct_node, new_order)
             
-            # Reorder constructor initializer lists
+            # Reorder constructor initializer lists (for both .h and .cpp files)
             self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
@@ -174,7 +181,7 @@ class SrcMLTransformer(ISourceTransformer):
     def _extract_new_order(self, mod: SourceModification) -> list:
         """Extract new member order from modifications."""
         for m in mod.modifications:
-            if m.type == 'reorder':
+            if m.type in ['reorder', 'reorder_constructors']:
                 content = m.new_content
                 if content.startswith("members: "):
                     return [n.strip() for n in content[9:].split(',')]

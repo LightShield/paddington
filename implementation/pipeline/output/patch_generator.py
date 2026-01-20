@@ -43,15 +43,10 @@ class GitPatchGenerator(IOutputWriter):
         if not transformed:
             return []
         
-        # Build dependency order
-        struct_order = self._build_dependency_order(transformed)
-        
-        # Generate patches
+        # Generate patches - one per transformed source file
         changes = []
-        for i, struct_name in enumerate(struct_order):
-            source = next(t for t in transformed if any(
-                mod.struct_name == struct_name for mod in t.modifications
-            ))
+        for i, source in enumerate(transformed):
+            struct_name = source.modifications[0].struct_name if source.modifications else "unknown"
             
             patch_path, message_path = self._generate_patch(source, struct_name, i)
             changes.append(AppliedChange(
