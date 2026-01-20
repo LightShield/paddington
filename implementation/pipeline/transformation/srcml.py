@@ -389,19 +389,22 @@ class SrcMLTransformer(ISourceTransformer):
         # Look for constructor name matching struct name
         for child in elem:
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            if child_tag == 'name' and child.text and child.text.strip() == struct_name:
-                return True
-        
-        # Also check for qualified constructor names (e.g., "ClassName::ClassName")
-        for child in elem:
-            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            if child_tag == 'name' and child.text:
-                # Handle qualified names like "TestClass::TestClass"
-                name_parts = child.text.strip().split('::')
-                if len(name_parts) >= 2 and name_parts[-1] == struct_name:
-                    return True
-                # Handle simple names
-                elif child.text.strip() == struct_name:
+            if child_tag == 'name':
+                # Handle both simple names and qualified names (ClassName::ClassName)
+                # For qualified names, the name element has children: name, operator, name
+                name_parts = []
+                if child.text and child.text.strip():
+                    # Simple name directly in text
+                    name_parts.append(child.text.strip())
+                else:
+                    # Qualified name - extract from children
+                    for grandchild in child:
+                        gc_tag = grandchild.tag.split('}')[-1] if '}' in grandchild.tag else grandchild.tag
+                        if gc_tag == 'name' and grandchild.text:
+                            name_parts.append(grandchild.text.strip())
+                
+                # Check if any part matches struct_name (for ClassName::ClassName, both parts should match)
+                if struct_name in name_parts:
                     return True
         
         return False
