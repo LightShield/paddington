@@ -1,0 +1,21 @@
+diff --git tmp/tmpthikqnm0.cpp tmp/tmp3hmkd3nw.cpp
+index 378f479..e65c5d2 100644
+--- tmp/tmpthikqnm0.cpp
++++ tmp/tmp3hmkd3nw.cpp
+@@ -1,13 +1,13 @@
+ 
+ struct Outer {
++    Inner<double> double_inner;
++Inner<int> int_inner;
+     template<typename T>
+     struct Inner {
+         T value;
+         int id;
+     };
+     
+-    Inner<int> int_inner;
+-    Inner<double> double_inner;
+-};
++    };
+ 
+ Outer outer;

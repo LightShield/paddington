@@ -1,7 +1,7 @@
 refactor: Optimize padding for Config
 
 Reorder members from largest to smallest.
-Saves 8 bytes per instance.
+Saves 0 bytes per instance.
 
-Before: 48 bytes
-After: 40 bytes
+Before: 179 bytes (file size)
+After: 179 bytes (file size)

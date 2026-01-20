@@ -1,16 +1,15 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_pe3irbi.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpuygl6cb1.cpp
-index ded2a44..f851253 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmp_pe3irbi.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpuygl6cb1.cpp
+diff --git tmp/tmpdwdk9hje.cpp tmp/tmphlxhubn8.cpp
+index ded2a44..e3a44bf 100644
+--- tmp/tmpdwdk9hje.cpp
++++ tmp/tmphlxhubn8.cpp
 @@ -1,11 +1,11 @@
  
  struct MiddleLock {
 -    char small1;
      int large1[30];
 -    int locked_middle; // paddington-lock
--    int large2[30];
-+    int locked_middle; int large2[30];
-+    char small1;
+     int large2[30];
++    int locked_middle; char small1;
      char small2;
 -};
 +// paddington-lock

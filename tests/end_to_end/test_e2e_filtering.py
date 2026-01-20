@@ -25,7 +25,7 @@ class TestE2EFiltering(BaseE2ETest):
         
         # Test include pattern - should only process files matching pattern
         result = subprocess.run(
-            ['python', '__main__.py', str(tmp_path),
+            ['python3', '__main__.py', str(tmp_path),
              '--include', '*point*',
              '--extractor', 'dwarf'],
             capture_output=True,
@@ -54,7 +54,7 @@ class TestE2EFiltering(BaseE2ETest):
         
         # Test exclude pattern
         result = subprocess.run(
-            ['python', '__main__.py', str(tmp_path),
+            ['python3', '__main__.py', str(tmp_path),
              '--exclude', '*skip*',
              '--extractor', 'dwarf'],
             capture_output=True,

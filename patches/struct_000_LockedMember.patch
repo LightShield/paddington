@@ -1,15 +1,16 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn0tmj6n9.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmph19vy8dy.cpp
-index e6eb78f..842d254 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpn0tmj6n9.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmph19vy8dy.cpp
+diff --git tmp/tmpts_1mvo8.cpp tmp/tmp83tmxhin.cpp
+index e6eb78f..086208d 100644
+--- tmp/tmpts_1mvo8.cpp
++++ tmp/tmp83tmxhin.cpp
 @@ -1,11 +1,11 @@
  
  struct LockedMember {
-+    int locked_field; int large[50];
-     char small1;
+-    char small1;
 -    int locked_field; // paddington-lock
-     char small2;
--    int large[50];
+-    char small2;
+     int large[50];
++    int locked_field; char small1;
++    char small2;
      char small3;
 -};
 +// paddington-lock

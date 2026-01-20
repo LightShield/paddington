@@ -20,15 +20,14 @@ class TestPaholeToPlanning:
         """Test that pahole extractor provides compilation data to planning stage."""
         # Mock pahole output with source locations
         mock_pahole_output = """
+/* Used at: /project/src/user_impl.cpp */
+/* Used at: /project/src/user_factory.cpp */
 /* <0> /project/src/user.h:10 */
 struct UserData {
     int id; /* 0 4 */
     char name; /* 4 1 */
     double score; /* 8 8 */
 }; /* size: 24 */
-
-/* <24> /project/src/user_impl.cpp:5 */
-/* <48> /project/src/user_factory.cpp:12 */
 """
         
         # Create pahole extractor
@@ -85,15 +84,14 @@ struct UserData {
             
             # Mock pahole output
             mock_pahole_output = f"""
+/* Used at: {impl1} */
+/* Used at: {impl2} */
 /* <0> {header}:2 */
 struct UserData {{
     int id; /* 0 4 */
     char name; /* 4 1 */
     double score; /* 8 8 */
 }}; /* size: 24 */
-
-/* <24> {impl1}:2 */
-/* <48> {impl2}:2 */
 """
             
             # Step 1: Extract with pahole
@@ -144,15 +142,14 @@ struct UserData {{
         
         # Test the parsing method directly
         pahole_output = """
+/* Used at: /project/src/data_impl.cpp */
+/* Used at: /project/src/data_utils.cpp */
+/* Used at: /project/test/data_test.cpp */
 /* <0> /project/include/data.h:15 */
 struct Data {
     int x; /* 0 4 */
     char y; /* 4 1 */
 }; /* size: 8 */
-
-/* <8> /project/src/data_impl.cpp:3 */
-/* <16> /project/src/data_utils.cpp:7 */
-/* <24> /project/test/data_test.cpp:10 */
 """
         
         extractor._collect_source_file_mappings(pahole_output)

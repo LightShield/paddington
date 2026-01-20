@@ -398,11 +398,17 @@ class SrcMLTransformer(ISourceTransformer):
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
             if child_tag == 'name':
                 # Handle both simple names and qualified names (ClassName::ClassName)
-                # For qualified names, the name element has children: name, operator, name
                 name_parts = []
                 if child.text and child.text.strip():
-                    # Simple name directly in text
-                    name_parts.append(child.text.strip())
+                    # Simple name directly in text or qualified name as plain text
+                    name_text = child.text.strip()
+                    if '::' in name_text:
+                        # Handle qualified name like "TestClass::TestClass"
+                        parts = name_text.split('::')
+                        name_parts.extend(parts)
+                    else:
+                        # Simple name
+                        name_parts.append(name_text)
                 else:
                     # Qualified name - extract from children
                     for grandchild in child:

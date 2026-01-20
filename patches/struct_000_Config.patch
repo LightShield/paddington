@@ -1,8 +1,8 @@
-diff --git var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw29caicx.cpp var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpio7v_u0g.cpp
-index 323a733..47d384c 100644
---- var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpw29caicx.cpp
-+++ var/folders/vn/llg2yrpd6q17y53ny2f6yfyw0000gq/T/tmpio7v_u0g.cpp
-@@ -1,11 +1,9 @@
+diff --git tmp/tmpd3drlrdh.cpp tmp/tmpdtsikom8.cpp
+index 323a733..b6fc21a 100644
+--- tmp/tmpd3drlrdh.cpp
++++ tmp/tmpdtsikom8.cpp
+@@ -1,11 +1,11 @@
  
  struct Config {
 -    char mode;
@@ -12,6 +12,8 @@ index 323a733..47d384c 100644
      short id;
 -};
 +char mode;
++    static int count;
++    static const char* name;
 +    };
  
  int Config::count = 0;

@@ -24,7 +24,7 @@ class TestReporting(BaseE2ETest):
             subprocess.run(['g++', '-g', '-O0', '-c', str(cpp), '-o', str(obj)])
         
         result = subprocess.run(
-            ['python', '__main__.py', str(tmp_path), '--extractor', 'dwarf', '-vv'],
+            ['python3', '__main__.py', str(tmp_path), '--extractor', 'dwarf', '-vv'],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
@@ -47,7 +47,7 @@ class TestReporting(BaseE2ETest):
         subprocess.run(['g++', '-g', '-O0', '-c', str(cpp), '-o', str(obj)])
         
         result = subprocess.run(
-            ['python', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
+            ['python3', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
@@ -72,7 +72,7 @@ class TestReporting(BaseE2ETest):
         
         # Test default verbosity
         result_default = subprocess.run(
-            ['python', '__main__.py', str(obj), '--extractor', 'dwarf'],
+            ['python3', '__main__.py', str(obj), '--extractor', 'dwarf'],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
@@ -80,7 +80,7 @@ class TestReporting(BaseE2ETest):
         
         # Test -vv
         result_verbose = subprocess.run(
-            ['python', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
+            ['python3', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
@@ -105,7 +105,7 @@ class TestReporting(BaseE2ETest):
         subprocess.run(['g++', '-g', '-O0', '-c', str(cpp), '-o', str(obj)])
         
         result = subprocess.run(
-            ['python', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
+            ['python3', '__main__.py', str(obj), '--extractor', 'dwarf', '-vv'],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent
@@ -127,7 +127,7 @@ class TestReporting(BaseE2ETest):
         subprocess.run(['g++', '-g', '-O0', '-c', str(cpp), '-o', str(obj)])
         
         result = subprocess.run(
-            ['python', '__main__.py', str(obj),
+            ['python3', '__main__.py', str(obj),
              '--min-savings', '10',
              '--access-modifier-strategy', 'preserve',
              '--extractor', 'dwarf',

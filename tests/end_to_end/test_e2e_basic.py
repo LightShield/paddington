@@ -98,7 +98,7 @@ struct Small {
         import subprocess
         from pathlib import Path
         result = subprocess.run(
-            ["python", "__main__.py", "--help"],
+            ["python3", "__main__.py", "--help"],
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent

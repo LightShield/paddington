@@ -210,7 +210,8 @@ class TestSrcMLTransformer:
     @pytest.mark.unit
     def test_find_constructors_qualified_names(self):
         """Test finding constructors with qualified names (out-of-line definitions)."""
-        xml_content = '''
+        # Test both plain text qualified names and structured XML qualified names
+        xml_content_plain = '''
         <unit xmlns="http://www.srcML.org/srcML/src">
             <constructor>
                 <name>TestClass::TestClass</name>
@@ -221,10 +222,26 @@ class TestSrcMLTransformer:
         </unit>
         '''
         
-        root = ET.fromstring(xml_content)
-        constructors = self.transformer._find_constructors(root, "TestClass")
+        xml_content_structured = '''
+        <unit xmlns="http://www.srcML.org/srcML/src">
+            <constructor>
+                <name><name>TestClass</name><operator>::</operator><name>TestClass</name></name>
+                <parameter_list>(<parameter><decl><type><name>int</name></type> <name>x</name></decl></parameter>)</parameter_list>
+                <member_init_list>: <call><name>member</name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call> </member_init_list>
+                <block>{}</block>
+            </constructor>
+        </unit>
+        '''
         
-        assert len(constructors) == 1, "Should find 1 qualified constructor"
+        # Test plain text qualified name
+        root_plain = ET.fromstring(xml_content_plain)
+        constructors_plain = self.transformer._find_constructors(root_plain, "TestClass")
+        assert len(constructors_plain) == 1, "Should find 1 qualified constructor (plain text)"
+        
+        # Test structured XML qualified name
+        root_structured = ET.fromstring(xml_content_structured)
+        constructors_structured = self.transformer._find_constructors(root_structured, "TestClass")
+        assert len(constructors_structured) == 1, "Should find 1 qualified constructor (structured XML)"
     
     @pytest.mark.unit
     def test_has_constructor_dependencies(self):

@@ -39,7 +39,7 @@ class TestE2EMinSavingsFamily:
         if args is None:
             args = []
         
-        cmd = ["python", "__main__.py"] + args + [str(obj_file)]
+        cmd = ["python3", "__main__.py"] + args + [str(obj_file)]
         result = subprocess.run(
             cmd,
             cwd=self.original_cwd,
@@ -67,7 +67,7 @@ struct Test {
 };
 """
         obj_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(obj_file)
+        result = self.run_optimize(obj_file, ["--min-savings", "0"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -85,7 +85,7 @@ struct Test {
 };
 """
         obj_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(obj_file)
+        result = self.run_optimize(obj_file, ["--min-savings", "4"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -103,7 +103,7 @@ struct Test {
 };
 """
         obj_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(obj_file)
+        result = self.run_optimize(obj_file, ["--min-savings", "8"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -121,7 +121,7 @@ struct Test {
 };
 """
         obj_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(obj_file)
+        result = self.run_optimize(obj_file, ["--min-savings", "16"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
@@ -139,7 +139,7 @@ struct Test {
 };
 """
         obj_file = self.compile_cpp(cpp_content)
-        result = self.run_optimize(obj_file)
+        result = self.run_optimize(obj_file, ["--min-savings", "100"])
         
         if "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr:
             pytest.skip("Application has import issues")
