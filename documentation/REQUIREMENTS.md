@@ -99,6 +99,10 @@ public:
   - Members initialize in declaration order, not initializer list order
   - Initializer list must match declaration order to avoid -Wreorder warnings
   - Required for compilation with -Werror
+  - **MUST update initializer lists in ALL files containing constructor definitions**:
+    - Header files (.h, .hpp) with inline constructors
+    - Implementation files (.cpp, .cc, .cxx) with out-of-line constructors
+    - Any file where constructor definitions appear
 - **Detect member dependencies in constructors** (CRITICAL)
   - If member A initialization uses member B, they have dependency
   - Example: `buffer(new char[size])` depends on `size`
@@ -118,6 +122,11 @@ public:
 - Only initializer list order changes to match new member declaration order
 - Member dependencies must be detected and respected
 - Violating initialization order causes undefined behavior
+- **Constructor initializer lists appear in multiple file types and ALL must be updated**:
+  - Inline constructors in header files (.h, .hpp)
+  - Out-of-line constructors in implementation files (.cpp, .cc, .cxx)
+  - Template specializations in any file type
+  - Failure to update any constructor definition causes -Wreorder warnings and compilation errors with -Werror
 
 **Priority**: P0 (Must Have - Required for correct, compilable code)
 
@@ -161,7 +170,50 @@ struct Data {
 
 **Test**: test_e2e_constructor_dependencies.py (to be created)
 
-#### FR-1.1.4: Dependency-Aware Optimization
+#### FR-1.1.6: Compilation-Based .cpp File Detection
+**Description**: The system shall detect .cpp implementation files from actual compilation data, NOT by filename guessing.
+
+**Rationale**:
+- Multiple implementation files can exist for one header (e.g., `user.h` → `user_impl.cpp`, `user_factory.cpp`)
+- Filename guessing (replacing `.h` with `.cpp`) is unreliable and incorrect
+- Only files that were actually compiled contain the struct definitions we need to modify
+- DWARF debug info and compilation databases contain the actual source file relationships
+
+**Acceptance Criteria**:
+- **MUST use compilation data sources**:
+  - DWARF debug info source locations from object files
+  - Compilation database (`compile_commands.json`) entries
+  - Pahole output with `-I` flag showing actual source files used
+- **MUST NOT use filename guessing/globbing**:
+  - No replacing `.h` with `.cpp`
+  - No directory scanning for similar filenames
+  - No pattern matching based on file names
+- **Handle multiple implementation files per header**:
+  - One header may be included by multiple .cpp files
+  - Each .cpp file may contain different constructor implementations
+  - All relevant .cpp files must be identified and modified
+- **Validate file relationships**:
+  - Verify that detected .cpp files actually contain the struct's constructors
+  - Skip .cpp files that only include the header but don't define constructors
+  - Report which .cpp files were found and why
+
+**Implementation Strategy**:
+- Extract source file paths from DWARF debug info during struct extraction
+- Cross-reference with compilation database if available
+- Use pahole `-I` flag output to identify actual compiled source files
+- Build mapping of struct definitions to their implementation files
+- Validate that implementation files contain relevant constructor code
+
+**Error Handling**:
+- Report structs where no implementation files are found
+- Skip constructor modifications if no .cpp files detected
+- Log the detection method used (DWARF, compile_commands.json, pahole)
+
+**Priority**: P0 (Must Have - Critical for correct file modification)
+
+**Test**: test_cpp_file_detection.py (to be created)
+
+#### FR-1.1.7: Dependency-Aware Optimization
 **Description**: The system shall optimize structs in dependency order.
 
 **Acceptance Criteria**:

@@ -1,0 +1,17 @@
+diff --git tmp/tmpajnyoh60.cpp tmp/tmpsf_ghiiy.cpp
+index fc26427..eabb517 100644
+--- tmp/tmpajnyoh60.cpp
++++ tmp/tmpsf_ghiiy.cpp
+@@ -8,10 +8,10 @@ struct TestStruct {
+ 
+ class TestClass {
+ public:
+-    char flag;
+     int value;
+     
+-    TestClass() : flag(0), value(0) {}
++    char flag;
++    TestClass() : value(0), flag(0) {}
+     TestClass(char f, int v);
+ };
+ 

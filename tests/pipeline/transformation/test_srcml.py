@@ -208,6 +208,83 @@ class TestSrcMLTransformer:
         assert len(constructors) == 0, "Should find 0 constructors for non-existent struct"
     
     @pytest.mark.unit
+    def test_find_constructors_qualified_names(self):
+        """Test finding constructors with qualified names (out-of-line definitions)."""
+        xml_content = '''
+        <unit xmlns="http://www.srcML.org/srcML/src">
+            <constructor>
+                <name>TestClass::TestClass</name>
+                <parameter_list>(<parameter><decl><type><name>int</name></type> <name>x</name></decl></parameter>)</parameter_list>
+                <member_init_list>: <call><name>member</name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call> </member_init_list>
+                <block>{}</block>
+            </constructor>
+        </unit>
+        '''
+        
+        root = ET.fromstring(xml_content)
+        constructors = self.transformer._find_constructors(root, "TestClass")
+        
+        assert len(constructors) == 1, "Should find 1 qualified constructor"
+    
+    @pytest.mark.unit
+    def test_has_constructor_dependencies(self):
+        """Test detection of constructor dependencies."""
+        constructor_xml = '''
+        <constructor xmlns="http://www.srcML.org/srcML/src">
+            <name>Buffer</name>
+            <parameter_list>(<parameter><decl><type><name>int</name></type> <name>s</name></decl></parameter>)</parameter_list>
+            <member_init_list>: <call><name>size</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call>, <call><name>data</name><argument_list>(<argument><expr><operator>new</operator> <name>char</name><index>[<expr><name>size</name></expr>]</index></expr></argument>)</argument_list></call> </member_init_list>
+            <block>{}</block>
+        </constructor>
+        '''
+        
+        constructor = ET.fromstring(constructor_xml)
+        
+        # Test with dependency: data depends on size
+        has_deps = self.transformer._has_constructor_dependencies(constructor, ["data", "size"])
+        assert has_deps is True, "Should detect dependency: data depends on size"
+        
+        # Test without dependency violation
+        has_deps = self.transformer._has_constructor_dependencies(constructor, ["size", "data"])
+        assert has_deps is False, "Should not detect dependency violation with correct order"
+    
+    @pytest.mark.unit
+    def test_extract_initialization_expression(self):
+        """Test extracting initialization expressions from constructor calls."""
+        call_xml = '''
+        <call xmlns="http://www.srcML.org/srcML/src">
+            <name>data</name>
+            <argument_list>(<argument><expr><operator>new</operator> <name>char</name><index>[<expr><name>size</name></expr>]</index></expr></argument>)</argument_list>
+        </call>
+        '''
+        
+        call_elem = ET.fromstring(call_xml)
+        expr = self.transformer._extract_initialization_expression(call_elem)
+        
+        assert expr is not None, "Should extract initialization expression"
+        assert "size" in expr, "Expression should contain 'size'"
+        assert "new" in expr, "Expression should contain 'new'"
+    
+    @pytest.mark.unit
+    def test_find_referenced_members(self):
+        """Test finding referenced members in initialization expressions."""
+        # Test expression that references another member
+        expr = "new char[size]"
+        referenced = self.transformer._find_referenced_members(expr, ["size", "data", "count"])
+        
+        assert "size" in referenced, "Should find 'size' reference"
+        assert "data" not in referenced, "Should not find 'data' reference"
+        assert "count" not in referenced, "Should not find 'count' reference"
+        
+        # Test expression with multiple references
+        expr = "size + count * 2"
+        referenced = self.transformer._find_referenced_members(expr, ["size", "data", "count"])
+        
+        assert "size" in referenced, "Should find 'size' reference"
+        assert "count" in referenced, "Should find 'count' reference"
+        assert "data" not in referenced, "Should not find 'data' reference"
+    
+    @pytest.mark.unit
     def test_find_initializer_list(self):
         """Test finding initializer list in constructor."""
         constructor_xml = '''

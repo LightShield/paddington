@@ -2,10 +2,12 @@
 
 import os
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Set
+from pathlib import Path
 from ..stage import Stage
 from ...struct_data.optimization_plan import OptimizationPlan
 from ...struct_data.source_change import SourceModification, Modification, Location
+from ...utils import Logger
 
 
 class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
@@ -13,6 +15,13 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
     
     def __init__(self, access_modifier_strategy: str = "preserve"):
         self.access_modifier_strategy = access_modifier_strategy
+        self.log = Logger()
+        self._compilation_data: Dict[str, List[str]] = {}
+    
+    def set_compilation_data(self, compilation_data: Dict[str, List[str]]):
+        """Set compilation data mapping struct names to their .cpp files."""
+        self._compilation_data = compilation_data
+        self.log.info(f"Set compilation data for {len(compilation_data)} structs")
     
     def process(self, plans: List[OptimizationPlan]) -> List[SourceModification]:
         """Create source modifications from plans."""
@@ -61,33 +70,36 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         return [source_mod]
     
     def _create_cpp_modifications(self, plan: OptimizationPlan) -> List[SourceModification]:
-        """Create modifications for corresponding .cpp file constructor initializer lists."""
-        cpp_file = self._find_corresponding_cpp_file(plan.struct.file_path)
+        """Create modifications for .cpp files containing constructor implementations."""
+        cpp_files = self._get_cpp_files_for_struct(plan.struct.name)
         
-        if not cpp_file or not os.path.exists(cpp_file):
-            return []
-        
-        try:
-            with open(cpp_file, 'r') as f:
-                content = f.read()
-        except (IOError, OSError) as e:
-            return []
-        
-        # Find constructor initializer lists for this struct
-        constructor_locations = self._find_constructor_initializer_lists(
-            content, plan.struct.name, plan.original_order, plan.optimal_order, cpp_file
-        )
-        
-        if not constructor_locations:
+        if not cpp_files:
+            self.log.warning(f"No .cpp files found for struct {plan.struct.name} - skipping constructor modifications")
             return []
         
         modifications = []
-        for location, old_content, new_content in constructor_locations:
+        old_members = ", ".join(m.name for m in plan.original_order)
+        new_members = ", ".join(m.name for m in plan.optimal_order)
+        
+        for cpp_file in cpp_files:
+            if not os.path.exists(cpp_file):
+                self.log.warning(f"Detected .cpp file does not exist: {cpp_file}")
+                continue
+            
+            # Validate that this .cpp file actually contains constructors for this struct
+            if not self._validate_cpp_file_has_constructors(cpp_file, plan.struct.name):
+                self.log.debug(f"Skipping {cpp_file} - no constructors found for {plan.struct.name}")
+                continue
+            
             mod = Modification(
-                type="reorder_initializer_list",
-                location=location,
-                old_content=old_content,
-                new_content=new_content,
+                type="reorder_constructors",
+                location=Location(
+                    file=cpp_file,
+                    line=1,  # srcML will find actual constructor locations
+                    column=0
+                ),
+                old_content=f"members: {old_members}",
+                new_content=f"members: {new_members}",
                 access_strategy=self.access_modifier_strategy
             )
             
@@ -97,133 +109,81 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
                 modifications=tuple([mod]),
                 access_strategy=self.access_modifier_strategy
             )
+            
             modifications.append(source_mod)
+            self.log.debug(f"Created modification for {cpp_file}")
         
         return modifications
     
-    def _find_corresponding_cpp_file(self, header_file: str) -> Optional[str]:
-        """Find corresponding .cpp file for a .h file."""
-        if not header_file.endswith('.h'):
-            return None
+    def _get_cpp_files_for_struct(self, struct_name: str) -> List[str]:
+        """Get .cpp files for a struct using compilation data."""
+        cpp_files = self._compilation_data.get(struct_name, [])
         
-        base_name = header_file[:-2]  # Remove .h extension
-        cpp_file = base_name + '.cpp'
+        if cpp_files:
+            self.log.debug(f"Found {len(cpp_files)} .cpp files for {struct_name} from compilation data")
+        else:
+            self.log.debug(f"No .cpp files found for {struct_name} in compilation data")
         
-        if os.path.exists(cpp_file):
-            return cpp_file
-        
-        # Try other common patterns
-        alternatives = [
-            base_name + '.cc',
-            base_name + '.cxx',
-            base_name + '.C'
-        ]
-        
-        for alt in alternatives:
-            if os.path.exists(alt):
-                return alt
-        
-        return None
+        return cpp_files
     
-    def _find_constructor_initializer_lists(
-        self, 
-        content: str, 
-        struct_name: str, 
-        original_order: Tuple, 
-        optimal_order: Tuple,
-        cpp_file: str
-    ) -> List[Tuple[Location, str, str]]:
-        """Find and create modifications for constructor initializer lists."""
-        results = []
-        
-        # Pattern to match constructor initializer lists
-        # Matches: struct_name::struct_name(...) : member1(...), member2(...) {
-        # Also matches: struct_name(...) : for inline constructors
-        pattern = rf'(?:{re.escape(struct_name)}::)?{re.escape(struct_name)}\s*\([^)]*\)\s*:\s*([^{{]+)'
-        
-        lines = content.split('\n')
-        matches_found = 0
-        for line_num, line in enumerate(lines, 1):
-            match = re.search(pattern, line)
-            if match:
-                matches_found += 1
-                init_list = match.group(1).strip()
-                
-                # Parse the initializer list
-                old_init_list = self._parse_and_reorder_initializer_list(
-                    init_list, original_order, optimal_order
-                )
-                
-                if old_init_list:
-                    old_content, new_content = old_init_list
-                    location = Location(
-                        file=cpp_file,  # Set the correct file path
-                        line=line_num,
-                        column=match.start(1)
-                    )
-                    results.append((location, old_content, new_content))
-        
-        return results
+    def _validate_cpp_file_has_constructors(self, cpp_file: str, struct_name: str) -> bool:
+        """Validate that a .cpp file contains constructor definitions for the struct."""
+        try:
+            with open(cpp_file, 'r') as f:
+                content = f.read()
+            
+            # Look for constructor definitions: StructName::StructName(...) or StructName(...) :
+            patterns = [
+                rf'{re.escape(struct_name)}::{re.escape(struct_name)}\s*\([^)]*\)\s*:',  # Qualified constructor
+                rf'^{re.escape(struct_name)}\s*\([^)]*\)\s*:',  # Inline constructor
+            ]
+            
+            for pattern in patterns:
+                if re.search(pattern, content, re.MULTILINE):
+                    return True
+            
+            return False
+        except Exception as e:
+            self.log.debug(f"Error validating {cpp_file}: {e}")
+            return False
     
-    def _parse_and_reorder_initializer_list(
-        self, 
-        init_list: str, 
-        original_order: Tuple, 
-        optimal_order: Tuple
-    ) -> Optional[Tuple[str, str]]:
-        """Parse initializer list and reorder according to optimal order."""
-        # Extract member initializations
-        member_inits = self._parse_initializer_list(init_list)
+    def _parse_pahole_source_locations(self, pahole_output: str) -> Dict[str, List[int]]:
+        """Parse pahole -I output to extract source file locations."""
+        source_files = {}
         
-        # Create mapping from member name to initialization
-        init_map = {}
-        for init in member_inits:
-            match = re.match(r'(\w+)\s*\(([^)]*)\)', init.strip())
-            if match:
-                member_name = match.group(1)
-                init_map[member_name] = init.strip()
+        # Pattern: /* <offset> /path/file.cpp:line */
+        pattern = r'/\*\s*<[0-9a-f]+>\s*(.+):(\d+)\s*\*/'
         
-        # Check if we have initializations for members in the original order
-        original_names = [m.name for m in original_order]
-        optimal_names = [m.name for m in optimal_order]
+        for match in re.finditer(pattern, pahole_output):
+            file_path = match.group(1)
+            line_num = int(match.group(2))
+            
+            if file_path not in source_files:
+                source_files[file_path] = []
+            source_files[file_path].append(line_num)
         
-        # Only reorder if we have initializations for the members
-        relevant_inits = {name: init_map[name] for name in original_names if name in init_map}
-        
-        if not relevant_inits:
-            return None
-        
-        # Create old and new content
-        old_content = ", ".join(relevant_inits[name] for name in original_names if name in relevant_inits)
-        new_content = ", ".join(relevant_inits[name] for name in optimal_names if name in relevant_inits)
-        
-        if old_content == new_content:
-            return None
-        
-        return old_content, new_content
+        return source_files
     
-    def _parse_initializer_list(self, init_list: str) -> List[str]:
-        """Parse comma-separated initializer list, respecting parentheses."""
-        members = []
-        current = ""
-        paren_depth = 0
+    def _build_struct_to_cpp_mapping(self, structs_with_sources: List[Dict]) -> Dict[str, List[str]]:
+        """Build mapping from struct names to their .cpp implementation files."""
+        mapping = {}
         
-        for char in init_list:
-            if char == '(':
-                paren_depth += 1
-            elif char == ')':
-                paren_depth -= 1
-            elif char == ',' and paren_depth == 0:
-                if current.strip():
-                    members.append(current.strip())
-                current = ""
-                continue
-            current += char
+        for struct_data in structs_with_sources:
+            struct_name = struct_data["name"]
+            sources = struct_data.get("sources", [])
+            
+            # Filter to only .cpp files (exclude headers)
+            cpp_files = [f for f in sources if f.endswith(('.cpp', '.cc', '.cxx', '.C'))]
+            
+            if cpp_files:
+                mapping[struct_name] = cpp_files
         
-        if current.strip():
-            members.append(current.strip())
-        
-        return members
+        return mapping
+    
+    # For testing - allow setting compilation data directly
+    def _set_compilation_data(self, data: Dict[str, List[str]]):
+        """Set compilation data (for testing)."""
+        self._compilation_data = data
     
     def validate_input(self, plans: List[OptimizationPlan]) -> bool:
         """Validate input plans."""

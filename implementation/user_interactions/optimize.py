@@ -143,6 +143,13 @@ def run(args):
         structs = extraction_stage.process(objfiles)
         log.info(f"Extracted {len(structs)} structs")
         
+        # Pass compilation data to planning stage if available
+        if hasattr(extractor, 'get_compilation_data'):
+            compilation_data = extractor.get_compilation_data()
+            if compilation_data and hasattr(planning_stage, 'set_compilation_data'):
+                planning_stage.set_compilation_data(compilation_data)
+                log.debug(f"Passed compilation data for {len(compilation_data)} structs to planning stage")
+        
         log.debug("Stage 2: Analyzing structs...")
         optimization_plans = analysis_stage.process(structs)
         log.info(f"Analyzed {len(optimization_plans)} structs")

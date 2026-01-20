@@ -139,17 +139,36 @@ class SrcMLTransformer(ISourceTransformer):
             struct_node = self._find_struct_node(root, modification.struct_name)
             if struct_node is None:
                 return None
+            
+            # Check for constructor dependencies before making any changes
+            constructors = self._find_constructors(root, modification.struct_name)
+            has_dependencies = False
+            
+            for constructor in constructors:
+                if self._has_constructor_dependencies(constructor, new_order):
+                    has_dependencies = True
+                    break
+            
+            if has_dependencies:
+                self.log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
+                return None
                 
             # Reorder member declarations
+            original_xml = ET.tostring(root, encoding='unicode')
             self._reorder_members(struct_node, new_order)
             
             # Reorder constructor initializer lists
             self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
-            # Convert back to string, preserving namespaces
-            result = ET.tostring(root, encoding='unicode')
-            return result
+            # Check if any changes were made
+            modified_xml = ET.tostring(root, encoding='unicode')
+            if original_xml == modified_xml:
+                # No changes were made (possibly due to missing members or other issues)
+                return None
+            
+            return modified_xml
         except (ET.ParseError, Exception) as e:
+            self.log.debug(f"XML modification failed: {e}")
             return None
     
     def _extract_new_order(self, mod: SourceModification) -> list:
@@ -273,10 +292,81 @@ class SrcMLTransformer(ISourceTransformer):
         constructors = self._find_constructors(root, struct_name)
         
         for constructor in constructors:
+            # Check for constructor dependencies first
+            if self._has_constructor_dependencies(constructor, new_order):
+                self.log.debug(f"Skipping constructor reordering for {struct_name} due to member dependencies")
+                continue
+                
             # Find member initializer list
             init_list = self._find_initializer_list(constructor)
             if init_list:
                 self._reorder_initializer_list(init_list, new_order)
+
+    def _has_constructor_dependencies(self, constructor: ET.Element, new_order: list) -> bool:
+        """Check if constructor has member dependencies that would be violated by reordering."""
+        init_list = self._find_initializer_list(constructor)
+        if not init_list:
+            return False
+        
+        # Extract member initializations and their expressions
+        member_inits = {}
+        
+        for child in init_list:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'call':
+                member_name = self._extract_initializer_member_name(child)
+                if member_name and member_name in new_order:
+                    # Extract the initialization expression
+                    init_expr = self._extract_initialization_expression(child)
+                    member_inits[member_name] = init_expr
+        
+        # Check for dependencies: if member A's initialization references member B,
+        # then B must be initialized before A
+        for member_name, init_expr in member_inits.items():
+            if init_expr:
+                # Check if this initialization references other members
+                referenced_members = self._find_referenced_members(init_expr, new_order)
+                for ref_member in referenced_members:
+                    # Check if reordering would violate dependency
+                    member_index = new_order.index(member_name) if member_name in new_order else -1
+                    ref_index = new_order.index(ref_member) if ref_member in new_order else -1
+                    
+                    if member_index != -1 and ref_index != -1 and member_index < ref_index:
+                        # Dependency violation: member_name depends on ref_member
+                        # but would be initialized before it in new order
+                        self.log.debug(f"Dependency violation: {member_name} depends on {ref_member}")
+                        return True
+        
+        return False
+    
+    def _extract_initialization_expression(self, call_elem: ET.Element) -> Optional[str]:
+        """Extract the initialization expression from a constructor call."""
+        # Look for argument_list element
+        for child in call_elem:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'argument_list':
+                # Convert the argument list to string to analyze
+                return ET.tostring(child, encoding='unicode', method='text').strip()
+        
+        return None
+    
+    def _find_referenced_members(self, init_expr: str, member_names: list) -> list:
+        """Find which members are referenced in an initialization expression."""
+        referenced = []
+        
+        if not init_expr:
+            return referenced
+        
+        # Simple heuristic: look for member names in the expression
+        # This is a basic implementation - could be enhanced with proper parsing
+        for member_name in member_names:
+            # Look for the member name as a whole word
+            import re
+            pattern = r'\b' + re.escape(member_name) + r'\b'
+            if re.search(pattern, init_expr):
+                referenced.append(member_name)
+        
+        return referenced
 
     def _find_constructors(self, root: ET.Element, struct_name: str) -> list:
         """Find all constructor definitions for the given struct/class."""
@@ -291,22 +381,37 @@ class SrcMLTransformer(ISourceTransformer):
 
     def _is_constructor(self, elem: ET.Element, struct_name: str) -> bool:
         """Check if element is a constructor for the given struct/class."""
-        # Check for constructor element
-        if not (elem.tag.endswith('}constructor') or elem.tag == 'constructor'):
+        # Check for constructor element (handle namespaced tags)
+        tag_name = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+        if tag_name != 'constructor':
             return False
         
         # Look for constructor name matching struct name
         for child in elem:
-            if (child.tag.endswith('}name') or child.tag == 'name') and child.text == struct_name:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'name' and child.text and child.text.strip() == struct_name:
                 return True
+        
+        # Also check for qualified constructor names (e.g., "ClassName::ClassName")
+        for child in elem:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'name' and child.text:
+                # Handle qualified names like "TestClass::TestClass"
+                name_parts = child.text.strip().split('::')
+                if len(name_parts) >= 2 and name_parts[-1] == struct_name:
+                    return True
+                # Handle simple names
+                elif child.text.strip() == struct_name:
+                    return True
         
         return False
 
     def _find_initializer_list(self, constructor: ET.Element) -> Optional[ET.Element]:
         """Find the member initializer list in a constructor."""
-        # Look for member_init_list element
+        # Look for member_init_list element (handle namespaced tags)
         for child in constructor:
-            if (child.tag.endswith('}member_init_list') or child.tag == 'member_init_list'):
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'member_init_list':
                 return child
         
         return None
@@ -315,61 +420,80 @@ class SrcMLTransformer(ISourceTransformer):
         """Reorder initializers in the member initializer list."""
         # Extract current initializers (call elements)
         initializers = {}
-        call_elements = []
-        non_call_elements = []
+        non_member_elements = []
         
-        for child in list(init_list):
-            if self._is_member_initializer_call(child):
+        # Collect all child elements
+        children = list(init_list)
+        
+        for child in children:
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
                 if member_name and member_name in new_order:
                     initializers[member_name] = child
-                    call_elements.append(child)
                 else:
-                    # Keep non-member initializers (like base class calls) in place
-                    non_call_elements.append(child)
+                    # Keep non-member initializers (like base class calls)
+                    non_member_elements.append(child)
             else:
-                # Keep text nodes, commas, etc.
-                non_call_elements.append(child)
+                # Keep text nodes, punctuation, etc.
+                non_member_elements.append(child)
         
         if not initializers:
             return
         
         # Clear the initializer list
         init_list.clear()
+        init_list.text = ": "
+        init_list.tail = None
         
-        # Re-add elements in new order
-        # First add the colon and any leading text
-        if init_list.text:
-            init_list.text = ": "
-        else:
-            init_list.text = ": "
+        # Add non-member elements first (base class initializers)
+        base_class_calls = []
+        other_elements = []
         
-        # Add initializers in new order with proper spacing
-        first = True
+        for elem in non_member_elements:
+            elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+            if elem_tag == 'call':
+                # This is likely a base class call
+                base_class_calls.append(elem)
+            else:
+                other_elements.append(elem)
+        
+        # Add base class calls first
+        for base_call in base_class_calls:
+            init_list.append(base_call)
+            base_call.tail = ", "
+        
+        # Add member initializers in new order
+        member_count = 0
         for member_name in new_order:
             if member_name in initializers:
-                if not first:
-                    # Add comma and space before subsequent initializers
-                    prev_elem = list(init_list)[-1] if list(init_list) else None
-                    if prev_elem is not None:
-                        prev_elem.tail = ", "
+                if member_count > 0 or len(base_class_calls) > 0:
+                    # Add comma separator
+                    if len(list(init_list)) > 0:
+                        list(init_list)[-1].tail = ", "
                 
                 init_list.append(initializers[member_name])
-                first = False
+                member_count += 1
         
-        # Add trailing space
-        if list(init_list):
+        # Set final tail
+        if len(list(init_list)) > 0:
             list(init_list)[-1].tail = " "
 
     def _is_member_initializer_call(self, elem: ET.Element) -> bool:
         """Check if element is a member initializer call."""
-        return (elem.tag.endswith('}call') or elem.tag == 'call')
+        tag_name = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+        return tag_name == 'call'
 
     def _extract_initializer_member_name(self, call_elem: ET.Element) -> Optional[str]:
         """Extract member name from initializer call element."""
         # Look for the name child element in the call
         for child in call_elem:
-            if (child.tag.endswith('}name') or child.tag == 'name') and child.text:
-                return child.text
+            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if child_tag == 'name' and child.text:
+                name = child.text.strip()
+                # Handle qualified names (e.g., "Base::member" -> "member")
+                if '::' in name:
+                    return name.split('::')[-1]
+                return name
         
         return None

@@ -182,7 +182,7 @@ class BaseE2ETest:
         # Handle old API (list of args) and new API (kwargs)
         if extra_args is not None:
             # Old API: run_optimize(obj_file, ["--apply", "--output", "file"])
-            cmd = ['python', '__main__.py', str(obj_file)] + extra_args
+            cmd = ['python3', '__main__.py', str(obj_file)] + extra_args
             return subprocess.run(
                 cmd,
                 capture_output=True,
@@ -196,7 +196,7 @@ class BaseE2ETest:
             return self._run_optimize_docker(obj_file, **kwargs)
         
         # Native execution
-        cmd = ['python', '__main__.py', str(obj_file)]
+        cmd = ['python3', '__main__.py', str(obj_file)]
         
         if kwargs.get('apply'):
             cmd.append('--apply')
@@ -329,7 +329,7 @@ class BaseE2ETest:
     
     def run_paddington(self, args):
         """Run paddington command (backward compatibility)."""
-        cmd = ['python', '__main__.py'] + args
+        cmd = ['python3', '__main__.py'] + args
         return subprocess.run(
             cmd,
             capture_output=True,

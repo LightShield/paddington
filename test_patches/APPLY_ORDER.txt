@@ -1,0 +1,3 @@
+# Apply patches in this order:
+
+1. struct_000_TestClass.patch
