@@ -100,14 +100,33 @@ class GitPatchGenerator(IOutputWriter):
                         orig_file.name, new_file.name
                     ], capture_output=True, text=True)
                     
-                    # Replace temp filenames with actual filename
+                    # Replace temp filenames with actual source file path
                     patch_content = result.stdout
                     if patch_content:
-                        patch_content = patch_content.replace(
-                            orig_file.name, f"a/{Path(source.file_path).name}"
-                        ).replace(
-                            new_file.name, f"b/{Path(source.file_path).name}"
-                        )
+                        # Extract meaningful source path
+                        source_path = source.file_path
+                        
+                        # If path contains /snapshot/, extract everything after it
+                        if '/snapshot/' in source_path:
+                            source_path = source_path.split('/snapshot/')[-1]
+                        # If path contains /build_storm/, extract everything after it  
+                        elif '/build_storm/' in source_path:
+                            parts = source_path.split('/build_storm/')[-1]
+                            if parts.startswith('snapshot/'):
+                                source_path = parts[9:]  # Remove 'snapshot/'
+                            else:
+                                source_path = parts
+                        # Otherwise use the path as-is (already relative)
+                        
+                        # Get basenames for replacement (git diff uses basename in diff --git line)
+                        orig_basename = Path(orig_file.name).name
+                        new_basename = Path(new_file.name).name
+                        
+                        # Replace all occurrences
+                        patch_content = patch_content.replace(f"tmp/{orig_basename}", f"a/{source_path}")
+                        patch_content = patch_content.replace(f"tmp/{new_basename}", f"b/{source_path}")
+                        patch_content = patch_content.replace(orig_file.name, f"a/{source_path}")
+                        patch_content = patch_content.replace(new_file.name, f"b/{source_path}")
                     
                     # Write patch file
                     with open(patch_path, 'w') as f:
