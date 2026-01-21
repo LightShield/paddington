@@ -220,10 +220,7 @@ class PaholeExtractor(IStructExtractor):
                         if current_cpp_files and struct_name:
                             if struct_name not in self._compilation_data:
                                 self._compilation_data[struct_name] = []
-                            # Add only if not already present (avoid duplicates)
-                            for cpp_file in current_cpp_files:
-                                if cpp_file not in self._compilation_data[struct_name]:
-                                    self._compilation_data[struct_name].append(cpp_file)
+                            self._compilation_data[struct_name].extend(current_cpp_files)
                         
                         # Reset for next struct
                         current_cpp_files = []
