@@ -43,18 +43,28 @@ class GitPatchGenerator(IOutputWriter):
         if not transformed:
             return []
         
-        # Generate patches - one per transformed source file
+        # Group by file path
+        grouped = {}
+        for source in transformed:
+            if source.file_path not in grouped:
+                grouped[source.file_path] = source
+        
+        # Group related .h/.cpp files
+        file_groups = self._group_related_files(list(grouped.keys()))
+        
         changes = []
-        for i, source in enumerate(transformed):
-            struct_name = source.modifications[0].struct_name if source.modifications else "unknown"
+        for i, file_group in enumerate(file_groups):
+            sources = [grouped[path] for path in file_group]
+            patch_path, message_path = self._generate_multi_file_patch(sources, i)
             
-            patch_path, message_path = self._generate_patch(source, struct_name, i)
-            changes.append(AppliedChange(
-                file_path=source.file_path,
-                timestamp=datetime.now(),
-                patch_path=str(patch_path),
-                message_path=str(message_path)
-            ))
+            # Create one change per file in the group
+            for source in sources:
+                changes.append(AppliedChange(
+                    file_path=source.file_path,
+                    timestamp=datetime.now(),
+                    patch_path=str(patch_path),
+                    message_path=str(message_path)
+                ))
         
         # Create apply order file
         self._create_apply_order(changes)
@@ -65,7 +75,140 @@ class GitPatchGenerator(IOutputWriter):
         """Returns True as patch generation supports dry-run mode."""
         return True
     
-    def _build_dependency_order(self, transformed: List[TransformedSource]) -> List[str]:
+    def _group_related_files(self, file_paths: List[str]) -> List[List[str]]:
+        """Group related .h/.cpp files together."""
+        groups = []
+        processed = set()
+        
+        for path in file_paths:
+            if path in processed:
+                continue
+                
+            base_path = Path(path)
+            base_name = base_path.stem
+            parent = base_path.parent
+            
+            # Find related files (.h/.cpp pairs)
+            related = [path]
+            processed.add(path)
+            
+            for other_path in file_paths:
+                if other_path in processed:
+                    continue
+                    
+                other_base = Path(other_path)
+                if (other_base.parent == parent and 
+                    other_base.stem == base_name and
+                    other_base.suffix in ['.h', '.cpp', '.hpp', '.cc', '.cxx']):
+                    related.append(other_path)
+                    processed.add(other_path)
+            
+            groups.append(related)
+        
+        return groups
+    
+    def _generate_multi_file_patch(self, sources: List[TransformedSource], order: int) -> tuple[Path, Path]:
+        """Generate patch for multiple files."""
+        # Use first source for naming
+        first_source = sources[0]
+        base_name = Path(first_source.file_path).stem
+        
+        patch_name = f"file_{order:03d}_{base_name}.patch"
+        message_name = f"file_{order:03d}_{base_name}.msg"
+        
+        patch_path = self.output_dir / patch_name
+        message_path = self.output_dir / message_name
+        
+        # Generate combined patch
+        combined_patch = ""
+        
+        for source in sources:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.tmp', delete=False) as orig_file:
+                orig_file.write(source.original_content)
+                orig_file.flush()
+                
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.tmp', delete=False) as new_file:
+                    new_file.write(source.new_content)
+                    new_file.flush()
+                    
+                    try:
+                        result = subprocess.run([
+                            'git', 'diff', '--no-index', '--no-prefix',
+                            orig_file.name, new_file.name
+                        ], capture_output=True, text=True)
+                        
+                        patch_content = result.stdout
+                        if not patch_content:
+                            # Create minimal patch header for files with no changes
+                            source_path = source.file_path
+                            
+                            # Clean up path
+                            if '/snapshot/' in source_path:
+                                source_path = source_path.split('/snapshot/')[-1]
+                            elif '/build_storm/' in source_path:
+                                parts = source_path.split('/build_storm/')[-1]
+                                if parts.startswith('snapshot/'):
+                                    source_path = parts[9:]
+                                else:
+                                    source_path = parts
+                            
+                            patch_content = f"diff --git a/{source_path} b/{source_path}\n"
+                        else:
+                            source_path = source.file_path
+                            
+                            # Clean up path
+                            if '/snapshot/' in source_path:
+                                source_path = source_path.split('/snapshot/')[-1]
+                            elif '/build_storm/' in source_path:
+                                parts = source_path.split('/build_storm/')[-1]
+                                if parts.startswith('snapshot/'):
+                                    source_path = parts[9:]
+                                else:
+                                    source_path = parts
+                            
+                            # Replace temp filenames
+                            orig_basename = Path(orig_file.name).name
+                            new_basename = Path(new_file.name).name
+                            
+                            patch_content = patch_content.replace(f"tmp/{orig_basename}", f"a/{source_path}")
+                            patch_content = patch_content.replace(f"tmp/{new_basename}", f"b/{source_path}")
+                            patch_content = patch_content.replace(orig_file.name, f"a/{source_path}")
+                            patch_content = patch_content.replace(new_file.name, f"b/{source_path}")
+                        
+                        combined_patch += patch_content
+                        
+                    finally:
+                        Path(orig_file.name).unlink(missing_ok=True)
+                        Path(new_file.name).unlink(missing_ok=True)
+        
+        # Write patch file
+        with open(patch_path, 'w') as f:
+            f.write(combined_patch)
+        
+        # Generate commit message
+        message = self._generate_multi_file_commit_message(sources, base_name)
+        with open(message_path, 'w') as f:
+            f.write(message)
+        
+        return patch_path, message_path
+    
+    def _generate_multi_file_commit_message(self, sources: List[TransformedSource], base_name: str) -> str:
+        """Generate commit message for multi-file optimization."""
+        file_names = [Path(s.file_path).name for s in sources]
+        files_str = ", ".join(file_names)
+        
+        total_before = sum(len(s.original_content) for s in sources)
+        total_after = sum(len(s.new_content) for s in sources)
+        padding_saved = max(0, total_before - total_after)
+        
+        return f"""refactor: Optimize padding for {base_name}
+
+Files: {files_str}
+Reorder members from largest to smallest.
+Saves {padding_saved} bytes per instance.
+
+Before: {total_before} bytes (file size)
+After: {total_after} bytes (file size)"""
         """Build dependency order for struct patches."""
         # Extract all struct names
         struct_names = set()
