@@ -198,18 +198,28 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
     skipped_plans = [plan for plan in optimization_plans if plan.skip_reason]
     optimized_plans = [plan for plan in optimization_plans if not plan.skip_reason]
     
-    log.info(f"Summary: {len(optimized_plans)} optimized, {len(skipped_plans)} skipped")
+    # Get struct names that actually got patches
+    patched_files = {result.file_path for result in results}
+    actually_patched = [p for p in optimized_plans if p.struct.file_path in patched_files]
     
-    total_savings = sum(p.padding_saved for p in optimized_plans)
+    log.info(f"Summary: {len(actually_patched)} patched, {len(optimized_plans) - len(actually_patched)} analyzed but not patched, {len(skipped_plans)} skipped")
+    
+    total_savings = sum(p.padding_saved for p in actually_patched)
     log.info(f"Total padding saved: {total_savings} bytes")
     
     for plan in skipped_plans:
         log.user(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
     
-    for plan in optimized_plans:
+    # Only report structs that actually got patches
+    for plan in actually_patched:
         if plan.padding_saved > 0:
             log.user(f"Optimized {plan.struct.name}: saved {plan.padding_saved} bytes")
             log.debug(f"  File: {plan.struct.file_path}")
+    
+    # Report analyzed but not patched (e.g., template instantiations)
+    not_patched = len(optimized_plans) - len(actually_patched)
+    if not_patched > 0:
+        log.info(f"Note: {not_patched} structs analyzed but not patched (likely template instantiations without source)")
     
     for result in results:
         log.info(f"  Modified: {result.file_path}")
