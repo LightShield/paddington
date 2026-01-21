@@ -100,13 +100,16 @@ class PaholeExtractor(IStructExtractor):
                         # Extract struct name from complex declarations
                         full_decl = struct_match.group(2)
                         if ' : ' in full_decl:
-                            # Inheritance: "Name : public Base" -> "Name"
-                            struct_name = full_decl.split(' : ')[0].strip().split()[-1]
+                            # Inheritance: take before colon
+                            struct_name = full_decl.split(' : ')[0].strip()
                         elif 'typedef' in full_decl:
                             # Typedef: "typedef Name Name" -> last word
                             struct_name = full_decl.strip().split()[-1]
+                        elif '<' in full_decl and '>' in full_decl:
+                            # Template: keep whole thing (may have spaces/commas inside <>)
+                            struct_name = full_decl.strip()
                         else:
-                            # Simple/template: "Name" or "Name<T>" -> first word
+                            # Simple: take first word
                             struct_name = full_decl.split()[0] if ' ' in full_decl else full_decl
                         i += 1
                         members = []
@@ -209,7 +212,9 @@ class PaholeExtractor(IStructExtractor):
                         elif '<' in full_decl and '>' in full_decl:
                             struct_name = full_decl.strip()
                         else:
-                            struct_name = full_decl.split()[0] if ' ' in full_decl else full_decl
+                            # For non-template types with spaces, take first word
+                            # But preserve full template names even if they have spaces
+                            struct_name = full_decl.strip()
                         
                         # Associate cpp files with this struct
                         if current_cpp_files and struct_name:
