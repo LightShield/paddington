@@ -30,24 +30,46 @@ class SrcMLTransformer(ISourceTransformer):
     def transform(self, modifications: List[SourceModification]) -> List[TransformedSource]:
         """Transform source code based on modifications."""
         self.log.info(f"Transforming {len(modifications)} files")
-        results = []
         
-        for i, mod in enumerate(modifications, 1):
-            if i % 10 == 0:
-                self.log.info(f"  Transforming: {i}/{len(modifications)}")
+        # Use parallel processing for large sets
+        if len(modifications) > 10:
+            from multiprocessing import Pool, cpu_count
             
-            try:
-                self.log.debug(f"Transforming {mod.file_path}")
-                transformed = self._transform_file(mod)
-                if transformed:
-                    results.append(transformed)
-                else:
-                    self.log.debug(f"Transformation returned None for {mod.file_path}")
-            except Exception as e:
-                # Log error but continue processing other files
-                self.log.warning(f"Failed to transform {mod.file_path}: {e}")
-                import traceback
-                self.log.debug(f"Traceback: {traceback.format_exc()}")
+            num_workers = max(1, int(cpu_count() * 0.8))
+            self.log.debug(f"Using {num_workers} workers for transformation")
+            
+            with Pool(num_workers) as pool:
+                results = pool.map(self._transform_file_wrapper, modifications)
+            
+            # Filter out None results
+            return [r for r in results if r is not None]
+        else:
+            # Serial processing for small sets
+            results = []
+            for i, mod in enumerate(modifications, 1):
+                if i % 10 == 0:
+                    self.log.info(f"  Transforming: {i}/{len(modifications)}")
+                
+                try:
+                    self.log.debug(f"Transforming {mod.file_path}")
+                    transformed = self._transform_file(mod)
+                    if transformed:
+                        results.append(transformed)
+                    else:
+                        self.log.debug(f"Transformation returned None for {mod.file_path}")
+                except Exception as e:
+                    self.log.warning(f"Failed to transform {mod.file_path}: {e}")
+                    import traceback
+                    self.log.debug(f"Traceback: {traceback.format_exc()}")
+            
+            return results
+    
+    def _transform_file_wrapper(self, modification: SourceModification):
+        """Wrapper for parallel processing (catches exceptions)."""
+        try:
+            return self._transform_file(modification)
+        except Exception:
+            return None
                 
         return results
     
