@@ -156,8 +156,8 @@ class PaholeExtractor(IStructExtractor):
                                 i += 1
                                 continue
                             
-                            # Skip holes, cacheline, access specifiers, vtable pointers
-                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', ''] or '()(void)' in mline:
+                            # Skip holes, cacheline, access specifiers, vtable pointers, ancestor comments
+                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', ''] or '()(void)' in mline or '<ancestor>' in mline:
                                 i += 1
                                 continue
                             
@@ -169,6 +169,12 @@ class PaholeExtractor(IStructExtractor):
                                 full_member = member_match.group(1) + ' ' + member_match.group(2)
                                 parts = full_member.split()
                                 member_name = parts[-1].rstrip(';').split('[')[0]
+                                
+                                # Skip if member name is not a valid identifier (e.g., */ from comments)
+                                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', member_name):
+                                    i += 1
+                                    continue
+                                
                                 member_type = ' '.join(parts[:-1])  # Type may have spaces
                                 member_offset = int(member_match.group(3))
                                 member_size = int(member_match.group(4))
