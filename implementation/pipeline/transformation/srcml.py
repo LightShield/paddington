@@ -178,11 +178,11 @@ class SrcMLTransformer(ISourceTransformer):
             
             self.log.debug(f"New order: {new_order}")
             
-            # Determine if this is a header file (with struct definition) or cpp file (constructors only)
-            is_constructor_only = any(m.type == 'reorder_constructors' for m in modification.modifications)
+            # Check if we need to reorder members (has 'reorder' modification)
+            has_member_reorder = any(m.type == 'reorder' for m in modification.modifications)
             
-            # For header files, find and reorder struct members
-            if not is_constructor_only:
+            # For files with struct definitions, find and reorder struct members
+            if has_member_reorder:
                 # Find struct node by name
                 struct_node = self._find_struct_node(root, modification.struct_name)
                 if struct_node is None:
