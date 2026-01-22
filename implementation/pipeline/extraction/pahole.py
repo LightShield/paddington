@@ -41,27 +41,52 @@ class PaholeExtractor(IStructExtractor):
         """Extract struct information from object files using pahole."""
         all_structs = []
         
-        for i, objfile in enumerate(objfiles, 1):
-            if i % 100 == 0 or i == len(objfiles):
-                self.log.info(f"Extracting: {i}/{len(objfiles)} files")
+        # Use parallel processing for large file sets
+        if len(objfiles) > 10:
+            from multiprocessing import Pool, cpu_count
+            import os
             
-            try:
-                self.log.debug(f"Processing {objfile.name}")
-                cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
-                result = subprocess.run(cmd, capture_output=True, text=True)
+            # Use 80% of available cores
+            num_workers = max(1, int(cpu_count() * 0.8))
+            self.log.info(f"Extracting from {len(objfiles)} files using {num_workers} workers")
+            
+            # Process in parallel
+            with Pool(num_workers) as pool:
+                results = pool.map(self._extract_single_file, objfiles)
+            
+            # Flatten results
+            for structs in results:
+                if structs:
+                    all_structs.extend(structs)
+        else:
+            # Serial processing for small sets
+            for i, objfile in enumerate(objfiles, 1):
+                if i % 100 == 0 or i == len(objfiles):
+                    self.log.info(f"Extracting: {i}/{len(objfiles)} files")
                 
-                if result.returncode != 0:
-                    self.log.debug(f"  Skipped {objfile.name}: pahole error")
-                    continue
-                
-                structs = self._parse_pahole_output(result.stdout)
-                all_structs.extend(structs)
-                self.log.debug(f"  {objfile.name}: {len(structs)} structs")
-            except Exception as e:
-                self.log.debug(f"  Skipped {objfile.name}: {type(e).__name__}")
-                continue
+                structs = self._extract_single_file(objfile)
+                if structs:
+                    all_structs.extend(structs)
         
         return self._deduplicate_structs(all_structs)
+    
+    def _extract_single_file(self, objfile: Path) -> List[StructInfo]:
+        """Extract structs from a single .o file (for parallel processing)."""
+        try:
+            self.log.debug(f"Processing {objfile.name}")
+            cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                self.log.debug(f"  Skipped {objfile.name}: pahole error")
+                return []
+            
+            structs = self._parse_pahole_output(result.stdout)
+            self.log.debug(f"  {objfile.name}: {len(structs)} structs")
+            return structs
+        except Exception as e:
+            self.log.debug(f"  Skipped {objfile.name}: {type(e).__name__}")
+            return []
     
     def supports_caching(self) -> bool:
         """Whether this extractor supports caching."""
