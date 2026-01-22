@@ -73,19 +73,21 @@ class PaholeExtractor(IStructExtractor):
     def _extract_single_file(self, objfile: Path) -> List[StructInfo]:
         """Extract structs from a single .o file (for parallel processing)."""
         try:
-            self.log.debug(f"Processing {objfile.name}")
+            import os
+            pid = os.getpid()
+            self.log.debug(f"[PID {pid}] Processing {objfile.name}")
             cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
-                self.log.debug(f"  Skipped {objfile.name}: pahole error")
+                self.log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
                 return []
             
             structs = self._parse_pahole_output(result.stdout)
-            self.log.debug(f"  {objfile.name}: {len(structs)} structs")
+            self.log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
             return structs
         except Exception as e:
-            self.log.debug(f"  Skipped {objfile.name}: {type(e).__name__}")
+            self.log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
             return []
     
     def supports_caching(self) -> bool:

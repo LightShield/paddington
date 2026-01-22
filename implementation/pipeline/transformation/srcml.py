@@ -67,8 +67,17 @@ class SrcMLTransformer(ISourceTransformer):
     def _transform_file_wrapper(self, modification: SourceModification):
         """Wrapper for parallel processing (catches exceptions)."""
         try:
-            return self._transform_file(modification)
-        except Exception:
+            import os
+            pid = os.getpid()
+            self.log.debug(f"[PID {pid}] Transforming {modification.file_path}")
+            result = self._transform_file(modification)
+            if result:
+                self.log.debug(f"[PID {pid}] Success: {modification.file_path}")
+            return result
+        except Exception as e:
+            import os
+            pid = os.getpid()
+            self.log.debug(f"[PID {pid}] Failed: {modification.file_path}: {e}")
             return None
                 
         return results
