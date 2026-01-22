@@ -72,6 +72,20 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             struct = struct_map[struct_name]
             self.log.debug(f"Analyzing {struct.name}: size={struct.size} bytes")
             
+            # Skip structs with 0 or 1 members (nothing to reorder)
+            if len(struct.members) <= 1:
+                self.log.debug(f"Skipping {struct.name}: only {len(struct.members)} member(s)")
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(struct.members),
+                    optimal_order=tuple(struct.members),
+                    padding_saved=0,
+                    skip_reason=f"only {len(struct.members)} member(s)"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = struct.size
+                continue
+            
             # Update member sizes from type table and apply locked members
             locked_members = directives.get('locked_members', {}).get(struct_name, set())
             updated_members = []
