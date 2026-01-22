@@ -52,19 +52,43 @@ class GitPatchGenerator(IOutputWriter):
         # Group related .h/.cpp files
         file_groups = self._group_related_files(list(grouped.keys()))
         
-        changes = []
-        for i, file_group in enumerate(file_groups):
-            sources = [grouped[path] for path in file_group]
-            patch_path, message_path = self._generate_multi_file_patch(sources, i)
+        # Generate patches in parallel for large sets
+        if len(file_groups) > 10:
+            from multiprocessing import Pool, cpu_count
             
-            # Create one change per file in the group
-            for source in sources:
-                changes.append(AppliedChange(
-                    file_path=source.file_path,
-                    timestamp=datetime.now(),
-                    patch_path=str(patch_path),
-                    message_path=str(message_path)
-                ))
+            num_workers = max(1, int(cpu_count() * 0.8))
+            
+            # Prepare arguments for parallel processing
+            args = [(i, [grouped[path] for path in group]) for i, group in enumerate(file_groups)]
+            
+            with Pool(num_workers) as pool:
+                patch_results = pool.starmap(self._generate_patch_wrapper, args)
+            
+            # Collect changes
+            changes = []
+            for patch_path, message_path, sources in patch_results:
+                if patch_path:
+                    for source in sources:
+                        changes.append(AppliedChange(
+                            file_path=source.file_path,
+                            timestamp=datetime.now(),
+                            patch_path=str(patch_path),
+                            message_path=str(message_path)
+                        ))
+        else:
+            # Serial processing for small sets
+            changes = []
+            for i, file_group in enumerate(file_groups):
+                sources = [grouped[path] for path in file_group]
+                patch_path, message_path = self._generate_multi_file_patch(sources, i)
+                
+                for source in sources:
+                    changes.append(AppliedChange(
+                        file_path=source.file_path,
+                        timestamp=datetime.now(),
+                        patch_path=str(patch_path),
+                        message_path=str(message_path)
+                    ))
         
         # Create apply order file
         self._create_apply_order(changes)
@@ -74,6 +98,14 @@ class GitPatchGenerator(IOutputWriter):
     def supports_dry_run(self) -> bool:
         """Returns True as patch generation supports dry-run mode."""
         return True
+    
+    def _generate_patch_wrapper(self, order: int, sources: List[TransformedSource]):
+        """Wrapper for parallel patch generation."""
+        try:
+            patch_path, message_path = self._generate_multi_file_patch(sources, order)
+            return patch_path, message_path, sources
+        except Exception:
+            return None, None, sources
     
     def _group_related_files(self, file_paths: List[str]) -> List[List[str]]:
         """Group related .h/.cpp files together."""
