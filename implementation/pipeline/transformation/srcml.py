@@ -287,6 +287,15 @@ class SrcMLTransformer(ISourceTransformer):
                     if member_name in member_decls:
                         container.remove(elem)
         
+        # Group by container to maintain access modifier boundaries
+        members_by_container = {}
+        for member_name in new_order_filtered:
+            if member_name in member_containers:
+                container = member_containers[member_name]
+                if container not in members_by_container:
+                    members_by_container[container] = []
+                members_by_container[container].append(member_name)
+        
         # Re-insert nested types at the top of each container (before members)
         for container, nested_types in nested_types_by_container.items():
             for i, type_elem in enumerate(nested_types):
@@ -300,20 +309,6 @@ class SrcMLTransformer(ISourceTransformer):
             for i, member_name in enumerate(member_names):
                 if member_name in member_decls:
                     container.insert(offset + i, member_decls[member_name])
-        # Group by container to maintain access modifier boundaries
-        members_by_container = {}
-        for member_name in new_order_filtered:
-            if member_name in member_containers:
-                container = member_containers[member_name]
-                if container not in members_by_container:
-                    members_by_container[container] = []
-                members_by_container[container].append(member_name)
-        
-        # Insert members back into their original containers in new order
-        for container, member_names in members_by_container.items():
-            for i, member_name in enumerate(member_names):
-                if member_name in member_decls:
-                    container.insert(i, member_decls[member_name])
     
     def _has_nested_type_dependencies(self, containers: list, new_order: list) -> bool:
         """Check if there are nested type definitions that could cause forward reference errors."""

@@ -17,6 +17,8 @@ class TestForwardReferences:
         Bug from RBA.h: lockport_info_t typedef is defined at line 70,
         but lockport2regs (which uses it) was moved to line 51,
         causing 'lockport_info_t was not declared' error.
+        
+        Solution: Move nested types to top of their section, then reorder members.
         """
         test_code = """class Test {
 protected:
@@ -54,9 +56,18 @@ protected:
             transformer = SrcMLTransformer()
             transformed = transformer.transform([mod])
             
-            # With nested types, transformation should be skipped to avoid forward references
-            assert len(transformed) == 0, \
-                "Transformation should be skipped when nested types are present"
+            # With nested types, transformation should succeed with types moved to top
+            assert len(transformed) > 0, \
+                "Transformation should succeed with nested types moved to top"
+            
+            new_content = transformed[0].new_content
+            
+            # Verify that typedef comes before the member that uses it
+            typedef_pos = new_content.find('typedef')
+            large_member_pos = new_content.find('large_member')
+            
+            assert typedef_pos < large_member_pos, \
+                "typedef should come before member that uses it"
     
     def test_nested_struct_before_usage(self):
         """Test that nested struct definition stays before members that use it."""
@@ -95,9 +106,18 @@ protected:
             transformer = SrcMLTransformer()
             transformed = transformer.transform([mod])
             
-            # With nested types, transformation should be skipped to avoid forward references
-            assert len(transformed) == 0, \
-                "Transformation should be skipped when nested types are present"
+            # With nested types, transformation should succeed with types moved to top
+            assert len(transformed) > 0, \
+                "Transformation should succeed with nested types moved to top"
+            
+            new_content = transformed[0].new_content
+            
+            # Verify that struct definition comes before the member that uses it
+            struct_pos = new_content.find('struct NestedType')
+            nested_member_pos = new_content.find('NestedType nested_member')
+            
+            assert struct_pos < nested_member_pos, \
+                "struct definition should come before member that uses it"
 
 
 if __name__ == "__main__":
