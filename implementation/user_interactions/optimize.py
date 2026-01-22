@@ -143,6 +143,17 @@ def run(args):
         structs = extraction_stage.process(objfiles)
         log.info(f"Extracted {len(structs)} structs")
         
+        # Filter structs by file_path using exclude patterns
+        if args.exclude:
+            original_count = len(structs)
+            log.debug(f"Filtering {original_count} structs with patterns: {args.exclude}")
+            structs = _filter_structs(structs, args.exclude)
+            filtered_count = original_count - len(structs)
+            if filtered_count > 0:
+                log.info(f"Filtered out {filtered_count} structs by file path")
+            else:
+                log.debug("No structs filtered by file path")
+        
         # Pass compilation data to planning stage if available
         if hasattr(extractor, 'get_compilation_data'):
             compilation_data = extractor.get_compilation_data()
@@ -188,6 +199,30 @@ def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Opti
     if exclude:
         files = [f for f in files if not any(fnmatch.fnmatch(str(f), pattern) for pattern in exclude)]
     return files
+
+
+def _filter_structs(structs, exclude: Optional[List[str]]):
+    """Filter structs by file_path using exclude patterns."""
+    if not exclude:
+        return structs
+    
+    import fnmatch
+    filtered = []
+    for struct in structs:
+        if not struct.file_path:
+            filtered.append(struct)
+            continue
+        
+        excluded = False
+        for pattern in exclude:
+            if fnmatch.fnmatch(struct.file_path, pattern) or struct.file_path.startswith(pattern.rstrip('*')):
+                excluded = True
+                break
+        
+        if not excluded:
+            filtered.append(struct)
+    
+    return filtered
 
 
 def _report_optimization(results, optimization_plans, verbosity: int, log):
