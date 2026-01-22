@@ -156,7 +156,7 @@ class GitPatchGenerator(IOutputWriter):
                         else:
                             source_path = source.file_path
                             
-                            # Clean up path
+                            # Clean up path - normalize to remove .. and resolve symlinks
                             if '/snapshot/' in source_path:
                                 source_path = source_path.split('/snapshot/')[-1]
                             elif '/build_storm/' in source_path:
@@ -165,6 +165,12 @@ class GitPatchGenerator(IOutputWriter):
                                     source_path = parts[9:]
                                 else:
                                     source_path = parts
+                            
+                            # Normalize path to resolve .. and .
+                            import os
+                            source_path = os.path.normpath(source_path)
+                            if source_path.startswith('/'):
+                                source_path = source_path[1:]  # Remove leading /
                             
                             # Replace temp filenames
                             orig_basename = Path(orig_file.name).name
