@@ -65,17 +65,22 @@ class TestOptimizationPlan:
             plan.padding_saved = 5
     
     def test_negative_padding_saved(self):
-        """Test validation of negative padding saved."""
+        """Test auto-fix of negative padding saved."""
         members = (MemberInfo("field1", "int", 4, 0, "public"),)
         struct = StructInfo("TestStruct", 4, members)
         
-        with pytest.raises(ValueError, match="Padding saved cannot be negative"):
-            OptimizationPlan(
-                struct=struct,
-                original_order=members,
-                optimal_order=members,
-                padding_saved=-1
-            )
+        # Negative padding should be auto-fixed
+        plan = OptimizationPlan(
+            struct=struct,
+            original_order=members,
+            optimal_order=members,
+            padding_saved=-1
+        )
+        
+        # Should be auto-fixed to 0 with skip reason
+        assert plan.padding_saved == 0
+        assert plan.skip_reason is not None
+        assert "reordering increases size by 1 bytes" in plan.skip_reason
     
     def test_mismatched_member_sets(self):
         """Test validation of mismatched member sets."""

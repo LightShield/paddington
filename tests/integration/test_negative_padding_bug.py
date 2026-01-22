@@ -71,14 +71,18 @@ def test_negative_padding_edge_case():
         line=20
     )
     
-    # Direct test of OptimizationPlan with negative padding
-    with pytest.raises(ValueError, match="Padding saved cannot be negative: -8"):
-        OptimizationPlan(
-            struct=struct,
-            original_order=tuple(members),
-            optimal_order=tuple(members),  # Same order
-            padding_saved=-8  # Negative padding should raise error
-        )
+    # Direct test of OptimizationPlan with negative padding - should auto-fix
+    plan = OptimizationPlan(
+        struct=struct,
+        original_order=tuple(members),
+        optimal_order=tuple(members),  # Same order
+        padding_saved=-8  # Negative padding should be auto-fixed
+    )
+    
+    # Verify auto-fix worked
+    assert plan.padding_saved == 0  # Should be auto-fixed to 0
+    assert plan.skip_reason is not None  # Should have skip reason
+    assert "reordering increases size by 8 bytes" in plan.skip_reason
 
 
 def test_zero_padding_should_work():

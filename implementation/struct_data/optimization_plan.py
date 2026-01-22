@@ -21,10 +21,12 @@ class OptimizationPlan:
         """Validate optimization plan after initialization."""
         if self.padding_saved < 0:
             # Auto-fix: negative padding means reordering makes it worse
+            # Capture original negative value before fixing
+            original_negative = self.padding_saved
             # Set to 0 and mark as skipped
             object.__setattr__(self, 'padding_saved', 0)
             if not self.skip_reason:
-                object.__setattr__(self, 'skip_reason', f"reordering increases size by {-self.padding_saved} bytes")
+                object.__setattr__(self, 'skip_reason', f"reordering increases size by {-original_negative} bytes")
         
         # Verify that original and optimal orders contain the same members
         original_names = {member.name for member in self.original_order}

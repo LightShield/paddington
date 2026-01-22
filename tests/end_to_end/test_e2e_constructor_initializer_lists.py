@@ -295,7 +295,7 @@ int main() {
                 )
             ],
             should_succeed=True,
-            expected_patches_count=2  # Base and Derived structs
+            expected_patches_count=1  # Only Derived struct needs optimization
         )
         
         self.run_test_case(test_case, tmp_path)

@@ -238,29 +238,22 @@ class SrcMLTransformer(ISourceTransformer):
         if not containers:
             containers = [block]
         
-        # Check for nested type definitions that could cause forward reference errors
-        # Simple approach: Skip if ANY nested types found (typedef, struct, enum, class)
-        has_nested_types = False
+        # Handle nested type definitions to prevent forward reference errors
+        # Strategy: Move nested types to top, then insert members after them
+        nested_types_by_container = {}
         for container in containers:
+            nested_types = []
             for elem in list(container):
                 tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
                 if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
-                    # Check if it's a nested type (not a member declaration)
-                    # Nested types don't have decl_stmt parent
-                    parent_tag = container.tag.split('}')[-1] if '}' in container.tag else container.tag
-                    if parent_tag in ['protected', 'private', 'public', 'block']:
-                        has_nested_types = True
-                        break
-            if has_nested_types:
-                break
-        
-        if has_nested_types:
-            self.log.debug(f"Skipping reordering for struct with nested type definitions")
-            return
+                    nested_types.append(elem)
+                    container.remove(elem)
+            if nested_types:
+                nested_types_by_container[container] = nested_types
         
         # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
-        member_containers = {}  # Track which container each member is in
+        member_containers = {}
         
         for container in containers:
             for elem in list(container):
@@ -294,7 +287,19 @@ class SrcMLTransformer(ISourceTransformer):
                     if member_name in member_decls:
                         container.remove(elem)
         
-        # Re-insert in new order, keeping each member in its original container
+        # Re-insert nested types at the top of each container (before members)
+        for container, nested_types in nested_types_by_container.items():
+            for i, type_elem in enumerate(nested_types):
+                container.insert(i, type_elem)
+        
+        # Re-insert members in new order, keeping each member in its original container
+        # Insert after nested types
+        for container, member_names in members_by_container.items():
+            # Find how many nested types are at the top
+            offset = len(nested_types_by_container.get(container, []))
+            for i, member_name in enumerate(member_names):
+                if member_name in member_decls:
+                    container.insert(offset + i, member_decls[member_name])
         # Group by container to maintain access modifier boundaries
         members_by_container = {}
         for member_name in new_order_filtered:

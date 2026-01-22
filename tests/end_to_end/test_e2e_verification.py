@@ -127,7 +127,7 @@ class TestProperVerification(BaseE2ETest):
             ],
             should_succeed=True,
             expected_output_contains=["APPLYING CHANGES"],  # apply=True
-            expected_patches_count=2  # One patch per struct
+            expected_patches_count=1  # Both structs in same file = 1 patch
         )
         
         self.run_test_case(test_case, tmp_path)

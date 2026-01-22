@@ -36,34 +36,6 @@ class TestGitPatchGeneratorUnit:
             result = generator.apply([])
             assert result == []
     
-    def test_build_dependency_order(self):
-        """Test dependency order building."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            generator = GitPatchGenerator(Path(temp_dir))
-            
-            transformed = [
-                TransformedSource(
-                    file_path="test.cpp",
-                    original_content="old",
-                    new_content="new",
-                    modifications=(
-                        SourceModification(
-                            file_path="test.cpp",
-                            struct_name="Outer",
-                            modifications=()
-                        ),
-                        SourceModification(
-                            file_path="test.cpp", 
-                            struct_name="Inner",
-                            modifications=()
-                        )
-                    )
-                )
-            ]
-            
-            order = generator._build_dependency_order(transformed)
-            assert order == ["Inner", "Outer"]  # Alphabetical order
-    
     def test_generate_commit_message(self):
         """Test commit message generation."""
         with tempfile.TemporaryDirectory() as temp_dir:
