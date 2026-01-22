@@ -1,10 +1,4 @@
 # Apply patches in this order:
 
-1. struct_000_al_systemc_run_args.patch
-2. struct_001_al_report_global.patch
-3. struct_002_RegisterBadAccess.patch
-4. struct_003__scv_dynamic_data.patch
-5. struct_004__scv_random_unsigned_big.patch
-6. struct_005_al_unique_id_ext.patch
-7. struct_006_al_secure_extension.patch
-8. struct_007_al_adapter_info_extension.patch
+1. file_000_test.patch
+2. file_001_test2.patch

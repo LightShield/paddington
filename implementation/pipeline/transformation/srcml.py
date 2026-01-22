@@ -56,6 +56,7 @@ class SrcMLTransformer(ISourceTransformer):
         file_path = Path(modification.file_path)
         
         if not file_path.exists():
+            self.log.debug(f"File does not exist: {file_path}")
             return None
             
         original_content = file_path.read_text()
@@ -63,20 +64,24 @@ class SrcMLTransformer(ISourceTransformer):
         # Convert source to XML
         xml_content = self._source_to_xml(file_path)
         if not xml_content:
+            self.log.debug(f"Failed to convert source to XML: {file_path}")
             return None
             
         # Parse and modify XML
         modified_xml = self._modify_xml(xml_content, modification)
         if not modified_xml:
+            self.log.debug(f"XML modification returned None for: {file_path}")
             return None  # Return None if no changes
             
         # Convert XML back to source
         new_content = self._xml_to_source(modified_xml)
         if not new_content:
+            self.log.debug(f"Failed to convert XML back to source: {file_path}")
             return None
         
         # Skip if content didn't actually change
         if original_content == new_content:
+            self.log.debug(f"Content unchanged for: {file_path}")
             return None
             
         result = TransformedSource(
@@ -137,7 +142,10 @@ class SrcMLTransformer(ISourceTransformer):
             # Extract new member order from modification
             new_order = self._extract_new_order(modification)
             if not new_order:
+                self.log.debug("No new order found in modification")
                 return None
+            
+            self.log.debug(f"New order: {new_order}")
             
             # Determine if this is a header file (with struct definition) or cpp file (constructors only)
             is_constructor_only = any(m.type == 'reorder_constructors' for m in modification.modifications)
@@ -147,7 +155,10 @@ class SrcMLTransformer(ISourceTransformer):
                 # Find struct node by name
                 struct_node = self._find_struct_node(root, modification.struct_name)
                 if struct_node is None:
+                    self.log.debug(f"Struct node not found: {modification.struct_name}")
                     return None
+                
+                self.log.debug(f"Found struct node: {modification.struct_name}")
                 
                 # Reorder member declarations
                 original_xml = ET.tostring(root, encoding='unicode')
@@ -175,6 +186,7 @@ class SrcMLTransformer(ISourceTransformer):
             modified_xml = ET.tostring(root, encoding='unicode')
             if original_xml == modified_xml:
                 # No changes were made (possibly due to missing members or other issues)
+                self.log.debug("No changes were made to XML")
                 return None
             
             return modified_xml
@@ -225,6 +237,26 @@ class SrcMLTransformer(ISourceTransformer):
         # If no access modifiers, use block directly
         if not containers:
             containers = [block]
+        
+        # Check for nested type definitions that could cause forward reference errors
+        # Simple approach: Skip if ANY nested types found (typedef, struct, enum, class)
+        has_nested_types = False
+        for container in containers:
+            for elem in list(container):
+                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
+                    # Check if it's a nested type (not a member declaration)
+                    # Nested types don't have decl_stmt parent
+                    parent_tag = container.tag.split('}')[-1] if '}' in container.tag else container.tag
+                    if parent_tag in ['protected', 'private', 'public', 'block']:
+                        has_nested_types = True
+                        break
+            if has_nested_types:
+                break
+        
+        if has_nested_types:
+            self.log.debug(f"Skipping reordering for struct with nested type definitions")
+            return
         
         # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
@@ -278,6 +310,135 @@ class SrcMLTransformer(ISourceTransformer):
                 if member_name in member_decls:
                     container.insert(i, member_decls[member_name])
     
+    def _has_nested_type_dependencies(self, containers: list, new_order: list) -> bool:
+        """Check if there are nested type definitions that could cause forward reference errors."""
+        # Find all nested type definitions (typedef, struct, enum, class)
+        type_definitions = {}  # type_name -> element
+        member_declarations = {}  # member_name -> (member_type, element)
+        
+        for container in containers:
+            for elem in list(container):
+                # Check for nested type definitions
+                if (elem.tag.endswith('}typedef') or elem.tag == 'typedef'):
+                    type_name = self._extract_typedef_name(elem)
+                    if type_name:
+                        type_definitions[type_name] = elem
+                elif (elem.tag.endswith('}struct') or elem.tag == 'struct' or
+                      elem.tag.endswith('}enum') or elem.tag == 'enum' or
+                      elem.tag.endswith('}class') or elem.tag == 'class'):
+                    # Only consider nested types (not the main class/struct)
+                    type_name = self._extract_type_name(elem)
+                    if type_name and self._is_nested_type(elem):
+                        type_definitions[type_name] = elem
+                
+                # Check for member declarations
+                elif 'decl_stmt' in elem.tag:
+                    member_name = self._extract_member_name(elem)
+                    if member_name and member_name in new_order:
+                        member_type = self._extract_member_type(elem)
+                        member_declarations[member_name] = (member_type, elem)
+        
+        # If no type definitions, no forward reference issues
+        if not type_definitions:
+            return False
+        
+        # Check if any member uses a nested type that would be moved before it
+        for member_name, (member_type, member_elem) in member_declarations.items():
+            for type_name, type_elem in type_definitions.items():
+                # Check if member uses this type
+                if type_name in member_type:
+                    # Check if reordering would move member before type definition
+                    if self._would_create_forward_reference_detailed(member_name, type_name, new_order, containers):
+                        return True
+        
+        return False
+    
+    def _extract_typedef_name(self, elem: ET.Element) -> Optional[str]:
+        """Extract typedef name from typedef element."""
+        # For typedef, the name is usually the last name element
+        names = []
+        for child in elem.iter():
+            if (child.tag.endswith('}name') or child.tag == 'name') and child.text:
+                names.append(child.text.strip())
+        
+        # Return the last name (the typedef name)
+        return names[-1] if names else None
+    
+    def _is_nested_type(self, elem: ET.Element) -> bool:
+        """Check if this is a nested type definition (not the main class)."""
+        # Simple heuristic: if it has a name and is not at the top level
+        return self._extract_type_name(elem) is not None
+    
+    def _would_create_forward_reference_detailed(self, member_name: str, type_name: str, 
+                                               new_order: list, containers: list) -> bool:
+        """Check if reordering would create a forward reference error."""
+        # Find current positions of member and type
+        member_pos = -1
+        type_pos = -1
+        
+        pos = 0
+        for container in containers:
+            for elem in list(container):
+                if 'decl_stmt' in elem.tag:
+                    elem_member_name = self._extract_member_name(elem)
+                    if elem_member_name == member_name:
+                        member_pos = pos
+                elif (elem.tag.endswith('}typedef') or elem.tag == 'typedef'):
+                    elem_type_name = self._extract_typedef_name(elem)
+                    if elem_type_name == type_name:
+                        type_pos = pos
+                elif (elem.tag.endswith('}struct') or elem.tag == 'struct' or
+                      elem.tag.endswith('}enum') or elem.tag == 'enum' or
+                      elem.tag.endswith('}class') or elem.tag == 'class'):
+                    elem_type_name = self._extract_type_name(elem)
+                    if elem_type_name == type_name:
+                        type_pos = pos
+                pos += 1
+        
+        # If we couldn't find positions, be conservative
+        if member_pos == -1 or type_pos == -1:
+            return True
+        
+        # Check new positions after reordering
+        member_new_index = new_order.index(member_name) if member_name in new_order else -1
+        
+        # If member would be moved to an earlier position and type is currently after it,
+        # this could create a forward reference
+        if member_new_index != -1 and type_pos > member_pos:
+            # Member is being moved up in the order - potential forward reference
+            return True
+        
+        return False
+    
+    def _extract_type_name(self, elem: ET.Element) -> Optional[str]:
+        """Extract type name from typedef, struct, enum, or class definition."""
+        # Look for name element in the type definition
+        for child in elem:
+            if (child.tag.endswith('}name') or child.tag == 'name') and child.text:
+                return child.text.strip()
+        return None
+    
+    def _extract_member_type(self, decl_stmt: ET.Element) -> str:
+        """Extract the type information from a member declaration."""
+        # Get all text content from the declaration to check for type usage
+        type_text = ""
+        for elem in decl_stmt.iter():
+            if elem.text:
+                type_text += elem.text + " "
+        return type_text.strip()
+    
+    def _would_create_forward_reference(self, member_elem: ET.Element, type_elem: ET.Element, 
+                                      member_name: str, new_order: list) -> bool:
+        """Check if reordering would create a forward reference error."""
+        # Simple heuristic: if member is being moved to first half of new order,
+        # and there are type definitions, it's potentially risky
+        member_index = new_order.index(member_name) if member_name in new_order else -1
+        if member_index != -1 and member_index < len(new_order) // 2:
+            # Member is being moved to first half - potential forward reference
+            return True
+        
+        return False
+
     def _extract_member_name(self, decl_stmt: ET.Element) -> Optional[str]:
         """Extract member name from declaration statement."""
         # Navigate through decl_stmt -> decl -> name
