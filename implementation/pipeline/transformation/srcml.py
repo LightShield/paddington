@@ -238,19 +238,6 @@ class SrcMLTransformer(ISourceTransformer):
         if not containers:
             containers = [block]
         
-        # Handle nested type definitions to prevent forward reference errors
-        # Strategy: Move nested types to top, then insert members after them
-        nested_types_by_container = {}
-        for container in containers:
-            nested_types = []
-            for elem in list(container):
-                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-                if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
-                    nested_types.append(elem)
-                    container.remove(elem)
-            if nested_types:
-                nested_types_by_container[container] = nested_types
-        
         # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
         member_containers = {}
@@ -295,6 +282,20 @@ class SrcMLTransformer(ISourceTransformer):
                 if container not in members_by_container:
                     members_by_container[container] = []
                 members_by_container[container].append(member_name)
+        
+        # Handle nested type definitions to prevent forward reference errors
+        # Strategy: Move nested types to top, then insert members after them
+        # ONLY extract nested types from containers that contain members being reordered
+        nested_types_by_container = {}
+        for container in members_by_container.keys():
+            nested_types = []
+            for elem in list(container):
+                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
+                    nested_types.append(elem)
+                    container.remove(elem)
+            if nested_types:
+                nested_types_by_container[container] = nested_types
         
         # Re-insert nested types at the top of each container (before members)
         for container, nested_types in nested_types_by_container.items():
