@@ -74,6 +74,10 @@ class SrcMLTransformer(ISourceTransformer):
         new_content = self._xml_to_source(modified_xml)
         if not new_content:
             return None
+        
+        # Skip if content didn't actually change
+        if original_content == new_content:
+            return None
             
         result = TransformedSource(
             file_path=str(file_path),
