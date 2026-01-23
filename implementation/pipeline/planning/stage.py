@@ -44,12 +44,11 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         return modifications
     
     def _create_header_modifications(self, plan: OptimizationPlan) -> List[SourceModification]:
-        """Create modifications for header file (.h) member declarations and inline constructors."""
+        """Create modifications for header file (.h) member declarations."""
         old_members = ", ".join(m.name for m in plan.original_order)
         new_members = ", ".join(m.name for m in plan.optimal_order)
         
-        # Create member reordering modification
-        mods = [Modification(
+        mod = Modification(
             type="reorder",
             location=Location(
                 file=plan.struct.file_path,
@@ -59,25 +58,12 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             old_content=f"members: {old_members}",
             new_content=f"members: {new_members}",
             access_strategy=self.access_modifier_strategy
-        )]
-        
-        # Also add constructor reordering for inline constructors in header
-        mods.append(Modification(
-            type="reorder_constructors",
-            location=Location(
-                file=plan.struct.file_path,
-                line=plan.struct.line,
-                column=0
-            ),
-            old_content=f"members: {old_members}",
-            new_content=f"members: {new_members}",
-            access_strategy=self.access_modifier_strategy
-        ))
+        )
         
         source_mod = SourceModification(
             file_path=plan.struct.file_path,
             struct_name=plan.struct.name,
-            modifications=tuple(mods),
+            modifications=tuple([mod]),
             access_strategy=self.access_modifier_strategy
         )
         
