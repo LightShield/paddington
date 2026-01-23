@@ -95,7 +95,7 @@ def run(args):
     
     if args.transformer == "srcml":
         from implementation.pipeline.transformation import SrcMLTransformer
-        transformer = SrcMLTransformer(source_root=args.source_root if hasattr(args, 'source_root') else None)
+        transformer = SrcMLTransformer()
         log.info("Transformer: srcML (recommended)")
     else:
         from implementation.pipeline.transformation import LineSwapTransformer
