@@ -43,15 +43,34 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         
         return modifications
     
+    def _normalize_path(self, file_path: str) -> str:
+        """Convert absolute path to relative path for patches.
+        
+        Pahole gives absolute paths like /build/snapshot/common/file.h
+        We need relative paths like common/file.h for patches.
+        """
+        if not file_path:
+            return file_path
+        
+        # If path contains 'snapshot/', take everything after it
+        if '/snapshot/' in file_path:
+            return file_path.split('/snapshot/', 1)[1]
+        
+        # Otherwise return as-is (might already be relative)
+        return file_path
+    
     def _create_header_modifications(self, plan: OptimizationPlan) -> List[SourceModification]:
         """Create modifications for header file (.h) member declarations."""
         old_members = ", ".join(m.name for m in plan.original_order)
         new_members = ", ".join(m.name for m in plan.optimal_order)
         
+        # Normalize path to relative
+        file_path = self._normalize_path(plan.struct.file_path)
+        
         mod = Modification(
             type="reorder",
             location=Location(
-                file=plan.struct.file_path,
+                file=file_path,
                 line=plan.struct.line,
                 column=0
             ),
@@ -61,7 +80,7 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         )
         
         source_mod = SourceModification(
-            file_path=plan.struct.file_path,
+            file_path=file_path,
             struct_name=plan.struct.name,
             modifications=tuple([mod]),
             access_strategy=self.access_modifier_strategy
@@ -82,6 +101,9 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         new_members = ", ".join(m.name for m in plan.optimal_order)
         
         for cpp_file in cpp_files:
+            # Normalize path
+            cpp_file_normalized = self._normalize_path(cpp_file)
+            
             if not os.path.exists(cpp_file):
                 self.log.warning(f"Detected .cpp file does not exist: {cpp_file}")
                 continue
@@ -94,7 +116,7 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             mod = Modification(
                 type="reorder_constructors",
                 location=Location(
-                    file=cpp_file,
+                    file=cpp_file_normalized,
                     line=1,  # srcML will find actual constructor locations
                     column=0
                 ),
@@ -104,7 +126,7 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             )
             
             source_mod = SourceModification(
-                file_path=cpp_file,
+                file_path=cpp_file_normalized,
                 struct_name=plan.struct.name,
                 modifications=tuple([mod]),
                 access_strategy=self.access_modifier_strategy

@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--struct-names", action="append", help="Only optimize specific struct names")
     parser.add_argument("-v", "--verbose", action="count", default=1,
                          help="Increase verbosity (-v, -vv, -vvv)")
+    parser.add_argument("--source-root", type=Path,
+                         help="Source root directory (maps snapshot paths to actual source)")
     
     args = parser.parse_args()
     
