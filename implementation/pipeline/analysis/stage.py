@@ -231,7 +231,17 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 optimal_size = calculate_struct_size(optimal_members)
                 padding_saved = actual_size - optimal_size
                 
-                if padding_saved < 0:
+                # Check if already optimal
+                if optimal_members == updated_members:
+                    plan = OptimizationPlan(
+                        struct=struct,
+                        original_order=tuple(updated_members),
+                        optimal_order=tuple(optimal_members),
+                        padding_saved=0,
+                        skip_reason="already optimal"
+                    )
+                    type_sizes[struct_name] = actual_size
+                elif padding_saved < 0:
                     plan = OptimizationPlan(
                         struct=struct,
                         original_order=tuple(updated_members),

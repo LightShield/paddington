@@ -206,7 +206,8 @@ def run(args):
             'modifications_planned': modifications_planned,
             'sources_transformed': sources_transformed,
             'transformation_failures': modifications_planned - sources_transformed,
-            'patches_created': len(results)
+            'patches_created': len(results),
+            'structs_already_optimal': len([p for p in optimization_plans if not p.skip_reason and p.original_order == p.optimal_order])
         }
         
         _report_optimization(results, optimization_plans, args.verbose, log, stats)
