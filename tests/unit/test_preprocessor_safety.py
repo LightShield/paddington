@@ -240,3 +240,25 @@ struct Test {
             # Future: analyze if block has dependencies
             assert not is_safe or "dependencies" in reason.lower(), \
                 "Ifdef block with potential dependencies should be unsafe or flagged"
+    
+    def test_ifdef_after_define_dependency(self):
+        """Test that #ifdef block can't be moved before its #define."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.h', delete=False) as f:
+            f.write("""
+struct Test {
+#define BUFFER_SIZE 1024
+    char a;
+#ifdef USE_BUFFER
+    char buffer[BUFFER_SIZE];  // Depends on BUFFER_SIZE define above
+#endif
+    int b;
+    // Can't move #ifdef block before #define BUFFER_SIZE
+};
+""")
+            f.flush()
+            
+            is_safe, reason = analyze_preprocessor_safety(f.name, "Test")
+            # Should detect that #ifdef uses BUFFER_SIZE which is defined above
+            # This is unsafe to move before the #define
+            assert not is_safe or "define dependency" in reason.lower(), \
+                "Ifdef block depending on #define should be unsafe to move before it"
