@@ -217,3 +217,26 @@ struct Test {
             # This should be marked as "safe - block movable"
             assert is_safe or "block movable" in reason.lower(), \
                 "Single ifdef block should be movable as unit"
+    
+    def test_ifdef_block_with_dependencies_unsafe(self):
+        """Test that #ifdef blocks with dependencies cannot be moved freely."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.h', delete=False) as f:
+            f.write("""
+struct Test {
+    int size;
+    char a;
+#ifdef DEBUG
+    char* buffer;  // Might depend on size in constructor
+#endif
+    double d;
+    // Can't move #ifdef block before 'size' if buffer depends on it
+};
+""")
+            f.flush()
+            
+            is_safe, reason = analyze_preprocessor_safety(f.name, "Test")
+            # This is complex - we'd need to check constructor dependencies
+            # For now, mark as unsafe (conservative)
+            # Future: analyze if block has dependencies
+            assert not is_safe or "dependencies" in reason.lower(), \
+                "Ifdef block with potential dependencies should be unsafe or flagged"
