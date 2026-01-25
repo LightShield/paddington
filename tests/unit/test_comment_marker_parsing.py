@@ -36,7 +36,7 @@ public:
 """
         
         extractor = PaholeExtractor()
-        structs = extractor._parse_pahole_output(pahole_output)
+        structs, _ = extractor._parse_pahole_output(pahole_output)
         
         assert len(structs) == 1, f"Expected 1 struct, got {len(structs)}"
         

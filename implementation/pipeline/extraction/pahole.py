@@ -49,14 +49,19 @@ class PaholeExtractor(IStructExtractor):
             num_workers = max(1, int(cpu_count() * 0.8))
             log.info(f"Extracting from {len(objfiles)} files using {num_workers} workers")
             
-            # Process in parallel
+            # Process in parallel - returns (structs, compilation_data) tuples
             with Pool(num_workers) as pool:
-                results = pool.map(self._extract_single_file, objfiles)
+                results = pool.map(self._extract_single_file_with_data, objfiles)
             
-            # Flatten results
-            for structs in results:
+            # Merge results and compilation data
+            for structs, comp_data in results:
                 if structs:
                     all_structs.extend(structs)
+                # Merge compilation data
+                for struct_name, cpp_files in comp_data.items():
+                    if struct_name not in self._compilation_data:
+                        self._compilation_data[struct_name] = []
+                    self._compilation_data[struct_name].extend(cpp_files)
         else:
             # Serial processing for small sets
             for i, objfile in enumerate(objfiles, 1):
@@ -69,8 +74,32 @@ class PaholeExtractor(IStructExtractor):
         
         return self._deduplicate_structs(all_structs)
     
+    def _extract_single_file_with_data(self, objfile: Path):
+        """Extract structs and compilation data from a single .o file (for parallel processing).
+        
+        Returns:
+            Tuple of (structs, compilation_data)
+        """
+        try:
+            import os
+            pid = os.getpid()
+            log.debug(f"[PID {pid}] Processing {objfile.name}")
+            cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
+                return [], {}
+            
+            structs, comp_data = self._parse_pahole_output(result.stdout)
+            log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
+            return structs, comp_data
+        except Exception as e:
+            log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
+            return [], {}
+    
     def _extract_single_file(self, objfile: Path) -> List[StructInfo]:
-        """Extract structs from a single .o file (for parallel processing)."""
+        """Extract structs from a single .o file (for serial processing)."""
         try:
             import os
             pid = os.getpid()
@@ -82,7 +111,7 @@ class PaholeExtractor(IStructExtractor):
                 log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
                 return []
             
-            structs = self._parse_pahole_output(result.stdout)
+            structs, comp_data = self._parse_pahole_output(result.stdout)
             log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
             return structs
         except Exception as e:
@@ -93,14 +122,18 @@ class PaholeExtractor(IStructExtractor):
         """Whether this extractor supports caching."""
         return True
     
-    def _parse_pahole_output(self, output: str) -> List[StructInfo]:
-        """Parse pahole -I -M output and collect source file information."""
+    def _parse_pahole_output(self, output: str):
+        """Parse pahole -I -M output and collect source file information.
+        
+        Returns:
+            Tuple of (structs, compilation_data)
+        """
         structs = []
         lines = output.splitlines()
         i = 0
         
         # First pass: collect all source file locations for compilation data
-        self._collect_source_file_mappings(output)
+        local_comp_data = self._collect_source_file_mappings(output)
         
         while i < len(lines):
             line = lines[i]
@@ -199,10 +232,15 @@ class PaholeExtractor(IStructExtractor):
             
             i += 1
         
-        return structs
+        return structs, local_comp_data
     
-    def _collect_source_file_mappings(self, output: str):
-        """Collect source file mappings from pahole output for compilation data."""
+    def _collect_source_file_mappings(self, output: str) -> Dict[str, List[str]]:
+        """Collect source file mappings from pahole output for compilation data.
+        
+        Returns:
+            Dict mapping struct_name -> list of .cpp files
+        """
+        local_comp_data = {}
         lines = output.splitlines()
         i = 0
         current_cpp_files = []
@@ -250,6 +288,10 @@ class PaholeExtractor(IStructExtractor):
                         
                         # Associate cpp files with this struct
                         if current_cpp_files and struct_name:
+                            if struct_name not in local_comp_data:
+                                local_comp_data[struct_name] = []
+                            local_comp_data[struct_name].extend(current_cpp_files)
+                            # Also update instance variable for backward compatibility
                             if struct_name not in self._compilation_data:
                                 self._compilation_data[struct_name] = []
                             self._compilation_data[struct_name].extend(current_cpp_files)
@@ -258,6 +300,8 @@ class PaholeExtractor(IStructExtractor):
                         current_cpp_files = []
             
             i += 1
+        
+        return local_comp_data
     
     def _deduplicate_structs(self, structs: List[StructInfo]) -> List[StructInfo]:
         """Remove duplicate structs."""

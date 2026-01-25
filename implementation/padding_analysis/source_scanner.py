@@ -25,10 +25,13 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         return agg_structs, prep_structs, constructor_deps
     
     # Check for aggregate initialization patterns
-    agg_init_pattern = r'(\w+)\s+\w+\s*\{[^}]*,[^}]*\}'
+    # Pattern: TypeName varname = {val1, val2, ...} or TypeName varname{val1, val2, ...}
+    agg_init_pattern = r'\b([A-Za-z_]\w+)\s+\w+\s*=?\s*\{.+?,.+?\}'
     for match in re.finditer(agg_init_pattern, content):
         struct_name = match.group(1)
-        agg_structs.add(struct_name)
+        # Skip C++ keywords
+        if struct_name not in ['struct', 'class', 'union', 'enum', 'if', 'for', 'while', 'switch', 'return']:
+            agg_structs.add(struct_name)
     
     # Check for preprocessor directives in struct definitions
     struct_pattern = r'(?:struct|class)\s+(\w+)\s*[:{]'

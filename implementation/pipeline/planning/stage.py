@@ -110,7 +110,7 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         if target_struct_name is None:
             target_struct_name = plan.struct.name
             
-        cpp_files = self._get_cpp_files_for_struct(plan.struct.name)
+        cpp_files = self._get_cpp_files_for_struct(plan.struct.name, plan.struct.file_path)
         
         if not cpp_files:
             log.warning(f"No .cpp files found for struct {plan.struct.name} - skipping constructor modifications")
@@ -157,16 +157,28 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         
         return modifications
     
-    def _get_cpp_files_for_struct(self, struct_name: str) -> List[str]:
-        """Get .cpp files for a struct using compilation data."""
+    def _get_cpp_files_for_struct(self, struct_name: str, header_path: str = None) -> List[str]:
+        """Get .cpp files for a struct using compilation data or filename heuristic."""
+        from pathlib import Path
+        
+        # First try compilation data from pahole
         cpp_files = self._compilation_data.get(struct_name, [])
         
         if cpp_files:
             log.debug(f"Found {len(cpp_files)} .cpp files for {struct_name} from compilation data")
-        else:
-            log.debug(f"No .cpp files found for {struct_name} in compilation data")
+            return cpp_files
         
-        return cpp_files
+        # Fallback: look for .cpp file with same base name as header
+        if header_path:
+            header = Path(header_path)
+            # Try same directory with .cpp extension
+            cpp_candidate = header.with_suffix('.cpp')
+            if cpp_candidate.exists():
+                log.debug(f"Found .cpp file via heuristic: {cpp_candidate}")
+                return [str(cpp_candidate)]
+        
+        log.debug(f"No .cpp files found for {struct_name}")
+        return []
     
     def _validate_cpp_file_has_constructors(self, cpp_file: str, struct_name: str) -> bool:
         """Validate that a .cpp file contains constructor definitions for the struct."""

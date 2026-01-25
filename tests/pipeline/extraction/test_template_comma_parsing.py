@@ -22,7 +22,7 @@ class AppendValue<al_cso_arblist_type, bool> {
 };"""
         
         extractor = PaholeExtractor()
-        structs = extractor._parse_pahole_output(output)
+        structs, _ = extractor._parse_pahole_output(output)
         
         assert len(structs) == 1
         assert structs[0].name == "AppendValue<al_cso_arblist_type, bool>"
@@ -39,7 +39,7 @@ class Container<std::pair<int, double>, bool> {
 };"""
         
         extractor = PaholeExtractor()
-        structs = extractor._parse_pahole_output(output)
+        structs, _ = extractor._parse_pahole_output(output)
         
         assert len(structs) == 1
         assert structs[0].name == "Container<std::pair<int, double>, bool>"
