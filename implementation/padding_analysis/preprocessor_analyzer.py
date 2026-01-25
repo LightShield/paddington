@@ -48,9 +48,18 @@ def analyze_preprocessor_safety(file_path: str, struct_name: str) -> Tuple[bool,
     struct_body = content[start:pos]
     
     # Check if entire struct is wrapped
-    before_struct = content[:match.start()].strip()
-    if before_struct.endswith('#ifdef') or before_struct.endswith('#if'):
-        return True, "entire struct wrapped (safe)"
+    # Look backwards from struct definition for #ifdef
+    before_struct = content[:match.start()]
+    lines_before = before_struct.split('\n')
+    
+    # Check last few non-empty lines before struct
+    for line in reversed(lines_before[-10:]):
+        line = line.strip()
+        if not line or line.startswith('//'):
+            continue
+        if re.match(r'#\s*(?:ifdef|ifndef|if\s)', line):
+            return True, "entire struct wrapped (safe)"
+        break  # Found non-preprocessor line, stop looking
     
     # Find all preprocessor directives in struct body
     preprocessor_lines = re.findall(r'#\s*(?:if|ifdef|ifndef|elif|else|endif).*', struct_body)
