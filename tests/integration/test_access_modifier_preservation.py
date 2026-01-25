@@ -18,16 +18,23 @@ class TestAccessModifierPreservation:
         Example: al_systemc_run_args has protected members that get moved
         before the public: keyword, making them implicitly private.
         """
-        # Create test file
+        # Create test file with struct that has padding
         test_code = """
 class Test {
 public:
     void method();
 protected:
-    char a;
-    int b;
-    double c;
+    char a;      // 1 byte + 7 padding
+    double c;    // 8 bytes
+    int b;       // 4 bytes + 4 padding
+    // Total: 24 bytes
+    // Optimal: double c, int b, char a (16 bytes)
 };
+
+int main() {
+    Test t;  // Instantiate so it appears in DWARF
+    return 0;
+}
 """
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -52,21 +59,26 @@ protected:
             extractor = PaholeExtractor()
             structs = extractor.extract([obj_file])
             
+            print(f"DEBUG: Extracted {len(structs)} structs")
             if not structs:
                 pytest.skip("No structs extracted")
             
             analysis = AnalysisStage(min_savings=0, access_modifier_strategy='preserve')
             plans = analysis.process(structs)
             
+            print(f"DEBUG: Generated {len(plans)} plans")
             if not plans:
                 pytest.skip("No optimization plans")
             
             planning = PlanningStage()
             modifications = planning.process(plans)
             
+            print(f"DEBUG: Generated {len(modifications)} modifications")
+            
             transformer = SrcMLTransformer()
             transformed = transformer.transform(modifications)
             
+            print(f"DEBUG: Transformed {len(transformed)} sources")
             if not transformed:
                 pytest.skip("No transformations")
             

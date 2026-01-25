@@ -174,6 +174,9 @@ class PaholeExtractor(IStructExtractor):
                         members = []
                         struct_size = 0
                         
+                        # Determine default access modifier (struct=public, class=private)
+                        current_access = "public" if lines[i-1].strip().startswith('struct') else "private"
+                        
                         while i < len(lines):
                             mline = lines[i]
                             
@@ -188,8 +191,22 @@ class PaholeExtractor(IStructExtractor):
                                 i += 1
                                 continue
                             
-                            # Skip holes, cacheline, access specifiers, vtable pointers, ancestor comments
-                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() in ['public:', 'protected:', 'private:', ''] or '()(void)' in mline or '<ancestor>' in mline:
+                            # Track access modifiers
+                            if mline.strip() == 'public:':
+                                current_access = "public"
+                                i += 1
+                                continue
+                            elif mline.strip() == 'protected:':
+                                current_access = "protected"
+                                i += 1
+                                continue
+                            elif mline.strip() == 'private:':
+                                current_access = "private"
+                                i += 1
+                                continue
+                            
+                            # Skip holes, cacheline, empty lines, vtable pointers, ancestor comments
+                            if 'XXX' in mline or 'cacheline' in mline or mline.strip() == '' or '()(void)' in mline or '<ancestor>' in mline:
                                 i += 1
                                 continue
                             
@@ -216,7 +233,7 @@ class PaholeExtractor(IStructExtractor):
                                     type=member_type,
                                     size=member_size,
                                     offset=member_offset,
-                                    access_modifier="none"
+                                    access_modifier=current_access
                                 ))
                             
                             i += 1
