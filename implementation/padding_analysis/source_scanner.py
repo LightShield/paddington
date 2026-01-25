@@ -8,6 +8,54 @@ from typing import Set, Dict, Tuple, List
 import fnmatch
 
 
+def _is_trivial_preprocessor_case(struct_body: str) -> bool:
+    """Check if preprocessor directives are trivial (safe to optimize).
+    
+    Trivial cases:
+    - Only methods affected (no data members in #ifdef)
+    - Only comments in #ifdef
+    
+    Returns:
+        True if safe to optimize despite preprocessor
+    """
+    # Find all #ifdef...#endif blocks
+    ifdef_blocks = []
+    lines = struct_body.split('\n')
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if re.match(r'#\s*(?:ifdef|ifndef|if\s)', line):
+            # Start of block
+            block_start = i
+            depth = 1
+            i += 1
+            while i < len(lines) and depth > 0:
+                if re.match(r'#\s*(?:ifdef|ifndef|if\s)', lines[i].strip()):
+                    depth += 1
+                elif re.match(r'#\s*endif', lines[i].strip()):
+                    depth -= 1
+                i += 1
+            ifdef_blocks.append((block_start, i))
+        else:
+            i += 1
+    
+    # Check each block for data members
+    for start, end in ifdef_blocks:
+        block_lines = lines[start:end]
+        for line in block_lines:
+            line = line.strip()
+            # Skip preprocessor lines, comments, empty lines
+            if line.startswith('#') or line.startswith('//') or line.startswith('/*') or not line:
+                continue
+            # Check if it's a data member (has semicolon, no parentheses = not a method)
+            if ';' in line and '(' not in line:
+                # Likely a data member
+                return False
+    
+    # No data members in #ifdef blocks - safe
+    return True
+
+
 def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Dict[str, Set[str]]]]:
     """Scan a single file for patterns (for multiprocessing).
     
@@ -49,7 +97,11 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         
         struct_body = content[start_pos:pos]
         if re.search(r'#\s*(?:if|ifdef|ifndef|elif|else|endif)', struct_body):
-            prep_structs.add(struct_name)
+            # Has preprocessor - check if it's a trivial safe case
+            is_trivial_safe = _is_trivial_preprocessor_case(struct_body)
+            if not is_trivial_safe:
+                prep_structs.add(struct_name)
+            # If trivial safe, don't add to prep_structs (allow optimization)
     
     # Check for constructor dependencies
     # Find all struct/class definitions and their members
