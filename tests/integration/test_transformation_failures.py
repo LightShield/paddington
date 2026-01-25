@@ -58,12 +58,13 @@ namespace MyNamespace {
     struct Foo {
         char a;
         int b;
+        Foo() : a(0), b(0) {}  // Constructor forces inclusion
     };
 }
 
 int main() {
     MyNamespace::Foo f;
-    return 0;
+    return f.b;  // Use it
 }
 """)
         

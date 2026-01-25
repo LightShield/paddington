@@ -243,9 +243,13 @@ class SrcMLTransformer(ISourceTransformer):
         """Find struct node by name in XML tree (namespace-aware).
         
         For template instantiations like 'Foo<int>', look for template definition 'template<...> struct Foo'.
+        For namespace-qualified names like 'NS::Foo', look for 'Foo' in namespace 'NS'.
         """
+        # Extract base name if namespace-qualified
+        base_name = struct_name.split('::')[-1] if '::' in struct_name else struct_name
+        
         # First try to find template definition
-        template_struct = self._find_template_struct_node(root, struct_name)
+        template_struct = self._find_template_struct_node(root, base_name)
         if template_struct:
             return template_struct
         
@@ -255,8 +259,10 @@ class SrcMLTransformer(ISourceTransformer):
             if elem.tag.endswith('}struct') or elem.tag.endswith('}class') or elem.tag == 'struct' or elem.tag == 'class':
                 # Look for name child element
                 for child in elem:
-                    if (child.tag.endswith('}name') or child.tag == 'name') and child.text == struct_name:
-                        return elem
+                    if (child.tag.endswith('}name') or child.tag == 'name'):
+                        # Match base name (without namespace)
+                        if child.text == base_name or child.text == struct_name:
+                            return elem
         return None
     
     def _find_template_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
