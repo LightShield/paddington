@@ -346,9 +346,21 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
         
         report_lines.append("")
         report_lines.append("  Skip reasons (unhandled cases - potential future improvements):")
+        
+        # Add explanations for each unhandled case
+        reason_explanations = {
+            'preprocessor directives': 'conditional members affect struct layout',
+            'aggregate initialization': 'positional init {a,b,c} breaks with reordering',
+            'constructor dependencies': 'member init order matters (e.g., buffer(size))'
+        }
+        
         for reason in unhandled_cases:
             if reason in skip_reasons:
-                report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
+                explanation = reason_explanations.get(reason, '')
+                if explanation:
+                    report_lines.append(f"    {skip_reasons[reason]:5d} - {reason} ({explanation})")
+                else:
+                    report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
         
         # Add any other skip reasons
         other_reasons = [r for r in skip_reasons if r not in cannot_optimize + already_optimal_reasons + unhandled_cases]
