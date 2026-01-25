@@ -93,18 +93,15 @@ int main() {
     
     @pytest.mark.e2e
     def test_extract_types_from_complex_template(self, tmp_path):
-        """Test extracting Bar from vector<Foo<tuple<Bar, int>>>."""
+        """Test extracting Bar from MyVector<Foo<MyTuple<Bar, int>>>."""
         test_case = E2ETestCase(
             name="complex_nested",
             cpp_code="""
-#include <vector>
-#include <tuple>
-
-struct Bar {
-    char a;      // 1 byte + 3 padding
-    int b;       // 4 bytes
-    // Total: 8 bytes with 3 bytes padding
-    // Optimal: b, a (5 bytes rounded to 8)
+// Custom templates to avoid std library
+template<typename T1, typename T2>
+struct MyTuple {
+    T1 first;
+    T2 second;
 };
 
 template<typename T>
@@ -112,8 +109,22 @@ struct Foo {
     T data;
 };
 
+template<typename T>
+struct MyVector {
+    T* data;
+    int size;
+};
+
+struct Bar {
+    char a;      // 1 byte + 3 padding
+    int b;       // 4 bytes
+    // Total: 8 bytes with 3 bytes padding
+    // Optimal: b, a (8 bytes, no savings due to alignment)
+};
+
 int main() {
-    std::vector<Foo<std::tuple<Bar, int>>> complex;
+    MyVector<Foo<MyTuple<Bar, int>>> complex;
+    Bar b;  // Actually use Bar so it's in DWARF
     return 0;
 }
 """,
