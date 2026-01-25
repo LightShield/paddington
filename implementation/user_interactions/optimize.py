@@ -186,8 +186,11 @@ def run(args):
             log.warning("Extractor does not provide compilation data")
         
         log.debug("Stage 2: Analyzing structs...")
+        structs_before_analysis = len(structs)
         optimization_plans = analysis_stage.process(structs)
-        log.info(f"Analyzed {len(optimization_plans)} structs")
+        structs_after_analysis = len(optimization_plans)
+        system_headers_filtered = structs_before_analysis - structs_after_analysis
+        log.info(f"Analyzed {structs_after_analysis} structs")
         
         # Run remaining stages manually (not via pipeline.run) to preserve compilation data
         log.debug("Stage 3: Planning...")
@@ -210,8 +213,9 @@ def run(args):
             'structs_raw': extraction_stats.get('total_before_dedup', structs_after_extraction),
             'structs_after_dedup': extraction_stats.get('total_after_dedup', structs_after_extraction),
             'duplicates_removed': extraction_stats.get('duplicates_removed', 0),
-            'structs_after_filter': len(structs),
+            'structs_after_filter': structs_before_analysis,
             'structs_filtered': structs_filtered,
+            'system_headers_filtered': system_headers_filtered,
             'structs_analyzed': len(optimization_plans),
             'compilation_data_count': compilation_data_count,
             'modifications_planned': modifications_planned,
@@ -281,6 +285,9 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
     patched_files = {result.file_path for result in results}
     actually_patched = [p for p in optimized_plans if p.struct.file_path in patched_files]
     
+    # Count structs that have padding_saved > 0 (actually benefited from optimization)
+    structs_with_savings = [p for p in optimization_plans if p.padding_saved > 0]
+    
     # Calculate total savings from ALL plans (including those that were analyzed but not patched)
     total_savings = sum(p.padding_saved for p in optimization_plans if p.padding_saved > 0)
     
@@ -315,6 +322,7 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
             f"  → Extracted {stats['structs_raw']} structs (raw)",
             f"  → After deduplication: {stats['structs_after_dedup']} structs ({stats['duplicates_removed']} duplicates removed)",
             f"  → After path exclusions: {stats['structs_after_filter']} structs ({stats['structs_filtered']} excluded)",
+            f"  → After system header filter: {stats['structs_analyzed']} structs ({stats['system_headers_filtered']} system headers removed)",
             "",
             "ANALYSIS STAGE:",
             f"  Input: {stats['structs_analyzed']} structs",
@@ -370,8 +378,8 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
             "",
             "FINAL RESULTS:",
             f"  Total padding saved: {total_savings} bytes",
-            f"  Structs actually optimized: {len(actually_patched)}",
-            f"  Average savings per struct: {total_savings // len(actually_patched) if actually_patched else 0} bytes",
+            f"  Structs with padding savings: {len(structs_with_savings)}",
+            f"  Average savings per struct: {total_savings // len(structs_with_savings) if structs_with_savings else 0} bytes",
         ])
     else:
         report_lines.extend([
