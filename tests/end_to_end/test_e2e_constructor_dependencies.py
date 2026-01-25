@@ -3,6 +3,9 @@ Verifies: FR-1.1.5 - Constructor Dependency Detection Test Family
 
 Tests constructor dependency detection to prevent optimization of members
 that are used in constructor initialization lists.
+
+TODO: Constructor dependency detection needs to be implemented in SourceScanner
+for whole-codebase scans. Currently only works for single-file analysis.
 """
 
 import pytest
@@ -14,21 +17,35 @@ class TestE2EConstructorDependencies(BaseE2ETest):
     @pytest.mark.e2e
     def test_dependency_member_uses_member(self, tmp_path):
         """Test buffer(new char[size]) depends on size."""
+        # Create a struct with padding that WOULD be optimized, but has constructor dependencies
         test_case = E2ETestCase(
             name="member_uses_member",
-            cpp_code="""struct Data { int size; char* buffer; Data(int s) : size(s), buffer(new char[size]) {} }; int main() { Data d(10); return 0; }""",
-            flags={'extractor': 'dwarf'},
+            cpp_code="""
+struct Data { 
+    char a;       // 1 byte + 3 padding
+    int size;     // 4 bytes
+    char c;       // 1 byte + 7 padding  
+    double* buffer; // 8 bytes
+    // Total: 24 bytes with 10 bytes padding
+    // Optimal would be: buffer, size, a, c (16 bytes, 8 bytes saved)
+    // But constructor has: buffer(new double[size]) - depends on size
+    Data(int s) : size(s), buffer(new double[size]), a('x'), c('y') {} 
+}; 
+int main() { Data d(10); return 0; }
+""",
+            flags={'extractor': 'pahole', 'source_root': str(tmp_path), 'verbose': True},
             expected_structs=[StructExpectation(
                 name="Data",
-                size_before=16,
-                size_after=16,
-                member_order_before=["size", "buffer"],
-                member_order_after=["size", "buffer"],
+                size_before=24,
+                size_after=24,  # Should stay same due to constructor deps
+                member_order_before=["a", "size", "c", "buffer"],
+                member_order_after=["a", "size", "c", "buffer"],  # Order preserved
                 padding_saved=0,
                 should_optimize=False,
-                skip_reason="Constructor dependency prevents optimization"
+                skip_reason="constructor dependencies"
             )],
-            should_succeed=True
+            should_succeed=True,
+            expected_output_contains=["constructor dependencies"]  # Verify skip reason is reported
         )
         self.run_test_case(test_case, tmp_path)
 

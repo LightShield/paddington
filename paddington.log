@@ -1,0 +1,5 @@
+# Paddington log started at 2026-01-25 15:21:30.435880
+2026-01-25 15:21:30 [USER] optimize:52 DRY-RUN MODE: No changes will be made
+2026-01-25 15:21:30 [USER] optimize:75 Found 1 object files
+2026-01-25 15:21:30 [USER] optimize:238 Optimization complete: 0 changes applied
+2026-01-25 15:21:30 [USER] optimize:254 SKIPPED Small: padding 0 < min_savings 10

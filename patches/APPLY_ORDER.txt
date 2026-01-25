@@ -1,13 +1,3 @@
 # Apply patches in this order:
 
-1. file_000_cwr_pv_decoder.patch
-2. file_001_scml_bitfield_callback_observer.patch
-3. file_002_scml_memory_access_descriptor.patch
-4. file_003_scml_watchpoint.patch
-5. file_004_scml_callback_observer.patch
-6. file_005_scml_memory_user.patch
-7. file_006_cwr_xml_api.patch
-8. file_007_scml_property_registry.patch
-9. file_008__scv_ext_comp.patch
-10. file_009_scv_constraint_range.patch
-11. file_010_zlib.patch
+1. file_000_test.patch

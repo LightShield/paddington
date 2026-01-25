@@ -33,3 +33,31 @@ def has_aggregate_initialization(file_path: str, struct_name: str) -> bool:
     pattern = rf'{escaped_name}\s+\w+\s*\{{.*?,.*?\}}'
     
     return bool(re.search(pattern, content, re.DOTALL))
+
+
+
+def has_aggregate_initialization_in_dir(directory: str, struct_name: str) -> bool:
+    """Check if struct is used with aggregate initialization anywhere in directory.
+    
+    Scans all .cpp, .cc, .cxx, .h, .hpp files in directory tree.
+    
+    Args:
+        directory: Root directory to search
+        struct_name: Name of struct to check
+        
+    Returns:
+        True if aggregate initialization found in any file
+    """
+    dir_path = Path(directory)
+    if not dir_path.exists():
+        return False
+    
+    # Search all C++ source files
+    extensions = ['*.cpp', '*.cc', '*.cxx', '*.h', '*.hpp', '*.C']
+    
+    for ext in extensions:
+        for file_path in dir_path.rglob(ext):
+            if has_aggregate_initialization(str(file_path), struct_name):
+                return True
+    
+    return False

@@ -40,6 +40,11 @@ def run(args):
     else:
         log.set_level('USER')  # Default: show user output
     
+    # Set up log file
+    log_file = Path.cwd() / "paddington.log"
+    log.set_log_file(str(log_file))
+    log.info(f"Logging to {log_file}")
+    
     # Show mode
     if args.apply:
         log.user("APPLYING CHANGES")
@@ -114,7 +119,10 @@ def run(args):
     extraction_stage = ExtractionStage(extractor)
     analysis_stage = AnalysisStage(min_savings=args.min_savings, 
                                    access_modifier_strategy=args.access_modifier_strategy,
-                                   struct_names=args.struct_names or [])
+                                   struct_names=args.struct_names or [],
+                                   source_root=str(args.source_root) if args.source_root else None,
+                                   exclude_patterns=args.exclude or [],
+                                   workspace_dir=str(args.workspace))
     planning_stage = PlanningStage(access_modifier_strategy=args.access_modifier_strategy)
     transformation_stage = TransformationStage(transformer)
     output_stage = OutputStage(writer)

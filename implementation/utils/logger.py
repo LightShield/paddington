@@ -7,6 +7,7 @@ import sys
 import threading
 import datetime
 import inspect
+from pathlib import Path
 
 
 class Logger:
@@ -37,12 +38,21 @@ class Logger:
                     instance = super(Logger, cls).__new__(cls)
                     cls._instance = instance
                     instance.level = cls.LEVELS.get(level.upper(), 20)
+                    instance.log_file = None
+                    instance.file_lock = threading.Lock()
         return cls._instance
 
     @staticmethod
     def get():
         """Get singleton instance."""
         return Logger._instance or Logger()
+
+    def set_log_file(self, filepath: str):
+        """Set log file path for writing logs."""
+        self.log_file = Path(filepath)
+        # Create/truncate file
+        with open(self.log_file, 'w') as f:
+            f.write(f"# Paddington log started at {datetime.datetime.now()}\n")
 
     def set_level(self, level_name):
         """Set logging level."""
@@ -89,7 +99,18 @@ class Logger:
         reset = self.COLORS["RESET"]
 
         output = f"{now} {color}[{level_name}] {location}{reset} {message}"
-        print(output, file=sys.stderr if level_name == "ERROR" else sys.stdout)
+        print(output, file=sys.stderr if level_name == "ERROR" else sys.stdout, flush=True)
+        
+        # Write to log file if configured
+        if self.log_file:
+            with self.file_lock:
+                try:
+                    with open(self.log_file, 'a') as f:
+                        # Write without color codes
+                        plain_output = f"{now} [{level_name}] {location} {message}\n"
+                        f.write(plain_output)
+                except:
+                    pass  # Don't fail if file write fails
 
     def debug(self, message):
         """Log debug message."""
@@ -110,3 +131,7 @@ class Logger:
     def user(self, message):
         """Log user-facing message (always shown)."""
         self._log("USER", message)
+
+
+# Module-level singleton instance for easy import
+log = Logger()

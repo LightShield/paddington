@@ -212,6 +212,8 @@ class BaseE2ETest:
             cmd.extend(['--output', kwargs['output']])
         if 'patch_dir' in kwargs:
             cmd.extend(['--patch-dir', str(kwargs['patch_dir'])])
+        if 'source_root' in kwargs:
+            cmd.extend(['--source-root', str(kwargs['source_root'])])
         if kwargs.get('verbose'):
             cmd.append('-vv')
         
@@ -245,6 +247,8 @@ class BaseE2ETest:
             cmd.extend(['--output', kwargs['output']])
         if 'patch_dir' in kwargs:
             cmd.extend(['--patch-dir', str(kwargs['patch_dir'])])
+        if 'source_root' in kwargs:
+            cmd.extend(['--source-root', str(kwargs['source_root'])])
         if kwargs.get('verbose'):
             cmd.append('-vv')
         

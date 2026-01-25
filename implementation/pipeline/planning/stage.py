@@ -7,7 +7,8 @@ from pathlib import Path
 from ..stage import Stage
 from ...struct_data.optimization_plan import OptimizationPlan
 from ...struct_data.source_change import SourceModification, Modification, Location
-from ...utils import Logger
+from ...utils.logger import log
+from ...utils.template_parser import is_template_instantiation, get_base_template_name, extract_template_types
 
 
 class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
@@ -15,13 +16,12 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
     
     def __init__(self, access_modifier_strategy: str = "preserve"):
         self.access_modifier_strategy = access_modifier_strategy
-        self.log = Logger()
         self._compilation_data: Dict[str, List[str]] = {}
     
     def set_compilation_data(self, compilation_data: Dict[str, List[str]]):
         """Set compilation data mapping struct names to their .cpp files."""
         self._compilation_data = compilation_data
-        self.log.info(f"Set compilation data for {len(compilation_data)} structs")
+        log.info(f"Set compilation data for {len(compilation_data)} structs")
     
     def process(self, plans: List[OptimizationPlan]) -> List[SourceModification]:
         """Create source modifications from plans."""
@@ -34,9 +34,23 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             if not plan.struct.file_path or not plan.struct.line:
                 continue
             
+            # Detect template instantiations and use base template name
+            struct_name = plan.struct.name
+            target_struct_name = struct_name
+            
+            if is_template_instantiation(struct_name):
+                # Use base template name for source modifications
+                target_struct_name = get_base_template_name(struct_name)
+                log.info(f"Template instantiation detected: {struct_name} -> {target_struct_name}")
+                
+                # Extract nested types for potential optimization
+                nested_types = extract_template_types(struct_name)
+                if nested_types:
+                    log.info(f"Extracted nested types from {struct_name}: {nested_types}")
+            
             # Create modifications for both .h and .cpp files
-            header_mods = self._create_header_modifications(plan)
-            cpp_mods = self._create_cpp_modifications(plan)
+            header_mods = self._create_header_modifications(plan, target_struct_name)
+            cpp_mods = self._create_cpp_modifications(plan, target_struct_name)
             
             modifications.extend(header_mods)
             modifications.extend(cpp_mods)
@@ -59,8 +73,11 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         # Otherwise return as-is (might already be relative)
         return file_path
     
-    def _create_header_modifications(self, plan: OptimizationPlan) -> List[SourceModification]:
+    def _create_header_modifications(self, plan: OptimizationPlan, target_struct_name: str = None) -> List[SourceModification]:
         """Create modifications for header file (.h) member declarations."""
+        if target_struct_name is None:
+            target_struct_name = plan.struct.name
+            
         old_members = ", ".join(m.name for m in plan.original_order)
         new_members = ", ".join(m.name for m in plan.optimal_order)
         
@@ -81,19 +98,22 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         
         source_mod = SourceModification(
             file_path=file_path,
-            struct_name=plan.struct.name,
+            struct_name=target_struct_name,  # Use base template name
             modifications=tuple([mod]),
             access_strategy=self.access_modifier_strategy
         )
         
         return [source_mod]
     
-    def _create_cpp_modifications(self, plan: OptimizationPlan) -> List[SourceModification]:
+    def _create_cpp_modifications(self, plan: OptimizationPlan, target_struct_name: str = None) -> List[SourceModification]:
         """Create modifications for .cpp files containing constructor implementations."""
+        if target_struct_name is None:
+            target_struct_name = plan.struct.name
+            
         cpp_files = self._get_cpp_files_for_struct(plan.struct.name)
         
         if not cpp_files:
-            self.log.warning(f"No .cpp files found for struct {plan.struct.name} - skipping constructor modifications")
+            log.warning(f"No .cpp files found for struct {plan.struct.name} - skipping constructor modifications")
             return []
         
         modifications = []
@@ -105,12 +125,12 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             cpp_file_normalized = self._normalize_path(cpp_file)
             
             if not os.path.exists(cpp_file):
-                self.log.warning(f"Detected .cpp file does not exist: {cpp_file}")
+                log.warning(f"Detected .cpp file does not exist: {cpp_file}")
                 continue
             
             # Validate that this .cpp file actually contains constructors for this struct
-            if not self._validate_cpp_file_has_constructors(cpp_file, plan.struct.name):
-                self.log.debug(f"Skipping {cpp_file} - no constructors found for {plan.struct.name}")
+            if not self._validate_cpp_file_has_constructors(cpp_file, target_struct_name):
+                log.debug(f"Skipping {cpp_file} - no constructors found for {target_struct_name}")
                 continue
             
             mod = Modification(
@@ -127,13 +147,13 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             
             source_mod = SourceModification(
                 file_path=cpp_file_normalized,
-                struct_name=plan.struct.name,
+                struct_name=target_struct_name,  # Use base template name
                 modifications=tuple([mod]),
                 access_strategy=self.access_modifier_strategy
             )
             
             modifications.append(source_mod)
-            self.log.debug(f"Created modification for {cpp_file}")
+            log.debug(f"Created modification for {cpp_file}")
         
         return modifications
     
@@ -142,9 +162,9 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         cpp_files = self._compilation_data.get(struct_name, [])
         
         if cpp_files:
-            self.log.debug(f"Found {len(cpp_files)} .cpp files for {struct_name} from compilation data")
+            log.debug(f"Found {len(cpp_files)} .cpp files for {struct_name} from compilation data")
         else:
-            self.log.debug(f"No .cpp files found for {struct_name} in compilation data")
+            log.debug(f"No .cpp files found for {struct_name} in compilation data")
         
         return cpp_files
     
@@ -166,7 +186,7 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             
             return False
         except Exception as e:
-            self.log.debug(f"Error validating {cpp_file}: {e}")
+            log.debug(f"Error validating {cpp_file}: {e}")
             return False
     
     def _parse_pahole_source_locations(self, pahole_output: str) -> Dict[str, List[int]]:

@@ -12,7 +12,7 @@ except ImportError:
 
 from .base import ISourceTransformer
 from ...struct_data import SourceModification, TransformedSource
-from ...utils import Logger
+from ...utils.logger import log
 
 
 class SrcMLTransformer(ISourceTransformer):
@@ -21,7 +21,7 @@ class SrcMLTransformer(ISourceTransformer):
     SUPPORTED_EXTENSIONS = {'.cpp', '.h', '.hpp', '.cc', '.cxx'}
     
     def __init__(self):
-        self.log = Logger()
+        pass
     
     def can_handle_file(self, file_path: str) -> bool:
         """Check if this transformer can handle the file type."""
@@ -29,14 +29,14 @@ class SrcMLTransformer(ISourceTransformer):
     
     def transform(self, modifications: List[SourceModification]) -> List[TransformedSource]:
         """Transform source code based on modifications."""
-        self.log.info(f"Transforming {len(modifications)} files")
+        log.info(f"Transforming {len(modifications)} files")
         
         # Use parallel processing for large sets
         if len(modifications) > 10:
             from multiprocessing import Pool, cpu_count
             
             num_workers = max(1, int(cpu_count() * 0.8))
-            self.log.debug(f"Using {num_workers} workers for transformation")
+            log.debug(f"Using {num_workers} workers for transformation")
             
             with Pool(num_workers) as pool:
                 results = pool.map(self._transform_file_wrapper, modifications)
@@ -48,19 +48,19 @@ class SrcMLTransformer(ISourceTransformer):
             results = []
             for i, mod in enumerate(modifications, 1):
                 if i % 10 == 0:
-                    self.log.info(f"  Transforming: {i}/{len(modifications)}")
+                    log.info(f"  Transforming: {i}/{len(modifications)}")
                 
                 try:
-                    self.log.debug(f"Transforming {mod.file_path}")
+                    log.debug(f"Transforming {mod.file_path}")
                     transformed = self._transform_file(mod)
                     if transformed:
                         results.append(transformed)
                     else:
-                        self.log.debug(f"Transformation returned None for {mod.file_path}")
+                        log.debug(f"Transformation returned None for {mod.file_path}")
                 except Exception as e:
-                    self.log.warning(f"Failed to transform {mod.file_path}: {e}")
+                    log.warning(f"Failed to transform {mod.file_path}: {e}")
                     import traceback
-                    self.log.debug(f"Traceback: {traceback.format_exc()}")
+                    log.debug(f"Traceback: {traceback.format_exc()}")
             
             return results
     
@@ -69,25 +69,28 @@ class SrcMLTransformer(ISourceTransformer):
         try:
             import os
             pid = os.getpid()
-            self.log.debug(f"[PID {pid}] Transforming {modification.file_path}")
+            log.debug(f"[PID {pid}] Transforming {modification.file_path}")
             result = self._transform_file(modification)
             if result:
-                self.log.debug(f"[PID {pid}] Success: {modification.file_path}")
+                log.debug(f"[PID {pid}] Success: {modification.file_path}")
             return result
         except Exception as e:
             import os
             pid = os.getpid()
-            self.log.debug(f"[PID {pid}] Failed: {modification.file_path}: {e}")
+            log.debug(f"[PID {pid}] Failed: {modification.file_path}: {e}")
             return None
                 
         return results
     
     def _transform_file(self, modification: SourceModification) -> Optional[TransformedSource]:
         """Transform a single file."""
+        import os
+        pid = os.getpid()
+        
         file_path = Path(modification.file_path)
         
         if not file_path.exists():
-            self.log.debug(f"File does not exist: {file_path}")
+            log.debug(f"[PID {pid}] File does not exist: {file_path}")
             return None
             
         original_content = file_path.read_text()
@@ -95,24 +98,24 @@ class SrcMLTransformer(ISourceTransformer):
         # Convert source to XML
         xml_content = self._source_to_xml(file_path)
         if not xml_content:
-            self.log.debug(f"Failed to convert source to XML: {file_path}")
+            log.debug(f"[PID {pid}] Failed to convert source to XML: {file_path}")
             return None
             
         # Parse and modify XML
         modified_xml = self._modify_xml(xml_content, modification)
         if not modified_xml:
-            self.log.debug(f"XML modification returned None for: {file_path}")
+            log.debug(f"[PID {pid}] XML modification returned None for: {file_path}")
             return None  # Return None if no changes
             
         # Convert XML back to source
         new_content = self._xml_to_source(modified_xml)
         if not new_content:
-            self.log.debug(f"Failed to convert XML back to source: {file_path}")
+            log.debug(f"[PID {pid}] Failed to convert XML back to source: {file_path}")
             return None
         
         # Skip if content didn't actually change
         if original_content == new_content:
-            self.log.debug(f"Content unchanged for: {file_path}")
+            log.debug(f"Content unchanged for: {file_path}")
             return None
             
         result = TransformedSource(
@@ -173,10 +176,12 @@ class SrcMLTransformer(ISourceTransformer):
             # Extract new member order from modification
             new_order = self._extract_new_order(modification)
             if not new_order:
-                self.log.debug("No new order found in modification")
+                log.debug("No new order found in modification")
                 return None
             
-            self.log.debug(f"New order: {new_order}")
+            import os
+            pid = os.getpid()
+            log.debug(f"[PID {pid}] New order: {new_order}")
             
             # Check if we need to reorder members (has 'reorder' modification)
             has_member_reorder = any(m.type == 'reorder' for m in modification.modifications)
@@ -186,10 +191,10 @@ class SrcMLTransformer(ISourceTransformer):
                 # Find struct node by name
                 struct_node = self._find_struct_node(root, modification.struct_name)
                 if struct_node is None:
-                    self.log.debug(f"Struct node not found: {modification.struct_name}")
+                    log.debug(f"[PID {pid}] Struct node not found: {modification.struct_name}")
                     return None
                 
-                self.log.debug(f"Found struct node: {modification.struct_name}")
+                log.debug(f"[PID {pid}] Found struct node: {modification.struct_name}")
                 
                 # Reorder member declarations
                 original_xml = ET.tostring(root, encoding='unicode')
@@ -207,7 +212,7 @@ class SrcMLTransformer(ISourceTransformer):
                     break
             
             if has_dependencies:
-                self.log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
+                log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
             # Reorder constructor initializer lists (for both .h and .cpp files)
@@ -217,12 +222,12 @@ class SrcMLTransformer(ISourceTransformer):
             modified_xml = ET.tostring(root, encoding='unicode')
             if original_xml == modified_xml:
                 # No changes were made (possibly due to missing members or other issues)
-                self.log.debug("No changes were made to XML")
+                log.debug("No changes were made to XML")
                 return None
             
             return modified_xml
         except (ET.ParseError, Exception) as e:
-            self.log.debug(f"XML modification failed: {e}")
+            log.debug(f"XML modification failed: {e}")
             return None
     
     def _extract_new_order(self, mod: SourceModification) -> list:
@@ -235,8 +240,16 @@ class SrcMLTransformer(ISourceTransformer):
         return []
     
     def _find_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
-        """Find struct node by name in XML tree (namespace-aware)."""
-        # srcML uses namespaces, so we need to check tag endings
+        """Find struct node by name in XML tree (namespace-aware).
+        
+        For template instantiations like 'Foo<int>', look for template definition 'template<...> struct Foo'.
+        """
+        # First try to find template definition
+        template_struct = self._find_template_struct_node(root, struct_name)
+        if template_struct:
+            return template_struct
+        
+        # Fallback to regular struct search
         for elem in root.iter():
             # Check if it's a struct/class element
             if elem.tag.endswith('}struct') or elem.tag.endswith('}class') or elem.tag == 'struct' or elem.tag == 'class':
@@ -244,6 +257,34 @@ class SrcMLTransformer(ISourceTransformer):
                 for child in elem:
                     if (child.tag.endswith('}name') or child.tag == 'name') and child.text == struct_name:
                         return elem
+        return None
+    
+    def _find_template_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
+        """Find template struct definition for the given struct name.
+        
+        Looks for patterns like:
+        template<typename T> struct Foo { ... }
+        """
+        # Look for template elements
+        for elem in root.iter():
+            if elem.tag.endswith('}template') or elem.tag == 'template':
+                # Find the struct/class declaration within this template
+                struct_elem = self._find_struct_in_template(elem, struct_name)
+                if struct_elem:
+                    return struct_elem
+        
+        return None
+    
+    def _find_struct_in_template(self, template_elem: ET.Element, struct_name: str) -> Optional[ET.Element]:
+        """Find struct declaration within a template element."""
+        for child in template_elem:
+            # Look for struct or class elements
+            if child.tag.endswith('}struct') or child.tag.endswith('}class') or child.tag == 'struct' or child.tag == 'class':
+                # Check if this struct has the right name
+                for grandchild in child:
+                    if (grandchild.tag.endswith('}name') or grandchild.tag == 'name') and grandchild.text == struct_name:
+                        return child
+        
         return None
     
     def _reorder_members(self, struct_node: ET.Element, new_order: list) -> None:
@@ -498,7 +539,7 @@ class SrcMLTransformer(ISourceTransformer):
         for constructor in constructors:
             # Check for constructor dependencies first
             if self._has_constructor_dependencies(constructor, new_order):
-                self.log.debug(f"Skipping constructor reordering for {struct_name} due to member dependencies")
+                log.debug(f"Skipping constructor reordering for {struct_name} due to member dependencies")
                 continue
                 
             # Find member initializer list
@@ -538,7 +579,7 @@ class SrcMLTransformer(ISourceTransformer):
                     if member_index != -1 and ref_index != -1 and member_index < ref_index:
                         # Dependency violation: member_name depends on ref_member
                         # but would be initialized before it in new order
-                        self.log.debug(f"Dependency violation: {member_name} depends on {ref_member}")
+                        log.debug(f"Dependency violation: {member_name} depends on {ref_member}")
                         return True
         
         return False
@@ -573,13 +614,34 @@ class SrcMLTransformer(ISourceTransformer):
         return referenced
 
     def _find_constructors(self, root: ET.Element, struct_name: str) -> list:
-        """Find all constructor definitions for the given struct/class."""
+        """Find all constructor definitions for the given struct/class.
+        
+        For template structs, looks for both template and non-template constructors.
+        """
         constructors = []
         
         # Look for constructor definitions (both inline and out-of-line)
         for elem in root.iter():
             if self._is_constructor(elem, struct_name):
                 constructors.append(elem)
+        
+        # Also look for template constructors
+        template_constructors = self._find_template_constructors(root, struct_name)
+        constructors.extend(template_constructors)
+        
+        return constructors
+    
+    def _find_template_constructors(self, root: ET.Element, struct_name: str) -> list:
+        """Find template constructor definitions."""
+        constructors = []
+        
+        # Look for template elements containing constructors
+        for elem in root.iter():
+            if elem.tag.endswith('}template') or elem.tag == 'template':
+                # Look for constructors within this template
+                for child in elem.iter():
+                    if self._is_constructor(child, struct_name):
+                        constructors.append(child)
         
         return constructors
 

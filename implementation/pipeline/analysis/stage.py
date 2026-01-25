@@ -1,6 +1,6 @@
 """Analysis stage with iterative size propagation."""
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from ..stage import Stage
 from ...struct_data.struct_info import StructInfo
 from ...struct_data.optimization_plan import OptimizationPlan
@@ -11,23 +11,32 @@ from ...padding_analysis.size_calculator import calculate_struct_size
 from ...padding_analysis.constructor_dependency_detector import detect_constructor_dependencies
 from ...padding_analysis.preprocessor_detector import has_preprocessor_directives
 from ...padding_analysis.directive_parser import parse_directives
-from ...utils import Logger
+from ...padding_analysis.source_scanner import SourceScanner
+from ...utils.logger import log
 
 
 class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
     """Analyze structs iteratively with size propagation."""
     
-    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve", source_file: str = "", struct_names: list = None):
+    def __init__(self, min_savings: int = 0, access_modifier_strategy: str = "preserve", source_file: str = "", struct_names: list = None, source_root: str = None, exclude_patterns: list = None, workspace_dir: str = None):
         self.min_savings = min_savings
         self.access_modifier_strategy = access_modifier_strategy
         self.source_file = source_file
         self.struct_names = struct_names or []
-        self.log = Logger()
+        self.source_root = source_root
+        # One-time scanner for all checks
+        self._scanner: Optional[SourceScanner] = None
+        if source_root:
+            self._scanner = SourceScanner(source_root, exclude_patterns or [], workspace_dir)
     
     def process(self, structs: List[StructInfo]) -> List[OptimizationPlan]:
         """Process structs in dependency order with size propagation."""
         if not structs:
             return []
+        
+        # Scan source tree once if scanner is available
+        if self._scanner:
+            self._scanner.scan()
         
         # Filter out system headers
         structs = [s for s in structs if s.file_path and not self._is_system_header(s.file_path)]
@@ -59,7 +68,7 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         plans = []
         
         # Iterative analysis in dependency order
-        self.log.info(f"Analyzing {len(ordered_names)} structs in dependency order")
+        log.info(f"Analyzing {len(ordered_names)} structs in dependency order")
         
         for i, struct_name in enumerate(ordered_names, 1):
             if struct_name not in struct_map:
@@ -67,14 +76,14 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             
             # Show progress for large numbers
             if i % 100 == 0 or (i % 10 == 0 and len(ordered_names) < 100):
-                self.log.info(f"  Analyzing: {i}/{len(ordered_names)}")
+                log.info(f"  Analyzing: {i}/{len(ordered_names)}")
             
             struct = struct_map[struct_name]
-            self.log.debug(f"Analyzing {struct.name}: size={struct.size} bytes")
+            log.debug(f"Analyzing {struct.name}: size={struct.size} bytes")
             
             # Skip structs with 0 or 1 members (nothing to reorder)
             if len(struct.members) <= 1:
-                self.log.debug(f"Skipping {struct.name}: only {len(struct.members)} member(s)")
+                log.debug(f"Skipping {struct.name}: only {len(struct.members)} member(s)")
                 plan = OptimizationPlan(
                     struct=struct,
                     original_order=tuple(struct.members),
@@ -121,17 +130,45 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             
             # Check constructor dependencies
             constructor_deps = {}
-            if self.source_file:
+            if self._scanner:
+                constructor_deps = self._scanner.get_constructor_dependencies(struct_name)
+                if constructor_deps:
+                    log.debug(f"Found constructor deps for {struct_name}: {constructor_deps}")
+            elif self.source_file:
                 constructor_deps = detect_constructor_dependencies(self.source_file, struct_name)
             
             # Check for preprocessor directives
-            if struct.file_path and has_preprocessor_directives(struct.file_path, struct_name):
+            if self._scanner and self._scanner.has_preprocessor_directives(struct_name):
                 plan = OptimizationPlan(
                     struct=struct,
                     original_order=tuple(updated_members),
                     optimal_order=tuple(updated_members),
                     padding_saved=0,
                     skip_reason="preprocessor directives"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = actual_size
+                continue
+            elif not self._scanner and struct.file_path and has_preprocessor_directives(struct.file_path, struct_name):
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(updated_members),
+                    optimal_order=tuple(updated_members),
+                    padding_saved=0,
+                    skip_reason="preprocessor directives"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = actual_size
+                continue
+            
+            # Check for aggregate initialization
+            if self._scanner and self._scanner.has_aggregate_initialization(struct_name):
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(updated_members),
+                    optimal_order=tuple(updated_members),
+                    padding_saved=0,
+                    skip_reason="aggregate initialization"
                 )
                 plans.append(plan)
                 type_sizes[struct_name] = actual_size
@@ -149,53 +186,32 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 )
                 type_sizes[struct_name] = actual_size
             elif constructor_deps:
-                # Check if reordering would violate constructor dependencies
+                # Has constructor dependencies - check if reordering would violate them
+                log.debug(f"Checking constructor deps for {struct_name}")
                 optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
+                log.debug(f"Original order: {[m.name for m in updated_members]}")
+                log.debug(f"Optimal order: {[m.name for m in optimal_members]}")
                 if _violates_dependencies(updated_members, optimal_members, constructor_deps):
-                    # Try to find a safe reordering that respects dependencies
-                    safe_members = _get_dependency_safe_order(updated_members, constructor_deps, self.access_modifier_strategy)
-                    if safe_members != updated_members:
-                        safe_size = calculate_struct_size(safe_members)
-                        padding_saved = actual_size - safe_size
-                        
-                        # Handle case where safe reordering makes struct larger
-                        if padding_saved < 0:
-                            plan = OptimizationPlan(
-                                struct=struct,
-                                original_order=tuple(updated_members),
-                                optimal_order=tuple(updated_members),  # Keep original order
-                                padding_saved=0,
-                                skip_reason=f"safe reordering increases size by {-padding_saved} bytes"
-                            )
-                            type_sizes[struct_name] = actual_size
-                        else:
-                            plan = OptimizationPlan(
-                                struct=struct,
-                                original_order=tuple(updated_members),
-                                optimal_order=tuple(safe_members),
-                                padding_saved=padding_saved,
-                                skip_reason=None
-                            )
-                            type_sizes[struct_name] = safe_size
-                    else:
-                        plan = OptimizationPlan(
-                            struct=struct,
-                            original_order=tuple(updated_members),
-                            optimal_order=tuple(updated_members),
-                            padding_saved=0,
-                            skip_reason="constructor dependencies"
-                        )
-                        type_sizes[struct_name] = actual_size
+                    # Reordering would break constructor - skip optimization
+                    log.debug(f"Reordering violates dependencies - skipping {struct_name}")
+                    plan = OptimizationPlan(
+                        struct=struct,
+                        original_order=tuple(updated_members),
+                        optimal_order=tuple(updated_members),
+                        padding_saved=0,
+                        skip_reason="constructor dependencies"
+                    )
+                    type_sizes[struct_name] = actual_size
                 else:
+                    # Constructor dependencies don't prevent this reordering
                     optimal_size = calculate_struct_size(optimal_members)
                     padding_saved = actual_size - optimal_size
                     
-                    # Handle case where reordering makes struct larger
                     if padding_saved < 0:
                         plan = OptimizationPlan(
                             struct=struct,
                             original_order=tuple(updated_members),
-                            optimal_order=tuple(updated_members),  # Keep original order
+                            optimal_order=tuple(updated_members),
                             padding_saved=0,
                             skip_reason=f"reordering increases size by {-padding_saved} bytes"
                         )
@@ -210,17 +226,16 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                         )
                         type_sizes[struct_name] = optimal_size
             else:
-                # Get optimal order
+                # No constructor dependencies - optimize freely
                 optimal_members = get_optimal_order(updated_members, self.access_modifier_strategy)
                 optimal_size = calculate_struct_size(optimal_members)
                 padding_saved = actual_size - optimal_size
                 
-                # Handle case where reordering makes struct larger (negative padding)
                 if padding_saved < 0:
                     plan = OptimizationPlan(
                         struct=struct,
                         original_order=tuple(updated_members),
-                        optimal_order=tuple(updated_members),  # Keep original order
+                        optimal_order=tuple(updated_members),
                         padding_saved=0,
                         skip_reason=f"reordering increases size by {-padding_saved} bytes"
                     )

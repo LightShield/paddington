@@ -206,7 +206,7 @@ struct UserData {
         assert cpp_files == []
         
         # Should log warning about no implementation files found
-        with patch.object(planning_stage, 'log') as mock_log:
+        with patch('implementation.pipeline.planning.stage.log') as mock_log:
             modifications = planning_stage._create_cpp_modifications(
                 OptimizationPlan(
                     struct=sample_struct,
@@ -225,7 +225,7 @@ struct UserData {
         compilation_data = {"UserData": ["/project/src/user.cpp"]}
         planning_stage._set_compilation_data(compilation_data)
         
-        with patch.object(planning_stage, 'log') as mock_log:
+        with patch('implementation.pipeline.planning.stage.log') as mock_log:
             cpp_files = planning_stage._get_cpp_files_for_struct("UserData")
             
             # Should log which detection method was used

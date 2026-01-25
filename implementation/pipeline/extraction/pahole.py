@@ -9,14 +9,13 @@ from typing import List, Optional, Dict
 from .base import IStructExtractor
 from ...struct_data.struct_info import StructInfo
 from ...struct_data.member_info import MemberInfo
-from ...utils import Logger
+from ...utils.logger import log
 
 
 class PaholeExtractor(IStructExtractor):
     """Extract struct info using pahole (100x faster than DWARF parsing)."""
     
     def __init__(self):
-        self.log = Logger()
         self._pahole_cmd = self._get_pahole_command()
         self._compilation_data: Dict[str, List[str]] = {}
     
@@ -48,7 +47,7 @@ class PaholeExtractor(IStructExtractor):
             
             # Use 80% of available cores
             num_workers = max(1, int(cpu_count() * 0.8))
-            self.log.info(f"Extracting from {len(objfiles)} files using {num_workers} workers")
+            log.info(f"Extracting from {len(objfiles)} files using {num_workers} workers")
             
             # Process in parallel
             with Pool(num_workers) as pool:
@@ -62,7 +61,7 @@ class PaholeExtractor(IStructExtractor):
             # Serial processing for small sets
             for i, objfile in enumerate(objfiles, 1):
                 if i % 100 == 0 or i == len(objfiles):
-                    self.log.info(f"Extracting: {i}/{len(objfiles)} files")
+                    log.info(f"Extracting: {i}/{len(objfiles)} files")
                 
                 structs = self._extract_single_file(objfile)
                 if structs:
@@ -75,19 +74,19 @@ class PaholeExtractor(IStructExtractor):
         try:
             import os
             pid = os.getpid()
-            self.log.debug(f"[PID {pid}] Processing {objfile.name}")
+            log.debug(f"[PID {pid}] Processing {objfile.name}")
             cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
-                self.log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
+                log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
                 return []
             
             structs = self._parse_pahole_output(result.stdout)
-            self.log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
+            log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
             return structs
         except Exception as e:
-            self.log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
+            log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
             return []
     
     def supports_caching(self) -> bool:
@@ -271,5 +270,5 @@ class PaholeExtractor(IStructExtractor):
                 seen[sig] = True
                 unique.append(struct)
         
-        self.log.debug(f"Deduplication: {len(structs)} -> {len(unique)} structs")
+        log.debug(f"Deduplication: {len(structs)} -> {len(unique)} structs")
         return unique
