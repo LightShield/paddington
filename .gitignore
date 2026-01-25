@@ -43,6 +43,11 @@ test*.sh
 demo*.py
 extract_struct_info.py
 
+# Paddington runtime files
+.paddington_workspace/
+paddington.log
+paddington_summary.txt
+
 # Old implementation
 paddington/
 *.out
