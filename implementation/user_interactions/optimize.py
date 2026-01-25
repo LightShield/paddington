@@ -235,6 +235,8 @@ def _filter_structs(structs, exclude: Optional[List[str]]):
 
 def _report_optimization(results, optimization_plans, verbosity: int, log):
     """Report optimization results."""
+    from collections import Counter
+    
     log.user("Optimization complete: {} changes applied".format(len(results)))
     
     # Report skipped structs
@@ -249,6 +251,43 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
     
     total_savings = sum(p.padding_saved for p in actually_patched)
     log.info(f"Total padding saved: {total_savings} bytes")
+    
+    # Generate detailed summary report
+    skip_reasons = Counter(plan.skip_reason for plan in skipped_plans)
+    
+    report_lines = [
+        "",
+        "=" * 80,
+        "PADDINGTON OPTIMIZATION SUMMARY",
+        "=" * 80,
+        "",
+        f"Total structs analyzed: {len(optimization_plans)}",
+        f"Patches created: {len(results)}",
+        f"Structs optimized: {len(actually_patched)}",
+        f"Structs skipped: {len(skipped_plans)}",
+        f"Total padding saved: {total_savings} bytes",
+        "",
+        "SKIP REASONS:",
+    ]
+    
+    for reason, count in skip_reasons.most_common():
+        report_lines.append(f"  {count:5d} - {reason}")
+    
+    report_lines.extend(["", "=" * 80, ""])
+    
+    # Write to console
+    for line in report_lines:
+        log.user(line)
+    
+    # Write to summary file
+    try:
+        from pathlib import Path
+        summary_file = Path.cwd() / "paddington_summary.txt"
+        with open(summary_file, 'w') as f:
+            f.write('\n'.join(report_lines))
+        log.info(f"Summary report written to: {summary_file}")
+    except:
+        pass
     
     for plan in skipped_plans:
         log.user(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")

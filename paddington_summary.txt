@@ -1,0 +1,15 @@
+
+================================================================================
+PADDINGTON OPTIMIZATION SUMMARY
+================================================================================
+
+Total structs analyzed: 3
+Patches created: 1
+Structs optimized: 2
+Structs skipped: 1
+Total padding saved: 0 bytes
+
+SKIP REASONS:
+      1 - only 1 member(s)
+
+================================================================================
