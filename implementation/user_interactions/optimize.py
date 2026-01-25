@@ -149,23 +149,27 @@ def run(args):
         # Run extraction and analysis separately to capture optimization plans
         log.debug("Stage 1: Extracting structs...")
         structs = extraction_stage.process(objfiles)
-        log.info(f"Extracted {len(structs)} structs")
+        structs_extracted = len(structs)
+        log.info(f"Extracted {structs_extracted} structs")
         
         # Filter structs by file_path using exclude patterns
+        structs_filtered = 0
         if args.exclude:
             original_count = len(structs)
             log.debug(f"Filtering {original_count} structs with patterns: {args.exclude}")
             structs = _filter_structs(structs, args.exclude)
-            filtered_count = original_count - len(structs)
-            if filtered_count > 0:
-                log.info(f"Filtered out {filtered_count} structs by file path")
+            structs_filtered = original_count - len(structs)
+            if structs_filtered > 0:
+                log.info(f"Filtered out {structs_filtered} structs by file path")
             else:
                 log.debug("No structs filtered by file path")
         
         # Pass compilation data to planning stage if available
+        compilation_data_count = 0
         if hasattr(extractor, 'get_compilation_data'):
             compilation_data = extractor.get_compilation_data()
-            log.info(f"Extractor provided compilation data for {len(compilation_data)} structs")
+            compilation_data_count = len(compilation_data)
+            log.info(f"Extractor provided compilation data for {compilation_data_count} structs")
             if compilation_data and hasattr(planning_stage, 'set_compilation_data'):
                 planning_stage.set_compilation_data(compilation_data)
                 log.info(f"Passed compilation data to planning stage")
@@ -181,17 +185,31 @@ def run(args):
         # Run remaining stages manually (not via pipeline.run) to preserve compilation data
         log.debug("Stage 3: Planning...")
         modifications = planning_stage.process(optimization_plans)
-        log.info(f"Planned {len(modifications)} modifications")
+        modifications_planned = len(modifications)
+        log.info(f"Planned {modifications_planned} modifications")
         
         log.debug("Stage 4: Transformation...")
         transformed = transformation_stage.process(modifications)
-        log.info(f"Transformed {len(transformed)} sources")
+        sources_transformed = len(transformed)
+        log.info(f"Transformed {sources_transformed} sources")
         
         log.debug("Stage 5: Output...")
         results = output_stage.process(transformed)
         log.info(f"Pipeline complete: {len(results)} changes")
         
-        _report_optimization(results, optimization_plans, args.verbose, log)
+        # Collect stats for report
+        stats = {
+            'structs_extracted': structs_extracted,
+            'structs_filtered': structs_filtered,
+            'structs_analyzed': len(optimization_plans),
+            'compilation_data_count': compilation_data_count,
+            'modifications_planned': modifications_planned,
+            'sources_transformed': sources_transformed,
+            'transformation_failures': modifications_planned - sources_transformed,
+            'patches_created': len(results)
+        }
+        
+        _report_optimization(results, optimization_plans, args.verbose, log, stats)
     except Exception as e:
         log.error(f"Pipeline failed: {e}")
         if args.verbose >= 3:
@@ -238,7 +256,7 @@ def _filter_structs(structs, exclude: Optional[List[str]]):
     return filtered
 
 
-def _report_optimization(results, optimization_plans, verbosity: int, log):
+def _report_optimization(results, optimization_plans, verbosity: int, log, stats: dict = None):
     """Report optimization results."""
     from collections import Counter
     
@@ -266,17 +284,59 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
         "PADDINGTON OPTIMIZATION SUMMARY",
         "=" * 80,
         "",
-        f"Total structs analyzed: {len(optimization_plans)}",
-        f"Patches created: {len(results)}",
-        f"Structs optimized: {len(actually_patched)}",
-        f"Structs skipped: {len(skipped_plans)}",
-        f"Total padding saved: {total_savings} bytes",
-        "",
-        "SKIP REASONS:",
     ]
     
-    for reason, count in skip_reasons.most_common():
-        report_lines.append(f"  {count:5d} - {reason}")
+    # Add pipeline stats if available
+    if stats:
+        report_lines.extend([
+            "EXTRACTION:",
+            f"  Structs extracted from .o files: {stats['structs_extracted']}",
+            f"  Structs filtered by exclusions: {stats['structs_filtered']}",
+            f"  Structs analyzed: {stats['structs_analyzed']}",
+            "",
+            "ANALYSIS:",
+            f"  Structs with optimization potential: {len(optimized_plans)}",
+            f"  Structs skipped: {len(skipped_plans)}",
+            "",
+            "SKIP REASONS:",
+        ])
+        
+        for reason, count in skip_reasons.most_common():
+            report_lines.append(f"    {count:5d} - {reason}")
+        
+        report_lines.extend([
+            "",
+            "PLANNING:",
+            f"  Modifications planned: {stats['modifications_planned']}",
+            f"  Compilation data available: {stats['compilation_data_count']} structs",
+            "",
+            "TRANSFORMATION:",
+            f"  Sources transformed: {stats['sources_transformed']}",
+            f"  Transformation failures: {stats['transformation_failures']}",
+            f"  Success rate: {stats['sources_transformed']*100//stats['modifications_planned'] if stats['modifications_planned'] > 0 else 0}%",
+            "",
+            "OUTPUT:",
+            f"  Patches created: {stats['patches_created']}",
+            f"  Files modified: {len(patched_files)}",
+            "",
+            "RESULTS:",
+            f"  Total padding saved: {total_savings} bytes",
+            f"  Average per struct: {total_savings // len(actually_patched) if actually_patched else 0} bytes",
+        ])
+    else:
+        # Fallback to simple summary
+        report_lines.extend([
+            f"Total structs analyzed: {len(optimization_plans)}",
+            f"Patches created: {len(results)}",
+            f"Structs optimized: {len(actually_patched)}",
+            f"Structs skipped: {len(skipped_plans)}",
+            f"Total padding saved: {total_savings} bytes",
+            "",
+            "SKIP REASONS:",
+        ])
+        
+        for reason, count in skip_reasons.most_common():
+            report_lines.append(f"  {count:5d} - {reason}")
     
     report_lines.extend(["", "=" * 80, ""])
     
@@ -291,8 +351,8 @@ def _report_optimization(results, optimization_plans, verbosity: int, log):
         with open(summary_file, 'w') as f:
             f.write('\n'.join(report_lines))
         log.info(f"Summary report written to: {summary_file}")
-    except:
-        pass
+    except Exception as e:
+        log.warning(f"Failed to write summary file: {e}")
     
     for plan in skipped_plans:
         log.user(f"SKIPPED {plan.struct.name}: {plan.skip_reason}")
