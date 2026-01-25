@@ -195,3 +195,25 @@ struct Test {
             # Typedef doesn't affect layout, should be safe
             # Our current analyzer might mark this unsafe - we can improve it
             pass  # Document for future improvement
+    
+    def test_single_ifdef_block_movable(self):
+        """Test that a single #ifdef block can be moved as a unit."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.h', delete=False) as f:
+            f.write("""
+struct Test {
+    char a;      // 1 byte + 7 padding
+#ifdef DEBUG
+    int debug1;  // 4 bytes
+    int debug2;  // 4 bytes
+#endif
+    double d;    // 8 bytes
+    // Could move #ifdef block to improve padding
+};
+""")
+            f.flush()
+            
+            is_safe, reason = analyze_preprocessor_safety(f.name, "Test")
+            # Single contiguous block can be moved as atomic unit
+            # This should be marked as "safe - block movable"
+            assert is_safe or "block movable" in reason.lower(), \
+                "Single ifdef block should be movable as unit"
