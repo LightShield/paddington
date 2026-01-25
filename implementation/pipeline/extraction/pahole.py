@@ -74,6 +74,14 @@ class PaholeExtractor(IStructExtractor):
         
         return self._deduplicate_structs(all_structs)
     
+    def get_extraction_stats(self) -> dict:
+        """Get extraction statistics for reporting."""
+        return {
+            'total_before_dedup': getattr(self, '_total_before_dedup', 0),
+            'total_after_dedup': getattr(self, '_total_after_dedup', 0),
+            'duplicates_removed': getattr(self, '_duplicates_removed', 0)
+        }
+    
     def _extract_single_file_with_data(self, objfile: Path):
         """Extract structs and compilation data from a single .o file (for parallel processing).
         
@@ -322,6 +330,8 @@ class PaholeExtractor(IStructExtractor):
     
     def _deduplicate_structs(self, structs: List[StructInfo]) -> List[StructInfo]:
         """Remove duplicate structs."""
+        self._total_before_dedup = len(structs)
+        
         seen = {}
         unique = []
         
@@ -331,5 +341,8 @@ class PaholeExtractor(IStructExtractor):
                 seen[sig] = True
                 unique.append(struct)
         
-        log.debug(f"Deduplication: {len(structs)} -> {len(unique)} structs")
+        self._total_after_dedup = len(unique)
+        self._duplicates_removed = self._total_before_dedup - self._total_after_dedup
+        
+        log.debug(f"Deduplication: {self._total_before_dedup} -> {self._total_after_dedup} structs ({self._duplicates_removed} duplicates)")
         return unique

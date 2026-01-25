@@ -149,20 +149,27 @@ def run(args):
         # Run extraction and analysis separately to capture optimization plans
         log.debug("Stage 1: Extracting structs...")
         structs = extraction_stage.process(objfiles)
-        structs_extracted = len(structs)
-        log.info(f"Extracted {structs_extracted} structs")
+        
+        # Get extraction stats
+        extraction_stats = {}
+        if hasattr(extractor, 'get_extraction_stats'):
+            extraction_stats = extractor.get_extraction_stats()
+        
+        structs_after_extraction = len(structs)
+        log.info(f"Extracted {structs_after_extraction} structs")
         
         # Filter structs by file_path using exclude patterns
-        structs_filtered = 0
+        structs_before_filter = len(structs)
         if args.exclude:
-            original_count = len(structs)
-            log.debug(f"Filtering {original_count} structs with patterns: {args.exclude}")
+            log.debug(f"Filtering {structs_before_filter} structs with patterns: {args.exclude}")
             structs = _filter_structs(structs, args.exclude)
-            structs_filtered = original_count - len(structs)
+            structs_filtered = structs_before_filter - len(structs)
             if structs_filtered > 0:
                 log.info(f"Filtered out {structs_filtered} structs by file path")
             else:
                 log.debug("No structs filtered by file path")
+        else:
+            structs_filtered = 0
         
         # Pass compilation data to planning stage if available
         compilation_data_count = 0
@@ -199,15 +206,18 @@ def run(args):
         
         # Collect stats for report
         stats = {
-            'structs_extracted': structs_extracted,
+            'objfiles_count': len(objfiles),
+            'structs_raw': extraction_stats.get('total_before_dedup', structs_after_extraction),
+            'structs_after_dedup': extraction_stats.get('total_after_dedup', structs_after_extraction),
+            'duplicates_removed': extraction_stats.get('duplicates_removed', 0),
+            'structs_after_filter': len(structs),
             'structs_filtered': structs_filtered,
             'structs_analyzed': len(optimization_plans),
             'compilation_data_count': compilation_data_count,
             'modifications_planned': modifications_planned,
             'sources_transformed': sources_transformed,
             'transformation_failures': modifications_planned - sources_transformed,
-            'patches_created': len(results),
-            'structs_already_optimal': len([p for p in optimization_plans if not p.skip_reason and p.original_order == p.optimal_order])
+            'patches_created': len(results)
         }
         
         _report_optimization(results, optimization_plans, args.verbose, log, stats)
@@ -271,24 +281,99 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
     patched_files = {result.file_path for result in results}
     actually_patched = [p for p in optimized_plans if p.struct.file_path in patched_files]
     
-    log.info(f"Summary: {len(actually_patched)} patched, {len(optimized_plans) - len(actually_patched)} analyzed but not patched, {len(skipped_plans)} skipped")
+    # Calculate total savings from ALL plans (including those that were analyzed but not patched)
+    total_savings = sum(p.padding_saved for p in optimization_plans if p.padding_saved > 0)
     
-    total_savings = sum(p.padding_saved for p in actually_patched)
+    log.info(f"Summary: {len(actually_patched)} patched, {len(optimized_plans) - len(actually_patched)} analyzed but not patched, {len(skipped_plans)} skipped")
     log.info(f"Total padding saved: {total_savings} bytes")
     
     # Generate detailed summary report
     skip_reasons = Counter(plan.skip_reason for plan in skipped_plans)
     
+    # Categorize skip reasons
+    cannot_optimize = ['only 0 member(s)', 'only 1 member(s)']
+    already_optimal_reasons = ['already optimal']
+    unhandled_cases = ['preprocessor directives', 'aggregate initialization', 'constructor dependencies']
+    
+    cannot_optimize_count = sum(skip_reasons[r] for r in cannot_optimize if r in skip_reasons)
+    already_optimal_count = sum(skip_reasons[r] for r in already_optimal_reasons if r in skip_reasons)
+    unhandled_count = sum(skip_reasons[r] for r in unhandled_cases if r in skip_reasons)
+    
     report_lines = [
         "",
         "=" * 80,
-        "PADDINGTON OPTIMIZATION SUMMARY",
+        "PADDINGTON OPTIMIZATION SUMMARY - PIPELINE FLOW",
         "=" * 80,
         "",
     ]
     
-    # Add pipeline stats if available
+    # Add pipeline flow if stats available
     if stats:
+        report_lines.extend([
+            "EXTRACTION STAGE:",
+            f"  From {stats['objfiles_count']} .o files",
+            f"  → Extracted {stats['structs_raw']} structs (raw)",
+            f"  → After deduplication: {stats['structs_after_dedup']} structs ({stats['duplicates_removed']} duplicates removed)",
+            f"  → After path exclusions: {stats['structs_after_filter']} structs ({stats['structs_filtered']} excluded)",
+            "",
+            "ANALYSIS STAGE:",
+            f"  Input: {stats['structs_analyzed']} structs",
+            f"  → Cannot optimize: {cannot_optimize_count} structs (0 or 1 members)",
+            f"  → Already optimal: {already_optimal_count} structs (no reordering needed)",
+            f"  → Unhandled cases: {unhandled_count} structs (preprocessor/aggregate/constructor)",
+            f"  → Needs optimization: {len(optimized_plans)} structs",
+            "",
+            "  Skip reasons (cannot optimize):",
+        ])
+        
+        for reason in cannot_optimize:
+            if reason in skip_reasons:
+                report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
+        
+        report_lines.append("")
+        report_lines.append("  Skip reasons (already optimal):")
+        for reason in already_optimal_reasons:
+            if reason in skip_reasons:
+                report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
+        
+        report_lines.append("")
+        report_lines.append("  Skip reasons (unhandled cases - potential future improvements):")
+        for reason in unhandled_cases:
+            if reason in skip_reasons:
+                report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
+        
+        # Add any other skip reasons
+        other_reasons = [r for r in skip_reasons if r not in cannot_optimize + already_optimal_reasons + unhandled_cases]
+        if other_reasons:
+            report_lines.append("")
+            report_lines.append("  Other skip reasons:")
+            for reason in other_reasons:
+                report_lines.append(f"    {skip_reasons[reason]:5d} - {reason}")
+        
+        report_lines.extend([
+            "",
+            "PLANNING STAGE:",
+            f"  Input: {len(optimized_plans)} structs needing optimization",
+            f"  → Modifications planned: {stats['modifications_planned']} (includes .h and .cpp files)",
+            f"  → Compilation data available: {stats['compilation_data_count']} structs have .cpp mappings",
+            "",
+            "TRANSFORMATION STAGE:",
+            f"  Input: {stats['modifications_planned']} modifications",
+            f"  → Successfully transformed: {stats['sources_transformed']} sources",
+            f"  → Transformation failures: {stats['transformation_failures']} sources",
+            f"  → Success rate: {stats['sources_transformed']*100//stats['modifications_planned'] if stats['modifications_planned'] > 0 else 0}%",
+            "",
+            "OUTPUT STAGE:",
+            f"  Input: {stats['sources_transformed']} transformed sources",
+            f"  → Patches created: {stats['patches_created']} patch files",
+            f"  → Files modified: {len(patched_files)} unique files",
+            "",
+            "FINAL RESULTS:",
+            f"  Total padding saved: {total_savings} bytes",
+            f"  Structs actually optimized: {len(actually_patched)}",
+            f"  Average savings per struct: {total_savings // len(actually_patched) if actually_patched else 0} bytes",
+        ])
+    else:
         report_lines.extend([
             "EXTRACTION:",
             f"  Structs extracted from .o files: {stats['structs_extracted']}",
@@ -324,20 +409,6 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
             f"  Total padding saved: {total_savings} bytes",
             f"  Average per struct: {total_savings // len(actually_patched) if actually_patched else 0} bytes",
         ])
-    else:
-        # Fallback to simple summary
-        report_lines.extend([
-            f"Total structs analyzed: {len(optimization_plans)}",
-            f"Patches created: {len(results)}",
-            f"Structs optimized: {len(actually_patched)}",
-            f"Structs skipped: {len(skipped_plans)}",
-            f"Total padding saved: {total_savings} bytes",
-            "",
-            "SKIP REASONS:",
-        ])
-        
-        for reason, count in skip_reasons.most_common():
-            report_lines.append(f"  {count:5d} - {reason}")
     
     report_lines.extend(["", "=" * 80, ""])
     
