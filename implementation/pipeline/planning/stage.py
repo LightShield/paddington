@@ -34,6 +34,11 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             if not plan.struct.file_path or not plan.struct.line:
                 continue
             
+            # Skip if no actual reordering needed
+            if plan.original_order == plan.optimal_order:
+                log.debug(f"Skipping {plan.struct.name}: members already in optimal order")
+                continue
+            
             # Detect template instantiations and use base template name
             struct_name = plan.struct.name
             target_struct_name = struct_name
