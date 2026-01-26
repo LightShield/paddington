@@ -319,16 +319,29 @@ class SrcMLTransformer(ISourceTransformer):
         # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
         member_containers = {}
+        static_members_found = 0
         
         for container in containers:
             for elem in list(container):
                 if 'decl_stmt' in elem.tag:
-                    # Extract member name from this declaration
+                    # Check if this is a static member
+                    elem_str = ET.tostring(elem, encoding='unicode')
+                    is_static = 'static' in elem_str
+                    
+                    if is_static:
+                        static_members_found += 1
+                        log.debug(f"Found static member, keeping in place")
+                    
+                    # Extract member name
                     member_name = self._extract_member_name(elem)
-                    # Only include members that are in the new_order (from DWARF)
-                    if member_name and member_name in new_order:
+                    
+                    if member_name and member_name in new_order and not is_static:
+                        # This is a non-static data member we need to reorder
                         member_decls[member_name] = elem
                         member_containers[member_name] = container
+                    # Static members are left in place (not added to member_decls)
+        
+        log.debug(f"Found {static_members_found} static members to preserve")
         
         # Check if we found all the members we need to reorder
         if not member_decls:
@@ -344,13 +357,14 @@ class SrcMLTransformer(ISourceTransformer):
         # Filter new_order to only include members we actually found
         new_order_filtered = [name for name in new_order if name in member_decls]
         
-        # Remove all member declarations from their containers
+        # Remove only the non-static member declarations we're reordering
         for container in containers:
             for elem in list(container):
                 if 'decl_stmt' in elem.tag:
                     member_name = self._extract_member_name(elem)
                     if member_name in member_decls:
                         container.remove(elem)
+                    # Static members stay in place
         
         # Group by container to maintain access modifier boundaries
         members_by_container = {}
@@ -381,7 +395,7 @@ class SrcMLTransformer(ISourceTransformer):
                 container.insert(i, type_elem)
         
         # Re-insert members in new order, keeping each member in its original container
-        # Insert after nested types
+        # Insert after nested types (static members are already in place)
         for container, member_names in members_by_container.items():
             # Find how many nested types are at the top
             offset = len(nested_types_by_container.get(container, []))
