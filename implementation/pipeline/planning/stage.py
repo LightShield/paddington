@@ -55,7 +55,24 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
             modifications.extend(header_mods)
             modifications.extend(cpp_mods)
         
-        return modifications
+        # Deduplicate modifications by (file_path, struct_name)
+        # Multiple template instantiations map to same template definition
+        seen = set()
+        deduplicated = []
+        duplicates_removed = 0
+        
+        for mod in modifications:
+            key = (mod.file_path, mod.struct_name)
+            if key not in seen:
+                seen.add(key)
+                deduplicated.append(mod)
+            else:
+                duplicates_removed += 1
+        
+        if duplicates_removed > 0:
+            log.info(f"Deduplicated {duplicates_removed} template instantiation modifications")
+        
+        return deduplicated
     
     def _normalize_path(self, file_path: str) -> str:
         """Convert absolute path to relative path for patches.
