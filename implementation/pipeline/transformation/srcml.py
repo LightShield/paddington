@@ -215,8 +215,9 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # Reorder constructor initializer lists (for both .h and .cpp files)
-            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+            # TODO: Constructor reordering has bugs (missing commas, duplicates)
+            # Disabled until fixed
+            # self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
@@ -399,8 +400,8 @@ class SrcMLTransformer(ISourceTransformer):
             for elem in list(container):
                 tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
                 
-                # Check for nested types
-                if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
+                # Check for nested types (including using statements)
+                if tag in ['typedef', 'using', 'struct', 'enum', 'class', 'union']:
                     nested_types.append(elem)
                     container.remove(elem)
                 # Check for static members

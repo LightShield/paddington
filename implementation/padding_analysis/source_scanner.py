@@ -386,6 +386,7 @@ class SourceScanner:
             # Load cached results
             self.structs_with_aggregate_init = set(data.get('aggregate_init', []))
             self.structs_with_preprocessor = set(data.get('preprocessor', []))
+            self.structs_with_static_const = set(data.get('static_const', []))
             # Convert constructor deps back to nested dicts with sets
             ctor_deps_raw = data.get('constructor_deps', {})
             self.constructor_dependencies = {
@@ -417,6 +418,7 @@ class SourceScanner:
                 'cache_key': cache_key,
                 'aggregate_init': list(self.structs_with_aggregate_init),
                 'preprocessor': list(self.structs_with_preprocessor),
+                'static_const': list(self.structs_with_static_const),
                 'constructor_deps': {
                     struct: {member: list(deps) for member, deps in member_deps.items()}
                     for struct, member_deps in self.constructor_dependencies.items()
