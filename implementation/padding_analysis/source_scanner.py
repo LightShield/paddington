@@ -56,21 +56,22 @@ def _is_trivial_preprocessor_case(struct_body: str) -> bool:
     return True
 
 
-def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Dict[str, Set[str]]]]:
+def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Dict[str, Set[str]]], Set[str]]:
     """Scan a single file for patterns (for multiprocessing).
     
     Returns:
-        Tuple of (agg_init_structs, preprocessor_structs, constructor_deps)
+        Tuple of (agg_init_structs, preprocessor_structs, constructor_deps, static_const_structs)
         where constructor_deps is {struct_name: {member: {dependencies}}}
     """
     agg_structs = set()
     prep_structs = set()
     constructor_deps = {}
+    static_const_structs = set()  # Structs with static const members
     
     try:
         content = file_path.read_text()
     except:
-        return agg_structs, prep_structs, constructor_deps
+        return agg_structs, prep_structs, constructor_deps, static_const_structs
     
     # Check for aggregate initialization patterns
     # Pattern: TypeName varname = {val1, val2, ...} or TypeName varname{val1, val2, ...}
@@ -96,6 +97,12 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
             pos += 1
         
         struct_body = content[start_pos:pos]
+        
+        # Check for static const members
+        if re.search(r'\bstatic\s+const\s+\w+|constexpr\s+\w+', struct_body):
+            static_const_structs.add(struct_name)
+        
+        # Check for preprocessor directives
         if re.search(r'#\s*(?:if|ifdef|ifndef|elif|else|endif)', struct_body):
             # Has preprocessor - check if it's a trivial safe case
             is_trivial_safe = _is_trivial_preprocessor_case(struct_body)
@@ -113,7 +120,7 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         if deps:
             constructor_deps[struct_name] = deps
     
-    return agg_structs, prep_structs, constructor_deps
+    return agg_structs, prep_structs, constructor_deps, static_const_structs
 
 
 def _extract_all_struct_members(content: str) -> Dict[str, Set[str]]:
@@ -222,6 +229,7 @@ class SourceScanner:
         self.structs_with_aggregate_init: Set[str] = set()
         self.structs_with_preprocessor: Set[str] = set()
         self.constructor_dependencies: Dict[str, Dict[str, Set[str]]] = {}
+        self.structs_with_static_const: Set[str] = set()
         self._scanned = False
         
         # Workspace directory structure
@@ -294,9 +302,10 @@ class SourceScanner:
                 # Use imap_unordered for progress tracking
                 results_iter = pool.imap_unordered(_scan_single_file, all_files, chunksize=50)
                 
-                for i, (agg_structs, prep_structs, ctor_deps) in enumerate(results_iter, 1):
+                for i, (agg_structs, prep_structs, ctor_deps, static_structs) in enumerate(results_iter, 1):
                     self.structs_with_aggregate_init.update(agg_structs)
                     self.structs_with_preprocessor.update(prep_structs)
+                    self.structs_with_static_const.update(static_structs)
                     # Merge constructor dependencies
                     for struct_name, deps in ctor_deps.items():
                         if struct_name not in self.constructor_dependencies:
@@ -318,9 +327,10 @@ class SourceScanner:
             for i, file_path in enumerate(all_files, 1):
                 if i % 100 == 0:
                     log.debug(f"  Scanned {i}/{file_count} files...")
-                agg_structs, prep_structs, ctor_deps = _scan_single_file(file_path)
+                agg_structs, prep_structs, ctor_deps, static_structs = _scan_single_file(file_path)
                 self.structs_with_aggregate_init.update(agg_structs)
                 self.structs_with_preprocessor.update(prep_structs)
+                self.structs_with_static_const.update(static_structs)
                 # Merge constructor dependencies
                 for struct_name, deps in ctor_deps.items():
                     if struct_name not in self.constructor_dependencies:
@@ -334,6 +344,7 @@ class SourceScanner:
         log.info(f"Found {len(self.structs_with_aggregate_init)} structs with aggregate init")
         log.info(f"Found {len(self.structs_with_preprocessor)} structs with preprocessor directives")
         log.info(f"Found {len(self.constructor_dependencies)} structs with constructor dependencies")
+        log.info(f"Found {len(self.structs_with_static_const)} structs with static const members")
         
         # Save to cache
         self._save_to_cache()
@@ -439,3 +450,13 @@ class SourceScanner:
         if not self._scanned:
             self.scan()
         return self.constructor_dependencies.get(struct_name, {})
+    
+    def has_static_const_members(self, struct_name: str) -> bool:
+        """Check if struct has static const members.
+        
+        Returns:
+            True if struct has static const or constexpr members
+        """
+        if not self._scanned:
+            self.scan()
+        return struct_name in self.structs_with_static_const

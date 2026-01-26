@@ -387,30 +387,54 @@ class SrcMLTransformer(ISourceTransformer):
                     members_by_container[container] = []
                 members_by_container[container].append(member_name)
         
-        # Handle nested type definitions to prevent forward reference errors
-        # Strategy: Move nested types to top, then insert members after them
-        # ONLY extract nested types from containers that contain members being reordered
+        # Handle nested type definitions and static members
+        # Strategy: Move nested types and static members to top, then insert data members after
         nested_types_by_container = {}
+        static_members_by_container = {}
+        
         for container in members_by_container.keys():
             nested_types = []
+            static_members = []
+            
             for elem in list(container):
                 tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                
+                # Check for nested types
                 if tag in ['typedef', 'struct', 'enum', 'class', 'union']:
                     nested_types.append(elem)
                     container.remove(elem)
+                # Check for static members
+                elif 'decl_stmt' in elem.tag:
+                    elem_str = ET.tostring(elem, encoding='unicode')
+                    if 'static' in elem_str or 'extern' in elem_str:
+                        # This is a static/extern member - move to top
+                        static_members.append(elem)
+                        container.remove(elem)
             if nested_types:
                 nested_types_by_container[container] = nested_types
+            if static_members:
+                static_members_by_container[container] = static_members
         
-        # Re-insert nested types at the top of each container (before members)
-        for container, nested_types in nested_types_by_container.items():
-            for i, type_elem in enumerate(nested_types):
-                container.insert(i, type_elem)
+        # Re-insert nested types and static members at the top of each container
+        for container in members_by_container.keys():
+            offset = 0
+            # Insert nested types first
+            if container in nested_types_by_container:
+                for i, type_elem in enumerate(nested_types_by_container[container]):
+                    container.insert(i, type_elem)
+                offset += len(nested_types_by_container[container])
+            # Insert static members after nested types
+            if container in static_members_by_container:
+                for i, static_elem in enumerate(static_members_by_container[container]):
+                    container.insert(offset + i, static_elem)
+                offset += len(static_members_by_container[container])
         
-        # Re-insert members in new order, keeping each member in its original container
-        # Insert after nested types (static members are already in place)
+        # Re-insert data members in new order, after nested types and static members
         for container, member_names in members_by_container.items():
-            # Find how many nested types are at the top
+            # Calculate offset: nested types + static members
             offset = len(nested_types_by_container.get(container, []))
+            offset += len(static_members_by_container.get(container, []))
+            
             for i, member_name in enumerate(member_names):
                 if member_name in member_decls:
                     container.insert(offset + i, member_decls[member_name])

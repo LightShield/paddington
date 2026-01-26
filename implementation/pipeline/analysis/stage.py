@@ -138,8 +138,11 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 constructor_deps = detect_constructor_dependencies(self.source_file, struct_name)
             
             # Check if struct has static members (can cause dependency issues)
-            has_static_members = any(m.locked for m in updated_members)
-            if has_static_members:
+            # Check both from pahole (locked flag) and from source scanner
+            has_static_from_pahole = any(m.locked for m in updated_members)
+            has_static_from_source = self._scanner and self._scanner.has_static_const_members(struct_name)
+            
+            if has_static_from_pahole or has_static_from_source:
                 plan = OptimizationPlan(
                     struct=struct,
                     original_order=tuple(updated_members),
