@@ -137,6 +137,20 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
             elif self.source_file:
                 constructor_deps = detect_constructor_dependencies(self.source_file, struct_name)
             
+            # Check if struct has static members (can cause dependency issues)
+            has_static_members = any(m.locked for m in updated_members)
+            if has_static_members:
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(updated_members),
+                    optimal_order=tuple(updated_members),
+                    padding_saved=0,
+                    skip_reason="has static members"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = actual_size
+                continue
+            
             # Check for preprocessor directives
             if self._scanner and self._scanner.has_preprocessor_directives(struct_name):
                 plan = OptimizationPlan(

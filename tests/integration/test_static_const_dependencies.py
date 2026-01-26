@@ -76,15 +76,18 @@ struct Array {
     char data[N];
 };
 
+template<typename T>
 struct Test {
     static const int NUM = 32;
+    T* ptr1;
+    T* ptr2;
+    char small;
     Array<NUM> buffer;  // Uses NUM in template parameter
-    int other;
 };
 """)
         
         cpp = tmp / "test.cpp"
-        cpp.write_text('#include "test.h"\nTest t;')
+        cpp.write_text('#include "test.h"\nTest<int> t;')
         
         obj = tmp / "test.o"
         result = subprocess.run(['g++', '-g', '-c', str(cpp), '-o', str(obj), f'-I{tmp}'], 
@@ -111,5 +114,12 @@ struct Test {
         num_pos = modified_content.find('NUM = 32')
         buffer_pos = modified_content.find('Array<NUM>')
         
+        assert num_pos > 0 and buffer_pos > 0, "NUM or buffer not found"
         assert num_pos < buffer_pos, \
-            "NUM must come before Array<NUM> - template parameter dependency violated!"
+            f"NUM (pos {num_pos}) must come before Array<NUM> (pos {buffer_pos}) - template parameter dependency violated!"
+        
+        # Verify compilation still works
+        result = subprocess.run(['g++', '-g', '-c', str(cpp), '-o', tmp / 'test2.o', f'-I{tmp}'], 
+                               capture_output=True)
+        assert result.returncode == 0, \
+            f"Modified file doesn't compile! Error: {result.stderr.decode()}"

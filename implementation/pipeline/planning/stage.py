@@ -94,9 +94,13 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         """Create modifications for header file (.h) member declarations."""
         if target_struct_name is None:
             target_struct_name = plan.struct.name
-            
-        old_members = ", ".join(m.name for m in plan.original_order)
-        new_members = ", ".join(m.name for m in plan.optimal_order)
+        
+        # Filter out locked members from reordering (e.g., static const)
+        original_unlocked = [m for m in plan.original_order if not m.locked]
+        optimal_unlocked = [m for m in plan.optimal_order if not m.locked]
+        
+        old_members = ", ".join(m.name for m in original_unlocked)
+        new_members = ", ".join(m.name for m in optimal_unlocked)
         
         # Normalize path to relative
         file_path = self._normalize_path(plan.struct.file_path)

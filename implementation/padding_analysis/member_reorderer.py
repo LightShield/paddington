@@ -7,19 +7,40 @@ from ..struct_data import MemberInfo
 def reorder_by_size(members: List[MemberInfo]) -> List[MemberInfo]:
     """Reorder members by size (largest first) for optimal packing.
     
+    Locked members stay in their original positions.
+    
     Args:
         members: List of struct members
         
     Returns:
-        Members sorted by size (descending)
+        Members sorted by size (descending), with locked members in original positions
     """
-    return sorted(members, key=lambda m: m.size, reverse=True)
+    # Separate locked and unlocked members
+    locked = [m for m in members if m.locked]
+    unlocked = [m for m in members if not m.locked]
+    
+    # Sort unlocked by size
+    sorted_unlocked = sorted(unlocked, key=lambda m: m.size, reverse=True)
+    
+    # Merge back, keeping locked members in original positions
+    result = []
+    locked_positions = {members.index(m): m for m in locked}
+    unlocked_iter = iter(sorted_unlocked)
+    
+    for i in range(len(members)):
+        if i in locked_positions:
+            result.append(locked_positions[i])
+        else:
+            result.append(next(unlocked_iter))
+    
+    return result
 
 
 def reorder_within_access_modifiers(members: List[MemberInfo]) -> List[MemberInfo]:
     """Reorder members by size within each access modifier group.
     
     Preserves access modifier grouping while optimizing within groups.
+    Locked members stay in their original positions.
     
     Args:
         members: List of struct members
@@ -37,12 +58,30 @@ def reorder_within_access_modifiers(members: List[MemberInfo]) -> List[MemberInf
             group_order.append(member.access_modifier)
         groups[member.access_modifier].append(member)
     
-    # Sort within each group by size
+    # Sort within each group by size, respecting locked members
     result = []
     for access_modifier in group_order:
         group_members = groups[access_modifier]
-        sorted_group = sorted(group_members, key=lambda m: m.size, reverse=True)
-        result.extend(sorted_group)
+        
+        # Separate locked and unlocked
+        locked = [m for m in group_members if m.locked]
+        unlocked = [m for m in group_members if not m.locked]
+        
+        # Sort unlocked by size
+        sorted_unlocked = sorted(unlocked, key=lambda m: m.size, reverse=True)
+        
+        # Merge back, keeping locked in original positions
+        group_result = []
+        locked_positions = {group_members.index(m): m for m in locked}
+        unlocked_iter = iter(sorted_unlocked)
+        
+        for i in range(len(group_members)):
+            if i in locked_positions:
+                group_result.append(locked_positions[i])
+            else:
+                group_result.append(next(unlocked_iter))
+        
+        result.extend(group_result)
     
     return result
 

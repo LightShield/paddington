@@ -236,12 +236,16 @@ class PaholeExtractor(IStructExtractor):
                                 member_offset = int(member_match.group(3))
                                 member_size = int(member_match.group(4))
                                 
+                                # Check if this is a static member (size=0 and offset=0 usually indicates static)
+                                is_static = 'static' in member_type
+                                
                                 members.append(MemberInfo(
                                     name=member_name,
                                     type=member_type,
                                     size=member_size,
                                     offset=member_offset,
-                                    access_modifier=current_access
+                                    access_modifier=current_access,
+                                    locked=is_static  # Lock static members in place
                                 ))
                             
                             i += 1
