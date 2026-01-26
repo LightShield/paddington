@@ -218,6 +218,24 @@ class PaholeExtractor(IStructExtractor):
                                 i += 1
                                 continue
                             
+                            # Check for extern const members (static const in template instantiations)
+                            # These don't have /* offset size */ comments
+                            extern_match = re.match(r'\s+(extern\s+const\s+\w+)\s+(\w+);', mline)
+                            if extern_match:
+                                member_type = extern_match.group(1)
+                                member_name = extern_match.group(2)
+                                
+                                members.append(MemberInfo(
+                                    name=member_name,
+                                    type=member_type,
+                                    size=0,
+                                    offset=0,
+                                    access_modifier=current_access,
+                                    locked=True  # Always lock extern const
+                                ))
+                                i += 1
+                                continue
+                            
                             # Member line: type name; /* offset size */
                             # Use non-greedy match to handle complex types with spaces
                             member_match = re.match(r'\s+(.+?)\s+(\S+);?\s*/\*\s*(\d+)\s+(\d+)\s*\*/', mline)
