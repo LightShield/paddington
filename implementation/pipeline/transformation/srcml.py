@@ -358,13 +358,19 @@ class SrcMLTransformer(ISourceTransformer):
         new_order_filtered = [name for name in new_order if name in member_decls]
         
         # Remove only the non-static member declarations we're reordering
+        removed_count = 0
         for container in containers:
             for elem in list(container):
                 if 'decl_stmt' in elem.tag:
                     member_name = self._extract_member_name(elem)
                     if member_name in member_decls:
                         container.remove(elem)
-                    # Static members stay in place
+                        removed_count += 1
+                        log.debug(f"Removing {member_name} for reordering")
+                    else:
+                        log.debug(f"Keeping {member_name} in place (static or not in new_order)")
+        
+        log.debug(f"Removed {removed_count} members for reordering")
         
         # Group by container to maintain access modifier boundaries
         members_by_container = {}
