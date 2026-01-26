@@ -363,12 +363,18 @@ class SrcMLTransformer(ISourceTransformer):
             for elem in list(container):
                 if 'decl_stmt' in elem.tag:
                     member_name = self._extract_member_name(elem)
+                    is_in_decls = member_name in member_decls
+                    elem_str = ET.tostring(elem, encoding='unicode')
+                    is_static_now = 'static' in elem_str
+                    
+                    log.debug(f"Checking {member_name}: in_member_decls={is_in_decls}, is_static={is_static_now}")
+                    
                     if member_name in member_decls:
                         container.remove(elem)
                         removed_count += 1
                         log.debug(f"Removing {member_name} for reordering")
                     else:
-                        log.debug(f"Keeping {member_name} in place (static or not in new_order)")
+                        log.debug(f"Keeping {member_name} in place")
         
         log.debug(f"Removed {removed_count} members for reordering")
         
@@ -541,19 +547,30 @@ class SrcMLTransformer(ISourceTransformer):
     def _extract_member_name(self, decl_stmt: ET.Element) -> Optional[str]:
         """Extract member name from declaration statement."""
         # Navigate through decl_stmt -> decl -> name
-        # Get the LAST name element (variable name, not type name)
-        names = []
-        for elem in decl_stmt.iter():
-            if 'name' in elem.tag and elem.text:
-                names.append(elem.text)
+        # The variable name is typically the last <name>, but we need to exclude:
+        # - Names inside <index> tags (array sizes like [NUM])
+        # - Type names
         
-        # Return last name (variable name), skip type names
-        if names:
-            # Filter out common type names
-            type_names = {'char', 'int', 'double', 'float', 'long', 'short', 'bool', 'void'}
-            for name in reversed(names):
-                if name not in type_names:
-                    return name
+        # Find the <decl> element
+        decl = None
+        for elem in decl_stmt:
+            if 'decl' in elem.tag:
+                decl = elem
+                break
+        
+        if decl is None:
+            return None
+        
+        # Find the <name> element that's a direct child of <decl> (not inside <index>)
+        # This is the variable name
+        for elem in decl:
+            if 'name' in elem.tag and elem.text:
+                # This is the variable name (comes after type)
+                # Skip if it's a type name
+                type_names = {'char', 'int', 'double', 'float', 'long', 'short', 'bool', 'void',
+                             'unsigned', 'signed', 'const', 'volatile', 'static'}
+                if elem.text not in type_names:
+                    return elem.text
         
         return None
 
