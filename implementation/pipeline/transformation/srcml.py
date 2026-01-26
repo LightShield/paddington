@@ -215,9 +215,8 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # TODO: Constructor reordering has bugs (missing commas, duplicates)
-            # Disabled until fixed
-            # self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+            # Reorder constructor initializer lists (for .cpp files)
+            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
