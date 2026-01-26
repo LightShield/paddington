@@ -208,6 +208,8 @@ def run(args):
         log.info(f"Pipeline complete: {len(results)} changes")
         
         # Collect stats for report
+        unique_patches = len(set(r.patch_path for r in results if hasattr(r, 'patch_path')))
+        
         stats = {
             'objfiles_count': len(objfiles),
             'structs_raw': extraction_stats.get('total_before_dedup', structs_after_extraction),
@@ -221,7 +223,8 @@ def run(args):
             'modifications_planned': modifications_planned,
             'sources_transformed': sources_transformed,
             'transformation_failures': modifications_planned - sources_transformed,
-            'patches_created': len(results)
+            'patches_created': unique_patches if unique_patches > 0 else len(results),
+            'files_modified': len(results)
         }
         
         _report_optimization(results, optimization_plans, args.verbose, log, stats)
@@ -386,7 +389,8 @@ def _report_optimization(results, optimization_plans, verbosity: int, log, stats
             "OUTPUT STAGE:",
             f"  Input: {stats['sources_transformed']} transformed sources",
             f"  → Patches created: {stats['patches_created']} patch files",
-            f"  → Files modified: {len(patched_files)} unique files",
+            f"  → Files modified: {stats['files_modified']} files",
+            f"  → Files per patch: {stats['files_modified'] / stats['patches_created']:.1f} average" if stats['patches_created'] > 0 else "  → Files per patch: N/A",
             "",
             "FINAL RESULTS:",
             f"  Total padding saved: {total_savings} bytes",
