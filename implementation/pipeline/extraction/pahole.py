@@ -237,7 +237,8 @@ class PaholeExtractor(IStructExtractor):
                                 member_size = int(member_match.group(4))
                                 
                                 # Check if this is a static member (size=0 and offset=0 usually indicates static)
-                                is_static = 'static' in member_type
+                                # In template instantiations, static const appears as "extern const"
+                                is_static = 'static' in member_type or 'extern' in member_type
                                 
                                 members.append(MemberInfo(
                                     name=member_name,
@@ -245,7 +246,7 @@ class PaholeExtractor(IStructExtractor):
                                     size=member_size,
                                     offset=member_offset,
                                     access_modifier=current_access,
-                                    locked=is_static  # Lock static members in place
+                                    locked=is_static  # Lock static/extern members in place
                                 ))
                             
                             i += 1
