@@ -215,8 +215,10 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # Reorder constructor initializer lists (for .cpp files)
-            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+            # Reorder constructor initializer lists (only for .cpp files with out-of-line constructors)
+            # Skip for .h files (inline constructors) as they can get corrupted
+            if modification.file_path.endswith('.cpp') or modification.file_path.endswith('.cc') or modification.file_path.endswith('.cxx'):
+                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
@@ -760,6 +762,13 @@ class SrcMLTransformer(ISourceTransformer):
 
     def _reorder_initializer_list(self, init_list: ET.Element, new_order: list) -> None:
         """Reorder initializers in the member initializer list."""
+        # Check for duplicates in new_order
+        if len(new_order) != len(set(new_order)):
+            log.warning(f"new_order has duplicates: {new_order}")
+            # Remove duplicates while preserving order
+            seen = set()
+            new_order = [x for x in new_order if not (x in seen or seen.add(x))]
+        
         # Extract current initializers (call elements)
         initializers = {}
         non_member_elements = []
