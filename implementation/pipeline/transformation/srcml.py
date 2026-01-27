@@ -215,15 +215,11 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # For template classes with constructors, skip reordering
-            # Different instantiations may need different orders but share same constructor code
-            is_template = '<' in modification.struct_name or 'template' in ET.tostring(root, encoding='unicode')[:500]
-            if is_template and constructors:
-                log.debug(f"Skipping template {modification.struct_name} with constructors (instantiations may have different orders)")
+            # Skip structs with constructors to avoid -Werror=reorder warnings
+            # Constructor initializer list reordering has edge cases that cause issues
+            if constructors:
+                log.debug(f"Skipping {modification.struct_name} with constructors to avoid reorder warnings")
                 return None
-            
-            # Reorder constructor initializer lists
-            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
