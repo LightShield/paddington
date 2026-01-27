@@ -218,7 +218,8 @@ class SrcMLTransformer(ISourceTransformer):
             # Skip structs with constructor initializer lists to avoid -Werror=reorder
             # Only check for templates - they can't be safely reordered because
             # different instantiations may need different orders
-            is_template_file = 'template<' in ET.tostring(root, encoding='unicode')[:1000]
+            full_xml = ET.tostring(root, encoding='unicode')
+            is_template_file = 'template<' in full_xml
             
             if is_template_file:
                 # For templates, skip if they have any constructors
