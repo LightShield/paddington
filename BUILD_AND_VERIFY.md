@@ -98,8 +98,30 @@ build.sh --path=$MODEL_TOP/platforms/vdk/storm --branch paddington_fresh
 ✅ Constructor dependency detection
 ✅ Aggregate initialization detection
 ✅ Compilation data preservation
-✅ Workspace caching (14.5 min vs 31 min)
+✅ **Workspace caching** (14.5 min vs 31 min)
 ✅ Template deduplication (4858 eliminated)
+
+### Caching System
+Paddington caches scan results in `.paddington_workspace/scan_cache/`.
+
+**Cache benefits**:
+- First run: ~31 minutes (scans 5K source files)
+- Cached run: ~14.5 minutes (instant cache load)
+- Cache invalidated automatically when files change
+
+**Usage**:
+- Cache is automatic (no flags needed)
+- To force fresh scan: `rm -rf .paddington_workspace`
+- **Prefer cached runs** when iterating on fixes that don't affect source scanning
+
+**When to use cache**:
+- ✅ Fixing transformation bugs (srcML issues)
+- ✅ Fixing planning bugs (modification generation)
+- ✅ Testing on same codebase
+- ❌ After source files change
+- ❌ After changing exclude patterns
+
+**Time savings**: Use cache to skip extraction and analysis stages, jump straight to transformation. This speeds up iteration when fixing transformation bugs.
 
 ### Optimizations Applied (369 patches)
 - 397 files modified
@@ -180,8 +202,10 @@ After successful build:
 - [ ] No compilation errors
 - [ ] No -Werror=reorder warnings
 - [ ] Optimizations visible in source files (members reordered)
-- [ ] **Tag the commit**: `git tag v1.X-<num_patches>patches-build-passing`
-- [ ] **Commit to model repo** with tag
+- [ ] **Tag paddington repo**: `git tag v1.X-<num_patches>patches-build-passing`
+- [ ] Push tag: `git push origin --tags`
+
+**Important**: Tag the **paddington tool repo**, not the model repo. We're improving paddington to handle more cases, not modifying the model to fit paddington.
 
 **Note**: Performance testing and optimization verification will be done later, once we have a stable baseline.
 
