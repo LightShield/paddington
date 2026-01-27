@@ -215,10 +215,15 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # Reorder constructor initializer lists (only for .cpp files with out-of-line constructors)
-            # Skip for .h files (inline constructors) as they can get corrupted
-            if modification.file_path.endswith('.cpp') or modification.file_path.endswith('.cc') or modification.file_path.endswith('.cxx'):
-                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+            # For template classes with constructors, skip reordering
+            # Different instantiations may need different orders but share same constructor code
+            is_template = '<' in modification.struct_name or 'template' in ET.tostring(root, encoding='unicode')[:500]
+            if is_template and constructors:
+                log.debug(f"Skipping template {modification.struct_name} with constructors (instantiations may have different orders)")
+                return None
+            
+            # Reorder constructor initializer lists
+            self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
@@ -764,10 +769,12 @@ class SrcMLTransformer(ISourceTransformer):
         """Reorder initializers in the member initializer list."""
         # Check for duplicates in new_order
         if len(new_order) != len(set(new_order)):
-            log.warning(f"new_order has duplicates: {new_order}")
+            duplicates = [x for x in new_order if new_order.count(x) > 1]
+            log.warning(f"new_order has duplicates: {duplicates}")
             # Remove duplicates while preserving order
             seen = set()
             new_order = [x for x in new_order if not (x in seen or seen.add(x))]
+            log.warning(f"After dedup: {new_order}")
         
         # Extract current initializers (call elements)
         initializers = {}
@@ -775,6 +782,8 @@ class SrcMLTransformer(ISourceTransformer):
         
         # Collect all child elements
         children = list(init_list)
+        
+        log.debug(f"Processing {len(children)} children in initializer list")
         
         for child in children:
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
