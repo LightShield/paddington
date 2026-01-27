@@ -216,17 +216,19 @@ class SrcMLTransformer(ISourceTransformer):
                 return None
             
             # Skip structs with constructor initializer lists to avoid -Werror=reorder
-            # Only skip if constructor has initializer list (not empty constructors)
-            has_initializer_list = False
-            for constructor in constructors:
-                init_list = self._find_initializer_list(constructor)
-                if init_list is not None and len(list(init_list)) > 0:
-                    has_initializer_list = True
-                    break
+            # Only check for templates - they can't be safely reordered because
+            # different instantiations may need different orders
+            is_template_file = 'template<' in ET.tostring(root, encoding='unicode')[:1000]
             
-            if has_initializer_list:
-                log.debug(f"Skipping {modification.struct_name} with constructor initializer list")
-                return None
+            if is_template_file:
+                # For templates, skip if they have any constructors
+                # (we can't know which instantiation's order to use)
+                if constructors:
+                    log.debug(f"Skipping template {modification.struct_name} with constructors")
+                    return None
+            else:
+                # For non-templates, reorder constructor initializer lists
+                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
