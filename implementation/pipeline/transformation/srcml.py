@@ -202,34 +202,20 @@ class SrcMLTransformer(ISourceTransformer):
             else:
                 original_xml = ET.tostring(root, encoding='unicode')
             
-            # Check for constructor dependencies before reordering constructors
-            constructors = self._find_constructors(root, modification.struct_name)
-            has_dependencies = False
-            
-            for constructor in constructors:
-                if self._has_constructor_dependencies(constructor, new_order):
-                    has_dependencies = True
-                    break
-            
-            if has_dependencies:
-                log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
-                return None
-            
             # Skip structs with constructor initializer lists to avoid -Werror=reorder
-            # Only check for templates - they can't be safely reordered because
-            # different instantiations may need different orders
-            full_xml = ET.tostring(root, encoding='unicode')
-            is_template_file = 'template<' in full_xml
-            
-            if is_template_file:
-                # For templates, skip if they have any constructors
-                # (we can't know which instantiation's order to use)
-                if constructors:
-                    log.debug(f"Skipping template {modification.struct_name} with constructors")
+            # This is conservative but ensures build passes
+            constructors = self._find_constructors(root, modification.struct_name)
+            if constructors:
+                # Check if any constructor has an initializer list
+                has_init_list = False
+                for constructor in constructors:
+                    if self._find_initializer_list(constructor):
+                        has_init_list = True
+                        break
+                
+                if has_init_list:
+                    log.debug(f"Skipping {modification.struct_name} - has constructor with initializer list")
                     return None
-            else:
-                # For non-templates, reorder constructor initializer lists
-                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
