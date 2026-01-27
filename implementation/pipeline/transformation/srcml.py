@@ -612,20 +612,128 @@ class SrcMLTransformer(ISourceTransformer):
         return None
 
     def _reorder_constructor_initializers(self, root: ET.Element, struct_name: str, new_order: list) -> None:
-        """Reorder constructor initializer lists to match new member order."""
+        """Reorder constructor initializer lists to match new member order.
+        
+        Args:
+            root: XML root element
+            struct_name: Name of the struct/class
+            new_order: List of member names in the new optimized order (may be subset of all members)
+        """
+        # Try to extract full member declaration order from struct
+        struct_node = self._find_struct_node(root, struct_name)
+        
+        if struct_node:
+            # Struct definition is in this file - extract full member order
+            full_member_order = self._extract_member_declaration_order(struct_node)
+            if full_member_order:
+                # Build complete order: apply new_order to members that were optimized,
+                # keep others in their original positions
+                complete_order = self._merge_member_orders(full_member_order, new_order)
+            else:
+                # Fallback to new_order if extraction fails
+                complete_order = new_order
+        else:
+            # Struct definition is in another file (.cpp with out-of-line constructor)
+            # Use new_order directly - it should contain the complete optimized order
+            complete_order = new_order
+        
         # Find all constructor definitions for this struct/class
         constructors = self._find_constructors(root, struct_name)
         
         for constructor in constructors:
             # Check for constructor dependencies first
-            if self._has_constructor_dependencies(constructor, new_order):
+            if self._has_constructor_dependencies(constructor, complete_order):
                 log.debug(f"Skipping constructor reordering for {struct_name} due to member dependencies")
                 continue
                 
             # Find member initializer list
             init_list = self._find_initializer_list(constructor)
             if init_list:
-                self._reorder_initializer_list(init_list, new_order)
+                self._reorder_initializer_list(init_list, complete_order)
+    
+    def _extract_member_declaration_order(self, struct_node: ET.Element) -> list:
+        """Extract all member variable names in declaration order from struct.
+        
+        Traverses all access sections (public, private, protected) and collects
+        member variable declarations in the order they appear.
+        """
+        members = []
+        
+        # Iterate through struct content
+        for elem in struct_node.iter():
+            tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+            
+            # Look for member declarations (decl_stmt elements)
+            if tag == 'decl_stmt':
+                # Extract member name from declaration
+                member_name = self._extract_member_name_from_decl(elem)
+                if member_name:
+                    members.append(member_name)
+        
+        return members
+    
+    def _extract_member_name_from_decl(self, decl_stmt: ET.Element) -> Optional[str]:
+        """Extract member variable name from a declaration statement."""
+        # Find <decl> element
+        for child in decl_stmt:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag == 'decl':
+                # Find <name> element that's the variable name (not type name)
+                for elem in child:
+                    elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                    if elem_tag == 'name' and elem.text:
+                        # Skip type names
+                        type_names = {'char', 'int', 'double', 'float', 'long', 'short', 
+                                     'bool', 'void', 'unsigned', 'signed', 'const', 
+                                     'volatile', 'static', 'uint', 'uint64', 'uint32',
+                                     'uint16', 'uint8', 'int64', 'int32', 'int16', 'int8'}
+                        if elem.text not in type_names:
+                            return elem.text
+        return None
+    
+    def _merge_member_orders(self, full_order: list, optimized_subset: list) -> list:
+        """Merge full member order with optimized subset.
+        
+        Args:
+            full_order: All members in original declaration order
+            optimized_subset: Subset of members in new optimized order
+        
+        Returns:
+            Complete member order with optimized members in new positions,
+            non-optimized members in original positions
+        """
+        # Create result list
+        result = []
+        
+        # Track which members from full_order have been placed
+        placed = set()
+        
+        # Find position of first optimized member in full_order
+        first_opt_idx = None
+        for i, member in enumerate(full_order):
+            if member in optimized_subset:
+                first_opt_idx = i
+                break
+        
+        if first_opt_idx is None:
+            # No optimized members found, return full order
+            return full_order
+        
+        # Add members before first optimized member
+        result.extend(full_order[:first_opt_idx])
+        placed.update(full_order[:first_opt_idx])
+        
+        # Add optimized members in new order
+        result.extend(optimized_subset)
+        placed.update(optimized_subset)
+        
+        # Add remaining members after optimized section
+        for member in full_order[first_opt_idx:]:
+            if member not in placed:
+                result.append(member)
+                placed.add(member)
+        
+        return result
 
     def _has_constructor_dependencies(self, constructor: ET.Element, new_order: list) -> bool:
         """Check if constructor has member dependencies that would be violated by reordering."""
