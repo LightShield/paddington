@@ -205,16 +205,20 @@ class SrcMLTransformer(ISourceTransformer):
             # Skip structs with constructor initializer lists to avoid -Werror=reorder
             # This is conservative but ensures build passes
             constructors = self._find_constructors(root, modification.struct_name)
+            log.debug(f"Found {len(constructors)} constructors for {modification.struct_name}")
+            
             if constructors:
                 # Check if any constructor has an initializer list
                 has_init_list = False
                 for constructor in constructors:
-                    if self._find_initializer_list(constructor):
+                    init_list = self._find_initializer_list(constructor)
+                    if init_list:
                         has_init_list = True
+                        log.debug(f"Constructor has initializer list")
                         break
                 
                 if has_init_list:
-                    log.debug(f"Skipping {modification.struct_name} - has constructor with initializer list")
+                    log.info(f"SKIPPING {modification.struct_name} - has constructor with initializer list")
                     return None
             
             # Check if any changes were made
