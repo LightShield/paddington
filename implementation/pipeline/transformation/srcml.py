@@ -215,10 +215,17 @@ class SrcMLTransformer(ISourceTransformer):
                 log.debug(f"Skipping optimization of {modification.struct_name} due to constructor dependencies")
                 return None
             
-            # Skip structs with constructors to avoid -Werror=reorder warnings
-            # Constructor initializer list reordering has edge cases that cause issues
-            if constructors:
-                log.debug(f"Skipping {modification.struct_name} with constructors to avoid reorder warnings")
+            # Skip structs with constructor initializer lists to avoid -Werror=reorder
+            # Only skip if constructor has initializer list (not empty constructors)
+            has_initializer_list = False
+            for constructor in constructors:
+                init_list = self._find_initializer_list(constructor)
+                if init_list is not None and len(list(init_list)) > 0:
+                    has_initializer_list = True
+                    break
+            
+            if has_initializer_list:
+                log.debug(f"Skipping {modification.struct_name} with constructor initializer list")
                 return None
             
             # Check if any changes were made
