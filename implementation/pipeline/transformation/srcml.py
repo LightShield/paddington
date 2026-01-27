@@ -203,23 +203,37 @@ class SrcMLTransformer(ISourceTransformer):
                 original_xml = ET.tostring(root, encoding='unicode')
             
             # Skip structs with constructor initializer lists to avoid -Werror=reorder
-            # This is conservative but ensures build passes
+            # Find struct node first to search within it
+            struct_node = self._find_struct_node(root, modification.struct_name)
+            
+            if struct_node:
+                # Look for ANY constructor within the struct (inline constructors)
+                has_constructor = False
+                for elem in struct_node.iter():
+                    tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                    if tag == 'constructor':
+                        # Found a constructor - check if it has initializer list
+                        init_list = self._find_initializer_list(elem)
+                        if init_list:
+                            log.info(f"SKIPPING {modification.struct_name} - has inline constructor with initializer list")
+                            return None
+                        has_constructor = True
+                
+                if has_constructor:
+                    log.info(f"SKIPPING {modification.struct_name} - has inline constructor")
+                    return None
+            
+            # Also check for out-of-line constructors
             constructors = self._find_constructors(root, modification.struct_name)
-            log.debug(f"Found {len(constructors)} constructors for {modification.struct_name}")
+            log.debug(f"Found {len(constructors)} out-of-line constructors for {modification.struct_name}")
             
             if constructors:
                 # Check if any constructor has an initializer list
-                has_init_list = False
                 for constructor in constructors:
                     init_list = self._find_initializer_list(constructor)
                     if init_list:
-                        has_init_list = True
-                        log.debug(f"Constructor has initializer list")
-                        break
-                
-                if has_init_list:
-                    log.info(f"SKIPPING {modification.struct_name} - has constructor with initializer list")
-                    return None
+                        log.info(f"SKIPPING {modification.struct_name} - has out-of-line constructor with initializer list")
+                        return None
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
