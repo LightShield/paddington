@@ -58,7 +58,20 @@ Q1. <Question>
 - **Count**: 369 patches
 - **Location**: `/tmp/patches_v2/`
 - **Applied to**: `paddington_fresh` branch (commit 3673ddc05d)
-- **Status**: ⚠️ Build not verified yet
+- **Status**: ⚠️ **No successful build yet with ANY patches applied**
+
+### Critical Note
+**We have not yet achieved a passing build with patches applied.**
+Multiple iterations attempted (196, 265, 369 patches) but all builds failed with various errors:
+- Static const dependencies
+- Typedef ordering
+- Constructor reordering
+- Template instantiation issues
+
+**Current approach**: Conservative - skip templates with constructors (369 patches)
+**If this fails**: Further reduce scope (skip all structs with constructors, or other constraints)
+
+**Goal**: Get FIRST passing build, then incrementally add back optimizations.
 
 ## Build Command (Correct)
 
@@ -167,19 +180,38 @@ After successful build:
 - [ ] No compilation errors
 - [ ] No -Werror=reorder warnings
 - [ ] Optimizations visible in source files (members reordered)
-- [ ] Performance test shows improvement
+- [ ] **Tag the commit**: `git tag v1.X-<num_patches>patches-build-passing`
+- [ ] **Commit to model repo** with tag
+
+**Note**: Performance testing and optimization verification will be done later, once we have a stable baseline.
 
 ## Summary for Next Agent
 
-**Immediate Goal**: Get paddington_fresh to build successfully
+**Immediate Goal**: Get FIRST passing build with ANY number of patches
+
+**Critical Reality**: No build has passed yet with patches applied. May need to reduce scope further.
 
 **Action Items**:
-1. Run build command: `build.sh --path=$MODEL_TOP/platforms/vdk/storm --branch paddington_fresh`
-2. If build fails, check compile.log files for errors
-3. Create test reproducing the error
-4. Fix in paddington
-5. Regenerate patches
-6. Reapply and rebuild
-7. Once passing, verify optimizations and measure performance
+1. Run build: `build.sh --path=$MODEL_TOP/platforms/vdk/storm --branch paddington_fresh`
+2. **If build fails**:
+   - Check compile.log for errors
+   - Create test reproducing the error
+   - Fix in paddington OR reduce scope (skip more structs)
+   - Regenerate patches
+   - Reapply and rebuild
+   - Repeat until build passes
+3. **Once build passes**:
+   - Tag commit: `v1.X-<num_patches>patches-build-passing`
+   - Document what was skipped to achieve passing build
+   - Plan next iteration to recover skipped optimizations
 
-**Remember**: Update this file as you learn. It's your memory across sessions.
+**Scope Reduction Options** (if needed):
+- Skip all structs with constructors (most conservative)
+- Skip all template classes (very conservative)
+- Skip structs with inheritance
+- Skip structs in specific namespaces
+
+**Remember**: 
+- Update this file as you learn
+- First passing build is the priority
+- Optimization verification comes later
