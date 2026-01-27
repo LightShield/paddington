@@ -48,22 +48,12 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
                 if nested_types:
                     log.info(f"Extracted nested types from {struct_name}: {nested_types}")
             
-            # Skip structs with constructors (conservative approach for first iteration)
-            # Check both out-of-line constructors (.cpp files) and inline constructors
-            cpp_files = self._get_cpp_files_for_struct(plan.struct.name, plan.struct.file_path)
-            
-            if cpp_files:
-                # If struct is used in .cpp files, it likely has constructors
-                # Skip it to be safe
-                log.debug(f"Skipping {struct_name} - used in .cpp files (likely has constructors)")
-                continue
-            
-            # Create modifications for both .h and .cpp files
+            # Create modifications for header file
             header_mods = self._create_header_modifications(plan, target_struct_name)
-            cpp_mods = self._create_cpp_modifications(plan, target_struct_name)
-            
             modifications.extend(header_mods)
-            modifications.extend(cpp_mods)
+            
+            # Skip .cpp modifications for now (constructors are problematic)
+            # This allows header-only optimizations while avoiding constructor issues
         
         # Deduplicate modifications by (file_path, struct_name)
         # Multiple template instantiations map to same template definition
