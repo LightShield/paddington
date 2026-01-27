@@ -48,15 +48,6 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
                 if nested_types:
                     log.info(f"Extracted nested types from {struct_name}: {nested_types}")
             
-            # Ultra conservative: only optimize structs with NO compilation data
-            # (truly header-only structs with no .cpp usage)
-            cpp_files = self._get_cpp_files_for_struct(plan.struct.name, plan.struct.file_path)
-            
-            if cpp_files:
-                # Struct is used in .cpp files - skip it
-                # This avoids ALL constructor issues (inline and out-of-line)
-                continue
-            
             # Create modifications for header file
             header_mods = self._create_header_modifications(plan, target_struct_name)
             modifications.extend(header_mods)
