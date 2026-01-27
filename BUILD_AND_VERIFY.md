@@ -65,16 +65,15 @@ Q1. <Question>
 ```tcsh
 cd /scratch/sim_reg7/users/ormagen/paddington/optimized_builds/kiro_build_location
 setsource 4
-build_branch storm paddington_fresh
+build.sh --path=$MODEL_TOP/platforms/vdk/storm --branch paddington_fresh
 ```
 
 **What it does:**
-1. Sets up environment
-2. Clones model repo branch to `snapshot/`
-3. Builds from snapshot
-4. Output in `output/` directory
+1. Sets up environment with `setsource 4`
+2. Builds from the model repo branch directly
+3. Output in current directory
 
-**Known Issue**: Git clone fails with "unable to parse commit" - may be transient git gc issue.
+**Note**: The build system will handle all necessary setup. Just ensure you're in a clean build directory.
 
 ## What Works
 
@@ -98,18 +97,13 @@ build_branch storm paddington_fresh
 
 ## Known Issues
 
-### 1. Build System Git Clone
-**Error**: "fatal: unable to parse commit"
-**Cause**: Git gc may have corrupted commit during auto-packing
-**Solution**: Recreate commit or wait for gc to complete
-
-### 2. Template Constructor Reordering
+### 1. Template Constructor Reordering
 **Issue**: Templates with constructors cause -Werror=reorder
 **Why**: Different instantiations need different orders but share constructor code
 **Solution**: Skip templates with constructors (implemented)
 **Future**: Detect if all instantiations have same optimal order
 
-### 3. Remaining Transformation Failures
+### 2. Remaining Transformation Failures
 **Count**: 52 failures (11% of 489 modifications)
 **Causes**: Unknown - needs investigation with -vvv logs
 **Next**: Analyze failures, create tests, fix issues
@@ -172,21 +166,20 @@ After successful build:
 - [ ] Build completes with EXIT STATUS 0
 - [ ] No compilation errors
 - [ ] No -Werror=reorder warnings
-- [ ] Snapshot contains optimized code
-- [ ] Pahole on built .o shows optimized layouts
+- [ ] Optimizations visible in source files (members reordered)
 - [ ] Performance test shows improvement
 
 ## Summary for Next Agent
 
 **Immediate Goal**: Get paddington_fresh to build successfully
 
-**Current Blocker**: Git clone fails when build system tries to create snapshot
-
 **Action Items**:
-1. Investigate git clone error
-2. Try alternative: manually create snapshot, then build
-3. Once build passes, verify optimizations
-4. Tag and document success
-5. Plan next iteration (recover template optimizations)
+1. Run build command: `build.sh --path=$MODEL_TOP/platforms/vdk/storm --branch paddington_fresh`
+2. If build fails, check compile.log files for errors
+3. Create test reproducing the error
+4. Fix in paddington
+5. Regenerate patches
+6. Reapply and rebuild
+7. Once passing, verify optimizations and measure performance
 
 **Remember**: Update this file as you learn. It's your memory across sessions.
