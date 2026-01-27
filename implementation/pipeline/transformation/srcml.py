@@ -659,8 +659,20 @@ class SrcMLTransformer(ISourceTransformer):
         """
         members = []
         
-        # Iterate through struct content
-        for elem in struct_node.iter():
+        # Find the block element (struct body)
+        block = None
+        for child in struct_node:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag == 'block':
+                block = child
+                break
+        
+        if not block:
+            log.debug("No block element found in struct")
+            return members
+        
+        # Iterate through block content in order
+        for elem in block:
             tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
             
             # Look for member declarations (decl_stmt elements)
@@ -669,6 +681,15 @@ class SrcMLTransformer(ISourceTransformer):
                 member_name = self._extract_member_name_from_decl(elem)
                 if member_name:
                     members.append(member_name)
+            # Also check inside access specifier blocks (public:, private:, protected:)
+            elif tag in ['public', 'private', 'protected']:
+                # These contain decl_stmt elements
+                for child in elem:
+                    child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                    if child_tag == 'decl_stmt':
+                        member_name = self._extract_member_name_from_decl(child)
+                        if member_name:
+                            members.append(member_name)
         
         return members
     
