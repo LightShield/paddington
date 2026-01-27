@@ -48,6 +48,20 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
                 if nested_types:
                     log.info(f"Extracted nested types from {struct_name}: {nested_types}")
             
+            # Skip structs with constructors (conservative approach for first iteration)
+            cpp_files = self._get_cpp_files_for_struct(plan.struct.name, plan.struct.file_path)
+            has_constructors = False
+            
+            if cpp_files:
+                for cpp_file in cpp_files:
+                    if os.path.exists(cpp_file) and self._validate_cpp_file_has_constructors(cpp_file, target_struct_name):
+                        has_constructors = True
+                        break
+            
+            if has_constructors:
+                log.debug(f"Skipping {struct_name} - has out-of-line constructors")
+                continue
+            
             # Create modifications for both .h and .cpp files
             header_mods = self._create_header_modifications(plan, target_struct_name)
             cpp_mods = self._create_cpp_modifications(plan, target_struct_name)
