@@ -629,13 +629,18 @@ class SrcMLTransformer(ISourceTransformer):
                 # Build complete order: apply new_order to members that were optimized,
                 # keep others in their original positions
                 complete_order = self._merge_member_orders(full_member_order, new_order)
+                log.debug(f"Struct {struct_name}: full_order has {len(full_member_order)} members, "
+                         f"new_order has {len(new_order)} members, "
+                         f"complete_order has {len(complete_order)} members")
             else:
                 # Fallback to new_order if extraction fails
                 complete_order = new_order
+                log.debug(f"Struct {struct_name}: Could not extract full member order, using new_order")
         else:
             # Struct definition is in another file (.cpp with out-of-line constructor)
             # Use new_order directly - it should contain the complete optimized order
             complete_order = new_order
+            log.debug(f"Struct {struct_name}: No struct node found, using new_order")
         
         # Find all constructor definitions for this struct/class
         constructors = self._find_constructors(root, struct_name)
@@ -901,7 +906,12 @@ class SrcMLTransformer(ISourceTransformer):
         return None
 
     def _reorder_initializer_list(self, init_list: ET.Element, new_order: list) -> None:
-        """Reorder initializers in the member initializer list."""
+        """Reorder initializers in the member initializer list.
+        
+        Args:
+            init_list: The member initializer list XML element
+            new_order: Complete member declaration order (all members, not just optimized ones)
+        """
         # Check for duplicates in new_order
         if len(new_order) != len(set(new_order)):
             duplicates = [x for x in new_order if new_order.count(x) > 1]
@@ -913,7 +923,8 @@ class SrcMLTransformer(ISourceTransformer):
         
         # Extract current initializers (call elements)
         initializers = {}
-        non_member_elements = []
+        base_class_calls = []
+        other_elements = []
         
         # Collect all child elements
         children = list(init_list)
@@ -924,14 +935,19 @@ class SrcMLTransformer(ISourceTransformer):
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
             if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
-                if member_name and member_name in new_order:
-                    initializers[member_name] = child
+                if member_name:
+                    # Check if this is a member variable (in new_order) or base class call
+                    if member_name in new_order:
+                        initializers[member_name] = child
+                    else:
+                        # This is likely a base class call or member not in new_order
+                        base_class_calls.append(child)
                 else:
-                    # Keep non-member initializers (like base class calls)
-                    non_member_elements.append(child)
+                    # Couldn't extract name, keep as base class call
+                    base_class_calls.append(child)
             else:
                 # Keep text nodes, punctuation, etc.
-                non_member_elements.append(child)
+                other_elements.append(child)
         
         if not initializers:
             return
@@ -940,18 +956,6 @@ class SrcMLTransformer(ISourceTransformer):
         init_list.clear()
         init_list.text = ": "
         init_list.tail = None
-        
-        # Add non-member elements first (base class initializers)
-        base_class_calls = []
-        other_elements = []
-        
-        for elem in non_member_elements:
-            elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-            if elem_tag == 'call':
-                # This is likely a base class call
-                base_class_calls.append(elem)
-            else:
-                other_elements.append(elem)
         
         # Add base class calls first
         for base_call in base_class_calls:
