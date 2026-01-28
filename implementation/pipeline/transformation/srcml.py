@@ -208,16 +208,24 @@ class SrcMLTransformer(ISourceTransformer):
             
             if struct_node:
                 # Look for ANY constructor within the struct (inline constructors)
+                constructor_count = 0
                 for elem in struct_node.iter():
                     tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
                     if tag == 'constructor':
-                        log.info(f"SKIPPING {modification.struct_name} - has inline constructor")
-                        return None
+                        constructor_count += 1
+                
+                log.debug(f"Found {constructor_count} inline constructors in {modification.struct_name}")
+                
+                if constructor_count > 0:
+                    log.info(f"SKIPPING {modification.struct_name} - has {constructor_count} inline constructor(s)")
+                    return None
+            else:
+                log.debug(f"No struct node found for {modification.struct_name}")
             
             # Also check for out-of-line constructors
             constructors = self._find_constructors(root, modification.struct_name)
             if constructors:
-                log.info(f"SKIPPING {modification.struct_name} - has out-of-line constructor")
+                log.info(f"SKIPPING {modification.struct_name} - has {len(constructors)} out-of-line constructor(s)")
                 return None
             
             # Check if any changes were made
