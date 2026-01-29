@@ -219,6 +219,12 @@ class SrcMLTransformer(ISourceTransformer):
                 if constructor_count > 0:
                     log.info(f"SKIPPING {modification.struct_name} - has {constructor_count} inline constructor(s)")
                     return None
+                
+                # Fallback: srcML sometimes doesn't parse constructors correctly
+                # Check source file directly for constructor pattern
+                if self._has_inline_constructor_fallback(modification.file_path, modification.struct_name):
+                    log.info(f"SKIPPING {modification.struct_name} - has inline constructor (fallback detection)")
+                    return None
             else:
                 log.debug(f"No struct node found for {modification.struct_name}")
             
@@ -824,6 +830,28 @@ class SrcMLTransformer(ISourceTransformer):
         
         return referenced
 
+    def _has_inline_constructor_fallback(self, file_path: str, struct_name: str) -> bool:
+        """Fallback detection for inline constructors using grep.
+        
+        srcML sometimes fails to parse constructors in complex files.
+        This provides a simple regex-based fallback.
+        """
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read()
+            
+            # Look for constructor pattern: struct_name() with optional parameters
+            import re
+            # Match: struct_name(...) followed by : or {
+            pattern = r'\b' + re.escape(struct_name) + r'\s*\([^)]*\)\s*[:{\n]'
+            if re.search(pattern, content):
+                return True
+            
+            return False
+        except Exception as e:
+            log.debug(f"Fallback constructor detection failed for {file_path}: {e}")
+            return False
+    
     def _find_constructors(self, root: ET.Element, struct_name: str) -> list:
         """Find all constructor definitions for the given struct/class.
         
