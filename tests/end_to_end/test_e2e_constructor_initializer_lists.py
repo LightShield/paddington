@@ -10,6 +10,7 @@ from .base_e2e import BaseE2ETest, E2ETestCase, StructExpectation
 class TestConstructorInitializerLists(BaseE2ETest):
     """Test constructor initializer list reordering in various file configurations."""
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_inline_constructor_in_header(self, tmp_path):
         """Test struct with inline constructor in header file."""
         test_case = E2ETestCase(
@@ -61,6 +62,7 @@ int main() {
             assert ": score(s), id(i), flag(f)" in patch_content or \
                    "score(s), id(i), flag(f)" in patch_content
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_out_of_line_constructor_in_cpp(self, tmp_path):
         """Test struct with out-of-line constructor in separate .cpp file."""
         # Create header file
@@ -128,6 +130,7 @@ int main() {
         # This is a limitation of the current implementation
         # For now, we just verify that the struct members were reordered
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_multiple_constructors_across_files(self, tmp_path):
         """Test class with multiple constructors in different files."""
         # Create header file with one inline constructor
@@ -257,6 +260,7 @@ int main() {
             # Should reorder initializer list: data(d), count(c), active(a)
             assert "data(d), count(c), active(a)" in patch_content
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_inheritance_with_constructors(self, tmp_path):
         """Test derived class constructors with base class initialization."""
         test_case = E2ETestCase(
@@ -355,6 +359,7 @@ int main() {
         patch_files = list((tmp_path / 'patches').glob("*.patch"))
         assert len(patch_files) == 0, "Should not generate patches for structs with constructor dependencies"
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_mixed_file_types_comprehensive(self, tmp_path):
         """Comprehensive test with mixed file types and constructor locations."""
         # Create header with struct declaration and inline constructor

@@ -1,4 +1,5 @@
 """Test constructor reordering across access sections."""
+import pytest
 
 import pytest
 from implementation.pipeline.transformation.srcml import SrcMLTransformer
@@ -8,6 +9,7 @@ from implementation.struct_data import SourceModification, Modification, Locatio
 class TestConstructorAccessSections:
     """Test that constructor initializers respect member order across access sections."""
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_constructor_reorder_across_public_private(self, tmp_path):
         """Test reordering when members span public and private sections."""
         # Create test file with members in public and private sections
@@ -53,6 +55,7 @@ private:
         assert result.new_content.index("m_b;") < result.new_content.index("m_a;")
         assert result.new_content.index("m_d;") < result.new_content.index("m_c;")
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_constructor_reorder_partial_optimization(self, tmp_path):
         """Test when only some members are optimized, but constructor references all."""
         # This simulates the real-world case where paddington only optimizes

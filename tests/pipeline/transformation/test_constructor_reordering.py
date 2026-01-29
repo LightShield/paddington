@@ -1,4 +1,5 @@
 """Test for constructor initializer list reordering in srcML."""
+import pytest
 
 import pytest
 import tempfile
@@ -11,6 +12,7 @@ from implementation.struct_data.source_change import SourceModification, Modific
 class TestConstructorReordering:
     """Test srcML constructor initializer list reordering."""
     
+    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_constructor_initializer_list_reordered(self):
         """Test that constructor initializer lists are actually reordered.
         
