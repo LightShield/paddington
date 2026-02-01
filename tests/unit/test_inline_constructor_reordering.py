@@ -16,7 +16,6 @@ class TestInlineConstructorReordering:
     initializer lists when struct/class members are reordered for optimization.
     """
     
-    @pytest.mark.skip(reason="Constructor support temporarily disabled for baseline")
     def test_basic_constructor_initializer_reordering(self):
         """Test basic constructor initializer list reordering."""
         original_code = """class Test {

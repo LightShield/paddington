@@ -202,37 +202,46 @@ class SrcMLTransformer(ISourceTransformer):
             else:
                 original_xml = ET.tostring(root, encoding='unicode')
             
-            # Skip structs with ANY constructors (inline or out-of-line)
-            # First check for inline constructors
+            # Handle constructors - skip if has dependencies, otherwise reorder
             struct_node = self._find_struct_node(root, modification.struct_name)
             
             if struct_node:
-                # Look for ANY constructor within the struct (inline constructors)
-                constructor_count = 0
+                # Check for inline constructors
+                found_constructor = False
+                has_constructor_with_deps = False
                 for elem in struct_node.iter():
                     tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
                     if tag == 'constructor':
-                        constructor_count += 1
+                        found_constructor = True
+                        init_list = self._find_initializer_list(elem)
+                        if init_list and self._has_constructor_dependencies(elem, new_order):
+                            log.info(f"SKIPPING {modification.struct_name} - constructor has dependencies")
+                            has_constructor_with_deps = True
+                            break
                 
-                log.debug(f"Found {constructor_count} inline constructors in {modification.struct_name}")
-                
-                if constructor_count > 0:
-                    log.info(f"SKIPPING {modification.struct_name} - has {constructor_count} inline constructor(s)")
+                if has_constructor_with_deps:
                     return None
                 
-                # Fallback: srcML sometimes doesn't parse constructors correctly
-                # Check source file directly for constructor pattern
-                if self._has_inline_constructor_fallback(modification.file_path, modification.struct_name):
-                    log.info(f"SKIPPING {modification.struct_name} - has inline constructor (fallback detection)")
-                    return None
-            else:
-                log.debug(f"No struct node found for {modification.struct_name}")
+                # Fallback: only if srcML didn't find constructor but file might have one
+                if not found_constructor:
+                    if self._has_inline_constructor_fallback(modification.file_path, modification.struct_name):
+                        log.info(f"SKIPPING {modification.struct_name} - has inline constructor (fallback, can't analyze)")
+                        return None
+                
+                # Reorder inline constructors if present
+                if found_constructor:
+                    self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
-            # Also check for out-of-line constructors
+            # Check for out-of-line constructors
             constructors = self._find_constructors(root, modification.struct_name)
             if constructors:
-                log.info(f"SKIPPING {modification.struct_name} - has {len(constructors)} out-of-line constructor(s)")
-                return None
+                # Check dependencies
+                for constructor in constructors:
+                    if self._has_constructor_dependencies(constructor, new_order):
+                        log.info(f"SKIPPING {modification.struct_name} - out-of-line constructor has dependencies")
+                        return None
+                # Reorder out-of-line constructors
+                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
