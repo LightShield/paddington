@@ -167,13 +167,30 @@ class TestSrcMLTransformer:
         # Verify the initializer list was reordered
         result_xml = ET.tostring(root, encoding='unicode')
         
-        # Should have b before a in the initializer list
-        b_pos = result_xml.find('<call><name>b</name>')
-        a_pos = result_xml.find('<call><name>a</name>')
+        # Find member_init_list section (handle namespaces with ns0: prefix or without)
+        init_list_start = result_xml.find('member_init_list>')
+        init_list_end = result_xml.find('</ns0:member_init_list>')
+        if init_list_end == -1:
+            init_list_end = result_xml.find('</member_init_list>')
         
-        assert b_pos != -1, "Should find b initializer"
-        assert a_pos != -1, "Should find a initializer"
-        assert b_pos < a_pos, "b should come before a in reordered list"
+        assert init_list_start != -1, "Should find member_init_list"
+        assert init_list_end != -1, "Should find end of member_init_list"
+        
+        # Get positions of b and a within init list
+        init_list_section = result_xml[init_list_start:init_list_end]
+        
+        # Handle both with and without namespace prefix
+        b_in_init = init_list_section.find(':name>b</')
+        if b_in_init == -1:
+            b_in_init = init_list_section.find('<name>b</name>')
+        
+        a_in_init = init_list_section.find(':name>a</')
+        if a_in_init == -1:
+            a_in_init = init_list_section.find('<name>a</name>')
+        
+        assert b_in_init != -1, f"Should find b initializer in: {init_list_section[:200]}"
+        assert a_in_init != -1, f"Should find a initializer in: {init_list_section[:200]}"
+        assert b_in_init < a_in_init, "b should come before a in reordered list"
     
     @pytest.mark.unit
     def test_find_constructors(self):
