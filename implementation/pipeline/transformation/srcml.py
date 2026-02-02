@@ -946,47 +946,26 @@ class SrcMLTransformer(ISourceTransformer):
             init_list: The member initializer list XML element
             new_order: Complete member declaration order (all members, not just optimized ones)
         """
-        # Check for duplicates in new_order
-        if len(new_order) != len(set(new_order)):
-            duplicates = [x for x in new_order if new_order.count(x) > 1]
-            log.warning(f"new_order has duplicates: {duplicates}")
-            # Remove duplicates while preserving order
-            seen = set()
-            new_order = [x for x in new_order if not (x in seen or seen.add(x))]
-            log.warning(f"After dedup: {new_order}")
-        
-        # Extract current initializers (call elements)
+        # Extract current initializers
         initializers = {}
         base_class_calls = []
-        other_elements = []
         
-        # Collect all child elements
-        children = list(init_list)
-        
-        log.debug(f"Processing {len(children)} children in initializer list")
-        
-        for child in children:
+        for child in list(init_list):
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
             if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
                 if member_name:
-                    # Check if this is a member variable (in new_order) or base class call
                     if member_name in new_order:
                         initializers[member_name] = child
                     else:
-                        # This is likely a base class call or member not in new_order
                         base_class_calls.append(child)
                 else:
-                    # Couldn't extract name, keep as base class call
                     base_class_calls.append(child)
-            else:
-                # Keep text nodes, punctuation, etc.
-                other_elements.append(child)
         
         if not initializers:
             return
         
-        # Clear the initializer list
+        # Clear and rebuild
         init_list.clear()
         init_list.text = ": "
         init_list.tail = None
@@ -996,17 +975,12 @@ class SrcMLTransformer(ISourceTransformer):
             init_list.append(base_call)
             base_call.tail = ", "
         
-        # Add member initializers in new order
-        member_count = 0
+        # Add member initializers in new_order (only those that exist in initializers)
         for member_name in new_order:
             if member_name in initializers:
-                if member_count > 0 or len(base_class_calls) > 0:
-                    # Add comma separator
-                    if len(list(init_list)) > 0:
-                        list(init_list)[-1].tail = ", "
-                
+                if len(list(init_list)) > 0:
+                    list(init_list)[-1].tail = ", "
                 init_list.append(initializers[member_name])
-                member_count += 1
         
         # Set final tail
         if len(list(init_list)) > 0:

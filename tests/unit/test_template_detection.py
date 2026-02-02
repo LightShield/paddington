@@ -47,8 +47,10 @@ public:
         transformer = SrcMLTransformer()
         results = transformer.transform([mod])
         
-        # Should return empty list because template with constructor should be skipped
-        assert len(results) == 0, "Template with constructor should be skipped even if declared after 1000 chars"
+        # With constructor support enabled, simple constructors are now reordered
+        assert len(results) == 1, "Template with simple constructor should be optimized"
+        assert "a;" in results[0].new_content
+        assert results[0].new_content.index("b;") < results[0].new_content.index("a;")
     finally:
         Path(temp_path).unlink()
 
@@ -90,7 +92,7 @@ public:
         transformer = SrcMLTransformer()
         results = transformer.transform([mod])
         
-        # Should return empty list because template with constructor should be skipped
-        assert len(results) == 0, "Template with constructor should be skipped"
+        # With constructor support enabled, simple constructors are now reordered
+        assert len(results) == 1, "Template with simple constructor should be optimized"
     finally:
         Path(temp_path).unlink()
