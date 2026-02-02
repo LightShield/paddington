@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--source-root", type=Path, help="Root directory to scan for aggregate initialization usage")
     parser.add_argument("--workspace", type=Path, default=Path(".paddington_workspace"),
                          help="Workspace directory for caching (default: .paddington_workspace)")
-    parser.add_argument("-v", "--verbose", action="count", default=1,
+    parser.add_argument("-v", "--verbose", action="count", default=3,
                          help="Increase verbosity (-v, -vv, -vvv)")
     
     args = parser.parse_args()
