@@ -952,31 +952,26 @@ class SrcMLTransformer(ISourceTransformer):
         member_initializers = {}
         base_class_initializers = []
         member_order = []
+        new_order_set = set(new_order)
         
         for child in list(init_list):
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
             if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
                 if member_name:
-                    # Check if this looks like a base class (starts with uppercase or contains ::)
-                    # Base classes are not in new_order
-                    if member_name[0].isupper() or '::' in member_name or member_name not in new_order:
-                        # Likely a base class or member not being reordered
-                        if member_name not in new_order:
-                            base_class_initializers.append(child)
-                        else:
-                            member_initializers[member_name] = child
-                            member_order.append(member_name)
-                    else:
+                    # Members in new_order are member variables
+                    # Everything else is a base class
+                    if member_name in new_order_set:
                         member_initializers[member_name] = child
                         member_order.append(member_name)
+                    else:
+                        base_class_initializers.append(child)
         
         if not member_initializers and not base_class_initializers:
             return
         
         # Build final member order: use new_order for members that are in it,
         # keep others in original positions
-        new_order_set = set(new_order)
         final_member_order = []
         
         # Add members in new_order that exist in initializers
