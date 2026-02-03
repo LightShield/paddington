@@ -959,6 +959,7 @@ class SrcMLTransformer(ISourceTransformer):
             if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
                 if member_name:
+                    log.debug(f"  Initializer: {member_name}, in new_order: {member_name in new_order_set}")
                     # Members in new_order are member variables
                     # Everything else is a base class
                     if member_name in new_order_set:
@@ -966,6 +967,8 @@ class SrcMLTransformer(ISourceTransformer):
                         member_order.append(member_name)
                     else:
                         base_class_initializers.append(child)
+        
+        log.debug(f"  Base classes: {len(base_class_initializers)}, Members: {len(member_initializers)}")
         
         if not member_initializers and not base_class_initializers:
             return
@@ -1014,8 +1017,16 @@ class SrcMLTransformer(ISourceTransformer):
         # Look for the name child element in the call
         for child in call_elem:
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            if child_tag == 'name' and child.text:
-                name = child.text.strip()
+            if child_tag == 'name':
+                # For nested names (templates), get the first name element
+                nested_name = child.find('.//{http://www.srcML.org/srcML/src}name')
+                if nested_name is not None and nested_name.text:
+                    name = nested_name.text.strip()
+                elif child.text:
+                    name = child.text.strip()
+                else:
+                    continue
+                    
                 # Handle qualified names (e.g., "Base::member" -> "member")
                 if '::' in name:
                     return name.split('::')[-1]
