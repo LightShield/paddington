@@ -20,8 +20,8 @@ class SrcMLTransformer(ISourceTransformer):
     
     SUPPORTED_EXTENSIONS = {'.cpp', '.h', '.hpp', '.cc', '.cxx'}
     
-    def __init__(self):
-        pass
+    def __init__(self, source_root: Optional[Path] = None):
+        self.source_root = source_root or Path.cwd()
     
     def can_handle_file(self, file_path: str) -> bool:
         """Check if this transformer can handle the file type."""
@@ -88,6 +88,8 @@ class SrcMLTransformer(ISourceTransformer):
         pid = os.getpid()
         
         file_path = Path(modification.file_path)
+        if not file_path.is_absolute():
+            file_path = self.source_root / file_path
         
         if not file_path.exists():
             log.debug(f"[PID {pid}] File does not exist: {file_path}")
