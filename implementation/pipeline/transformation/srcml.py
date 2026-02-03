@@ -948,46 +948,62 @@ class SrcMLTransformer(ISourceTransformer):
             init_list: The member initializer list XML element
             new_order: Complete member declaration order (all members, not just optimized ones)
         """
-        # Extract current initializers and preserve original order
-        initializers = {}
-        original_order = []
+        # Extract current initializers, separating base classes from members
+        member_initializers = {}
+        base_class_initializers = []
+        member_order = []
         
         for child in list(init_list):
             child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
             if child_tag == 'call':
                 member_name = self._extract_initializer_member_name(child)
                 if member_name:
-                    initializers[member_name] = child
-                    original_order.append(member_name)
+                    # Check if this looks like a base class (starts with uppercase or contains ::)
+                    # Base classes are not in new_order
+                    if member_name[0].isupper() or '::' in member_name or member_name not in new_order:
+                        # Likely a base class or member not being reordered
+                        if member_name not in new_order:
+                            base_class_initializers.append(child)
+                        else:
+                            member_initializers[member_name] = child
+                            member_order.append(member_name)
+                    else:
+                        member_initializers[member_name] = child
+                        member_order.append(member_name)
         
-        if not initializers:
+        if not member_initializers and not base_class_initializers:
             return
         
-        # Build final order: use new_order for members that are in it,
+        # Build final member order: use new_order for members that are in it,
         # keep others in original positions
         new_order_set = set(new_order)
-        final_order = []
+        final_member_order = []
         
         # Add members in new_order that exist in initializers
         for member in new_order:
-            if member in initializers:
-                final_order.append(member)
+            if member in member_initializers:
+                final_member_order.append(member)
         
         # Add remaining members (not in new_order) in their original order
-        for member in original_order:
+        for member in member_order:
             if member not in new_order_set:
-                final_order.append(member)
+                final_member_order.append(member)
         
-        # Clear and rebuild
+        # Clear and rebuild: base classes FIRST, then members
         init_list.clear()
         init_list.text = ": "
         init_list.tail = None
         
-        # Add all initializers in final order
-        for i, member_name in enumerate(final_order):
-            if i > 0:
+        # Add base class initializers first
+        for base_init in base_class_initializers:
+            init_list.append(base_init)
+            base_init.tail = ", "
+        
+        # Add member initializers in final order
+        for member_name in final_member_order:
+            if len(list(init_list)) > 0:
                 list(init_list)[-1].tail = ", "
-            init_list.append(initializers[member_name])
+            init_list.append(member_initializers[member_name])
         
         # Set final tail
         if len(list(init_list)) > 0:
