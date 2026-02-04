@@ -325,8 +325,12 @@ class SrcMLTransformer(ISourceTransformer):
         
         return None
     
-    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> None:
-        """Reorder member declarations within struct according to new_order."""
+    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> list:
+        """Reorder member declarations within struct according to new_order.
+        
+        Returns:
+            Actual order achieved (may differ from new_order due to access sections)
+        """
         # Find block element (struct body)
         block = None
         for child in struct_node:
@@ -641,23 +645,13 @@ class SrcMLTransformer(ISourceTransformer):
         # Try to extract full member declaration order from struct
         struct_node = self._find_struct_node(root, struct_name)
         
-        if struct_node:
-            # Struct definition is in this file - extract full member order AFTER reordering
-            full_member_order = self._extract_member_declaration_order(struct_node)
-            if full_member_order:
-                # Use the actual order from the XML (after reordering)
-                # Don't use new_order because _reorder_members may not achieve it exactly
-                # (e.g., due to access section boundaries)
-                complete_order = full_member_order
-                log.debug(f"Struct {struct_name}: Using full_order from XML: {complete_order}")
-            else:
-                # Fallback to new_order if extraction fails
-                complete_order = new_order
-                log.debug(f"Struct {struct_name}: Could not extract full member order, using new_order")
-        else:
+        # Use new_order directly - analysis stage already respects access sections
+        # No need to extract or merge - just trust the analysis stage
+        complete_order = new_order
+        log.debug(f"Struct {struct_name}: Using new_order for constructor: {complete_order}")
+        
+        if not struct_node:
             # Struct definition is in another file (.cpp with out-of-line constructor)
-            # Use new_order directly - it should contain the complete optimized order
-            complete_order = new_order
             log.debug(f"Struct {struct_name}: No struct node found, using new_order")
         
         # Find all constructor definitions for this struct/class
