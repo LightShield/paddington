@@ -642,15 +642,14 @@ class SrcMLTransformer(ISourceTransformer):
         struct_node = self._find_struct_node(root, struct_name)
         
         if struct_node:
-            # Struct definition is in this file - extract full member order
+            # Struct definition is in this file - extract full member order AFTER reordering
             full_member_order = self._extract_member_declaration_order(struct_node)
             if full_member_order:
-                # Build complete order: apply new_order to members that were optimized,
-                # keep others in their original positions
-                complete_order = self._merge_member_orders(full_member_order, new_order)
-                log.debug(f"Struct {struct_name}: full_order has {len(full_member_order)} members, "
-                         f"new_order has {len(new_order)} members, "
-                         f"complete_order has {len(complete_order)} members")
+                # Use the actual order from the XML (after reordering)
+                # Don't use new_order because _reorder_members may not achieve it exactly
+                # (e.g., due to access section boundaries)
+                complete_order = full_member_order
+                log.debug(f"Struct {struct_name}: Using full_order from XML: {complete_order}")
             else:
                 # Fallback to new_order if extraction fails
                 complete_order = new_order
