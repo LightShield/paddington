@@ -185,6 +185,11 @@ class SrcMLTransformer(ISourceTransformer):
             pid = os.getpid()
             log.debug(f"[PID {pid}] New order: {new_order}")
             
+            # Safety check: detect preprocessor directives in struct
+            if self._has_preprocessor_in_struct(root, modification.struct_name):
+                log.info(f"SKIPPING {modification.struct_name} - has preprocessor directives in struct body")
+                return None
+            
             # Check if we need to reorder members (has 'reorder' modification)
             has_member_reorder = any(m.type == 'reorder' for m in modification.modifications)
             
@@ -774,6 +779,20 @@ class SrcMLTransformer(ISourceTransformer):
                 placed.add(member)
         
         return result
+
+    def _has_preprocessor_in_struct(self, root: ET.Element, struct_name: str) -> bool:
+        """Check if struct body contains preprocessor directives."""
+        struct_node = self._find_struct_node(root, struct_name)
+        if not struct_node:
+            return False
+        
+        # Look for cpp:directive elements in struct body
+        for elem in struct_node.iter():
+            tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+            if tag == 'directive' or 'cpp:' in elem.tag:
+                return True
+        
+        return False
 
     def _has_constructor_dependencies(self, constructor: ET.Element, new_order: list) -> bool:
         """Check if constructor has member dependencies that would be violated by reordering."""
