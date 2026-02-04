@@ -21,7 +21,7 @@ class SrcMLTransformer(ISourceTransformer):
     SUPPORTED_EXTENSIONS = {'.cpp', '.h', '.hpp', '.cc', '.cxx'}
     
     def __init__(self, source_root: Optional[Path] = None):
-        self.source_root = source_root or Path.cwd()
+        self.source_root = source_root if source_root is not None else Path.cwd()
     
     def can_handle_file(self, file_path: str) -> bool:
         """Check if this transformer can handle the file type."""
