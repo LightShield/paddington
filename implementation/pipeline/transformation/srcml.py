@@ -121,7 +121,7 @@ class SrcMLTransformer(ISourceTransformer):
             return None
             
         result = TransformedSource(
-            file_path=str(file_path),
+            file_path=modification.file_path,  # Use original relative path
             original_content=original_content,
             new_content=new_content,
             modifications=(modification,)
