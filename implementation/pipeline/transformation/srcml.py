@@ -250,6 +250,19 @@ class SrcMLTransformer(ISourceTransformer):
                 # Reorder out-of-line constructors
                 self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
+            # CRITICAL VERIFICATION: Ensure member order matches new_order exactly
+            if has_member_reorder:
+                struct_node = self._find_struct_node(root, modification.struct_name)
+                if struct_node:
+                    actual_order = self._extract_member_declaration_order(struct_node)
+                    # Filter to only members in new_order for comparison
+                    actual_filtered = [m for m in actual_order if m in new_order]
+                    new_filtered = [m for m in new_order if m in actual_filtered]
+                    if actual_filtered != new_filtered:
+                        log.info(f"SKIPPING {modification.struct_name} - could not achieve requested order. "
+                                f"Requested: {new_filtered}, Actual: {actual_filtered}")
+                        return None
+            
             # Check if any changes were made
             modified_xml = ET.tostring(root, encoding='unicode')
             if original_xml == modified_xml:
