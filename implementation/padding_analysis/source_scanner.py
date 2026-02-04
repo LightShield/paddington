@@ -252,10 +252,21 @@ class SourceScanner:
     
     def _should_exclude(self, file_path: Path) -> bool:
         """Check if file should be excluded based on patterns."""
-        file_str = str(file_path)
+        try:
+            rel_path = file_path.relative_to(self.source_root)
+        except ValueError:
+            return False
+        
+        path_parts = rel_path.parts
+        
         for pattern in self.exclude_patterns:
-            if fnmatch.fnmatch(file_str, pattern) or file_str.startswith(pattern.rstrip('*')):
+            # Extract key segments from pattern (e.g., "platforms/*/regs/*" -> ["platforms", "regs"])
+            key_segments = [p for p in pattern.split('/') if p and p != '*']
+            
+            # Check if all key segments appear in the path parts
+            if all(seg in path_parts for seg in key_segments):
                 return True
+        
         return False
     
     def scan(self):
