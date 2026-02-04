@@ -325,12 +325,8 @@ class SrcMLTransformer(ISourceTransformer):
         
         return None
     
-    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> list:
-        """Reorder member declarations within struct according to new_order.
-        
-        Returns:
-            Actual order achieved (may differ from new_order due to access sections)
-        """
+    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> None:
+        """Reorder member declarations within struct according to new_order."""
         # Find block element (struct body)
         block = None
         for child in struct_node:
@@ -645,13 +641,24 @@ class SrcMLTransformer(ISourceTransformer):
         # Try to extract full member declaration order from struct
         struct_node = self._find_struct_node(root, struct_name)
         
-        # Use new_order directly - analysis stage already respects access sections
-        # No need to extract or merge - just trust the analysis stage
-        complete_order = new_order
-        log.debug(f"Struct {struct_name}: Using new_order for constructor: {complete_order}")
-        
-        if not struct_node:
+        if struct_node:
+            # Struct definition is in this file - extract full member order
+            full_member_order = self._extract_member_declaration_order(struct_node)
+            if full_member_order:
+                # Build complete order: apply new_order to members that were optimized,
+                # keep others in their original positions
+                complete_order = self._merge_member_orders(full_member_order, new_order)
+                log.debug(f"Struct {struct_name}: full_order has {len(full_member_order)} members, "
+                         f"new_order has {len(new_order)} members, "
+                         f"complete_order has {len(complete_order)} members")
+            else:
+                # Fallback to new_order if extraction fails
+                complete_order = new_order
+                log.debug(f"Struct {struct_name}: Could not extract full member order, using new_order")
+        else:
             # Struct definition is in another file (.cpp with out-of-line constructor)
+            # Use new_order directly - it should contain the complete optimized order
+            complete_order = new_order
             log.debug(f"Struct {struct_name}: No struct node found, using new_order")
         
         # Find all constructor definitions for this struct/class
