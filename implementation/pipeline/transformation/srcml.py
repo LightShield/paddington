@@ -471,19 +471,53 @@ class SrcMLTransformer(ISourceTransformer):
         
         log.debug(f"Removed {removed_count} members for reordering")
         
-        # Group by container to maintain access modifier boundaries
-        members_by_container = {}
-        for member_name in new_order_filtered:
-            if member_name in member_containers:
-                container = member_containers[member_name]
-                if container not in members_by_container:
-                    members_by_container[container] = []
-                members_by_container[container].append(member_name)
-        
-        # Handle nested type definitions and static members
-        # Strategy: Move nested types and static members to top, then insert data members after
-        nested_types_by_container = {}
-        static_members_by_container = {}
+        # Group members by their DESIRED access modifier (from analysis stage)
+        # If no access map provided, use original container (backward compatibility)
+        if member_access_map:
+            # Group by desired access modifier
+            members_by_access = {}
+            for member_name in new_order_filtered:
+                desired_access = member_access_map.get(member_name, 'public')
+                if desired_access not in members_by_access:
+                    members_by_access[desired_access] = []
+                members_by_access[desired_access].append(member_name)
+            
+            # Find or create containers for each access modifier
+            access_containers = {}
+            for child in block:
+                tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                if tag in ['public', 'private', 'protected']:
+                    access_containers[tag] = child
+            
+            # Insert members into appropriate containers
+            for access_modifier in ['public', 'protected', 'private']:
+                if access_modifier in members_by_access:
+                    # Get or create container
+                    if access_modifier not in access_containers:
+                        # Create new access section
+                        # TODO: Create proper XML element for access section
+                        # For now, use block directly
+                        container = block
+                    else:
+                        container = access_containers[access_modifier]
+                    
+                    # Insert members in order
+                    for member_name in members_by_access[access_modifier]:
+                        if member_name in member_decls:
+                            container.append(member_decls[member_name])
+        else:
+            # Backward compatibility: group by original container
+            members_by_container = {}
+            for member_name in new_order_filtered:
+                if member_name in member_containers:
+                    container = member_containers[member_name]
+                    if container not in members_by_container:
+                        members_by_container[container] = []
+                    members_by_container[container].append(member_name)
+            
+            # Handle nested types and static members for backward compatibility path
+            nested_types_by_container = {}
+            static_members_by_container = {}
         
         for container in members_by_container.keys():
             nested_types = []
