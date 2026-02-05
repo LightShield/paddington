@@ -110,7 +110,8 @@ class PlanningStage(Stage[List[OptimizationPlan], List[SourceModification]]):
         optimal_unlocked = [m for m in plan.optimal_order if not m.locked]
         
         old_members = ", ".join(m.name for m in original_unlocked)
-        new_members = ", ".join(m.name for m in optimal_unlocked)
+        # Pass full member info: name:access_modifier for each member
+        new_members = ", ".join(f"{m.name}:{m.access_modifier}" for m in optimal_unlocked)
         
         # Normalize path to relative
         file_path = self._normalize_path(plan.struct.file_path)

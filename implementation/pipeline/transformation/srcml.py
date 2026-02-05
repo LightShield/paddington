@@ -183,7 +183,14 @@ class SrcMLTransformer(ISourceTransformer):
             
             import os
             pid = os.getpid()
+            
+            # Extract member order and access modifiers
+            new_order = self._extract_new_order(modification)
+            member_access_map = self._extract_access_modifiers(modification)
+            
             log.debug(f"[PID {pid}] New order: {new_order}")
+            if member_access_map:
+                log.debug(f"[PID {pid}] Access modifiers: {member_access_map}")
             
             # Safety check: detect preprocessor directives in struct
             if self._has_preprocessor_in_struct(root, modification.struct_name):
@@ -205,7 +212,7 @@ class SrcMLTransformer(ISourceTransformer):
                 
                 # Reorder member declarations
                 original_xml = ET.tostring(root, encoding='unicode')
-                self._reorder_members(struct_node, new_order)
+                self._reorder_members(struct_node, new_order_names, member_access_map)
             else:
                 original_xml = ET.tostring(root, encoding='unicode')
             
@@ -221,7 +228,7 @@ class SrcMLTransformer(ISourceTransformer):
                     if tag == 'constructor':
                         found_constructor = True
                         init_list = self._find_initializer_list(elem)
-                        if init_list and self._has_constructor_dependencies(elem, new_order):
+                        if init_list and self._has_constructor_dependencies(elem, new_order_names):
                             log.info(f"SKIPPING {modification.struct_name} - constructor has dependencies")
                             has_constructor_with_deps = True
                             break
@@ -237,18 +244,18 @@ class SrcMLTransformer(ISourceTransformer):
                 
                 # Reorder inline constructors if present
                 if found_constructor:
-                    self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+                    self._reorder_constructor_initializers(root, modification.struct_name, new_order_names)
             
             # Check for out-of-line constructors
             constructors = self._find_constructors(root, modification.struct_name)
             if constructors:
                 # Check dependencies
                 for constructor in constructors:
-                    if self._has_constructor_dependencies(constructor, new_order):
+                    if self._has_constructor_dependencies(constructor, new_order_names):
                         log.info(f"SKIPPING {modification.struct_name} - out-of-line constructor has dependencies")
                         return None
                 # Reorder out-of-line constructors
-                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
+                self._reorder_constructor_initializers(root, modification.struct_name, new_order_names)
             
             # CRITICAL VERIFICATION: Ensure member order matches new_order exactly
             if has_member_reorder:
@@ -276,13 +283,48 @@ class SrcMLTransformer(ISourceTransformer):
             return None
     
     def _extract_new_order(self, mod: SourceModification) -> list:
-        """Extract new member order from modifications."""
+        """Extract new member order from modifications.
+        
+        Returns:
+            List of member names (strings) for backward compatibility
+            Access modifiers are extracted separately in _modify_xml
+        """
         for m in mod.modifications:
             if m.type in ['reorder', 'reorder_constructors']:
                 content = m.new_content
                 if content.startswith("members: "):
-                    return [n.strip() for n in content[9:].split(',')]
+                    members_str = content[9:]
+                    members = []
+                    for item in members_str.split(','):
+                        item = item.strip()
+                        if ':' in item:
+                            # New format: name:access_modifier - extract just name
+                            name, _ = item.split(':', 1)
+                            members.append(name.strip())
+                        else:
+                            # Old format: just name
+                            members.append(item)
+                    return members
         return []
+    
+    def _extract_access_modifiers(self, mod: SourceModification) -> dict:
+        """Extract access modifier map from modifications.
+        
+        Returns:
+            Dict mapping member_name -> access_modifier
+        """
+        access_map = {}
+        for m in mod.modifications:
+            if m.type in ['reorder', 'reorder_constructors']:
+                content = m.new_content
+                if content.startswith("members: "):
+                    members_str = content[9:]
+                    for item in members_str.split(','):
+                        item = item.strip()
+                        if ':' in item:
+                            name, access = item.split(':', 1)
+                            access_map[name.strip()] = access.strip()
+        return access_map
     
     def _find_struct_node(self, root: ET.Element, struct_name: str) -> Optional[ET.Element]:
         """Find struct node by name in XML tree (namespace-aware).
@@ -338,8 +380,14 @@ class SrcMLTransformer(ISourceTransformer):
         
         return None
     
-    def _reorder_members(self, struct_node: ET.Element, new_order: list) -> None:
-        """Reorder member declarations within struct according to new_order."""
+    def _reorder_members(self, struct_node: ET.Element, new_order: list, member_access_map: dict = None) -> None:
+        """Reorder member declarations within struct according to new_order.
+        
+        Args:
+            struct_node: The struct XML node
+            new_order: List of member names in desired order
+            member_access_map: Optional dict mapping member_name -> desired access_modifier
+        """
         # Find block element (struct body)
         block = None
         for child in struct_node:
