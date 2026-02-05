@@ -102,6 +102,9 @@ class PaholeExtractor(IStructExtractor):
             structs, comp_data = self._parse_pahole_output(result.stdout)
             log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
             return structs, comp_data
+        except subprocess.TimeoutExpired:
+            log.debug(f"[PID {pid}] Skipped {objfile.name}: timeout")
+            return [], {}
         except Exception as e:
             log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
             return [], {}
@@ -122,6 +125,9 @@ class PaholeExtractor(IStructExtractor):
             structs, comp_data = self._parse_pahole_output(result.stdout)
             log.debug(f"[PID {pid}] {objfile.name}: {len(structs)} structs")
             return structs
+        except subprocess.TimeoutExpired:
+            log.debug(f"[PID {pid}] Skipped {objfile.name}: timeout")
+            return []
         except Exception as e:
             log.debug(f"[PID {pid}] Skipped {objfile.name}: {type(e).__name__}")
             return []

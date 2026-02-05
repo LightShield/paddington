@@ -388,6 +388,8 @@ class SrcMLTransformer(ISourceTransformer):
             new_order: List of member names in desired order
             member_access_map: Optional dict mapping member_name -> desired access_modifier
         """
+        log.debug(f"_reorder_members called with {len(new_order)} members, access_map={member_access_map is not None}")
+        
         # Find block element (struct body)
         block = None
         for child in struct_node:
@@ -396,6 +398,7 @@ class SrcMLTransformer(ISourceTransformer):
                 break
         
         if block is None:
+            log.debug("No block found")
             return
         
         # Find ALL access modifier containers (may have multiple protected/private sections)
