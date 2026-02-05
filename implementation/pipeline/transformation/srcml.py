@@ -212,7 +212,7 @@ class SrcMLTransformer(ISourceTransformer):
                 
                 # Reorder member declarations
                 original_xml = ET.tostring(root, encoding='unicode')
-                self._reorder_members(struct_node, new_order_names, member_access_map)
+                self._reorder_members(struct_node, new_order, member_access_map)
             else:
                 original_xml = ET.tostring(root, encoding='unicode')
             
