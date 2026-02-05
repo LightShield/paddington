@@ -241,12 +241,25 @@ def run(args):
 
 def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Optional[List[str]]) -> List[Path]:
     """Filter files by patterns."""
-    import fnmatch
-    
     if include:
+        import fnmatch
         files = [f for f in files if any(fnmatch.fnmatch(str(f), pattern) for pattern in include)]
+    
     if exclude:
-        files = [f for f in files if not any(fnmatch.fnmatch(str(f), pattern) for pattern in exclude)]
+        # Use path parts matching (same as source scanner)
+        filtered = []
+        for f in files:
+            path_parts = f.parts
+            should_exclude = False
+            for pattern in exclude:
+                key_segments = [p for p in pattern.split('/') if p and p != '*']
+                if all(seg in path_parts for seg in key_segments):
+                    should_exclude = True
+                    break
+            if not should_exclude:
+                filtered.append(f)
+        files = filtered
+    
     return files
 
 
