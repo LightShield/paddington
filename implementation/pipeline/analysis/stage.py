@@ -154,6 +154,19 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 type_sizes[struct_name] = actual_size
                 continue
             
+            # Check for nested types
+            if self._scanner and struct_name in self._scanner.structs_with_nested_types:
+                plan = OptimizationPlan(
+                    struct=struct,
+                    original_order=tuple(updated_members),
+                    optimal_order=tuple(updated_members),
+                    padding_saved=0,
+                    skip_reason="nested types"
+                )
+                plans.append(plan)
+                type_sizes[struct_name] = actual_size
+                continue
+            
             # Check for preprocessor directives
             if self._scanner and self._scanner.has_preprocessor_directives(struct_name):
                 plan = OptimizationPlan(
