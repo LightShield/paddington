@@ -408,9 +408,12 @@ class SrcMLTransformer(ISourceTransformer):
             if 'public' in child.tag or 'private' in child.tag or 'protected' in child.tag:
                 containers.append(child)
         
+        log.debug(f"Found {len(containers)} access containers")
+        
         # If no access modifiers, use block directly
         if not containers:
             containers = [block]
+            log.debug("No access containers, using block directly")
         
         # Find all member declaration statements across ALL containers and map by name
         member_decls = {}
@@ -439,8 +442,11 @@ class SrcMLTransformer(ISourceTransformer):
         
         log.debug(f"Found {static_members_found} static members to preserve")
         
+        log.debug(f"Found {len(member_decls)} members to reorder out of {len(new_order)} requested")
+        
         # Check if we found all the members we need to reorder
         if not member_decls:
+            log.debug("No members found to reorder")
             return
         
         # Allow partial match if we found at least 80% of members
@@ -473,6 +479,12 @@ class SrcMLTransformer(ISourceTransformer):
                         log.debug(f"Keeping {member_name} in place")
         
         log.debug(f"Removed {removed_count} members for reordering")
+        
+        if removed_count == 0:
+            log.debug("No members were removed - nothing to reorder")
+            return
+        
+        log.debug(f"Grouping {len(new_order_filtered)} members (access_map: {member_access_map is not None})")
         
         # Group members by their DESIRED access modifier (from analysis stage)
         members_by_access = {}
