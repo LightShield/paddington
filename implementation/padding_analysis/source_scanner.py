@@ -56,22 +56,25 @@ def _is_trivial_preprocessor_case(struct_body: str) -> bool:
     return True
 
 
-def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Dict[str, Set[str]]], Set[str]]:
+def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Dict[str, Set[str]]], Set[str], Dict[str, list]]:
     """Scan a single file for patterns (for multiprocessing).
     
     Returns:
-        Tuple of (agg_init_structs, preprocessor_structs, constructor_deps, static_const_structs)
-        where constructor_deps is {struct_name: {member: {dependencies}}}
+        Tuple of (agg_init_structs, preprocessor_structs, constructor_deps, static_const_structs, nested_types)
+        where:
+        - constructor_deps is {struct_name: {member: {dependencies}}}
+        - nested_types is {struct_name: [list of typedef/using/nested struct names]}
     """
     agg_structs = set()
     prep_structs = set()
     constructor_deps = {}
     static_const_structs = set()  # Structs with static const members
+    nested_types_map = {}  # Structs with nested types
     
     try:
         content = file_path.read_text()
     except:
-        return agg_structs, prep_structs, constructor_deps, static_const_structs
+        return agg_structs, prep_structs, constructor_deps, static_const_structs, nested_types_map
     
     # Check for aggregate initialization patterns
     # Pattern: TypeName varname = {val1, val2, ...} or TypeName varname{val1, val2, ...}
@@ -102,6 +105,17 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         if re.search(r'\bstatic\s+const\s+\w+|constexpr\s+\w+', struct_body):
             static_const_structs.add(struct_name)
         
+        # Check for nested types (typedef, using, nested struct/class/enum)
+        nested_types = []
+        if re.search(r'\btypedef\s+', struct_body):
+            nested_types.append('typedef')
+        if re.search(r'\busing\s+\w+\s*=', struct_body):
+            nested_types.append('using')
+        if re.search(r'\b(?:struct|class|enum)\s+\w+\s*[:{]', struct_body):
+            nested_types.append('nested_struct')
+        if nested_types:
+            nested_types_map[struct_name] = nested_types
+        
         # Check for preprocessor directives
         if re.search(r'#\s*(?:if|ifdef|ifndef|elif|else|endif)', struct_body):
             # Has preprocessor - check if it's a trivial safe case
@@ -120,7 +134,7 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         if deps:
             constructor_deps[struct_name] = deps
     
-    return agg_structs, prep_structs, constructor_deps, static_const_structs
+    return agg_structs, prep_structs, constructor_deps, static_const_structs, nested_types_map
 
 
 def _extract_all_struct_members(content: str) -> Dict[str, Set[str]]:
@@ -230,6 +244,7 @@ class SourceScanner:
         self.structs_with_preprocessor: Set[str] = set()
         self.constructor_dependencies: Dict[str, Dict[str, Set[str]]] = {}
         self.structs_with_static_const: Set[str] = set()
+        self.structs_with_nested_types: Dict[str, list] = {}  # struct_name -> [nested type names]
         self._scanned = False
         
         # Workspace directory structure
@@ -313,10 +328,15 @@ class SourceScanner:
                 # Use imap_unordered for progress tracking
                 results_iter = pool.imap_unordered(_scan_single_file, all_files, chunksize=50)
                 
-                for i, (agg_structs, prep_structs, ctor_deps, static_structs) in enumerate(results_iter, 1):
+                for i, (agg_structs, prep_structs, ctor_deps, static_structs, nested_types) in enumerate(results_iter, 1):
                     self.structs_with_aggregate_init.update(agg_structs)
                     self.structs_with_preprocessor.update(prep_structs)
                     self.structs_with_static_const.update(static_structs)
+                    # Merge nested types
+                    for struct_name, types_list in nested_types.items():
+                        if struct_name not in self.structs_with_nested_types:
+                            self.structs_with_nested_types[struct_name] = []
+                        self.structs_with_nested_types[struct_name].extend(types_list)
                     # Merge constructor dependencies
                     for struct_name, deps in ctor_deps.items():
                         if struct_name not in self.constructor_dependencies:
@@ -338,10 +358,15 @@ class SourceScanner:
             for i, file_path in enumerate(all_files, 1):
                 if i % 100 == 0:
                     log.debug(f"  Scanned {i}/{file_count} files...")
-                agg_structs, prep_structs, ctor_deps, static_structs = _scan_single_file(file_path)
+                agg_structs, prep_structs, ctor_deps, static_structs, nested_types = _scan_single_file(file_path)
                 self.structs_with_aggregate_init.update(agg_structs)
                 self.structs_with_preprocessor.update(prep_structs)
                 self.structs_with_static_const.update(static_structs)
+                # Merge nested types
+                for struct_name, types_list in nested_types.items():
+                    if struct_name not in self.structs_with_nested_types:
+                        self.structs_with_nested_types[struct_name] = []
+                    self.structs_with_nested_types[struct_name].extend(types_list)
                 # Merge constructor dependencies
                 for struct_name, deps in ctor_deps.items():
                     if struct_name not in self.constructor_dependencies:
