@@ -486,10 +486,16 @@ class SrcMLTransformer(ISourceTransformer):
         
         log.debug(f"Grouping {len(new_order_filtered)} members (access_map: {member_access_map is not None})")
         
-        # Group members by their DESIRED access modifier (from analysis stage)
-        members_by_access = {}
+        # Find existing access containers
+        access_containers = {}
+        for child in block:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag in ['public', 'private', 'protected']:
+                access_containers[tag] = child
+        
+        # Insert members in new_order sequence, placing each in its appropriate section
         for member_name in new_order_filtered:
-            # Use access map if provided, otherwise use original container
+            # Determine which access section this member should go in
             if member_access_map and member_name in member_access_map:
                 desired_access = member_access_map[member_name]
             elif member_name in member_containers:
@@ -500,24 +506,13 @@ class SrcMLTransformer(ISourceTransformer):
             else:
                 desired_access = 'public'
             
-            if desired_access not in members_by_access:
-                members_by_access[desired_access] = []
-            members_by_access[desired_access].append(member_name)
-        
-        # Find existing access containers
-        access_containers = {}
-        for child in block:
-            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            if tag in ['public', 'private', 'protected']:
-                access_containers[tag] = child
-        
-        # Insert members into appropriate containers in order
-        for access_modifier in ['public', 'protected', 'private']:
-            if access_modifier in members_by_access:
-                container = access_containers.get(access_modifier, block)
-                for member_name in members_by_access[access_modifier]:
-                    if member_name in member_decls:
-                        container.append(member_decls[member_name])
+            # Get the container for this access level
+            container = access_containers.get(desired_access, block)
+            
+            # Append the member
+            if member_name in member_decls:
+                container.append(member_decls[member_name])
+                log.debug(f"Inserted {member_name} into {desired_access}")
         
     def _has_nested_type_dependencies(self, containers: list, new_order: list) -> bool:
         """Check if there are nested type definitions that could cause forward reference errors."""
