@@ -37,9 +37,14 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         # Scan source tree once if scanner is available
         if self._scanner:
             self._scanner.scan()
+            log.debug(f"Source scanning complete")
+        
+        log.debug(f"Filtering {len(structs)} structs")
         
         # Filter out system headers
         structs = [s for s in structs if s.file_path and not self._is_system_header(s.file_path)]
+        
+        log.debug(f"After system header filter: {len(structs)} structs")
         
         # Filter by struct names if specified
         if self.struct_names:
@@ -58,9 +63,15 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
         ignored_structs = directives.get('ignored_structs', set())
         filtered_structs = [s for s in structs if s.name not in ignored_structs]
         
+        log.debug(f"Building dependency graph for {len(filtered_structs)} structs")
+        
         # Build dependency graph and sort
         graph = build_dependency_graph(filtered_structs)
+        
+        log.debug(f"Topological sort")
         ordered_names = topological_sort(graph)
+        
+        log.debug(f"Creating struct map")
         struct_map = {s.name: s for s in filtered_structs}
         
         # Initialize type sizes with original sizes
