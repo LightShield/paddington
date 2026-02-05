@@ -472,100 +472,38 @@ class SrcMLTransformer(ISourceTransformer):
         log.debug(f"Removed {removed_count} members for reordering")
         
         # Group members by their DESIRED access modifier (from analysis stage)
-        # If no access map provided, use original container (backward compatibility)
-        if member_access_map:
-            # Group by desired access modifier
-            members_by_access = {}
-            for member_name in new_order_filtered:
-                desired_access = member_access_map.get(member_name, 'public')
-                if desired_access not in members_by_access:
-                    members_by_access[desired_access] = []
-                members_by_access[desired_access].append(member_name)
+        members_by_access = {}
+        for member_name in new_order_filtered:
+            # Use access map if provided, otherwise use original container
+            if member_access_map and member_name in member_access_map:
+                desired_access = member_access_map[member_name]
+            elif member_name in member_containers:
+                # Fallback: keep in original section
+                orig_container = member_containers[member_name]
+                tag = orig_container.tag.split('}')[-1] if '}' in orig_container.tag else orig_container.tag
+                desired_access = tag if tag in ['public', 'private', 'protected'] else 'public'
+            else:
+                desired_access = 'public'
             
-            # Find or create containers for each access modifier
-            access_containers = {}
-            for child in block:
-                tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-                if tag in ['public', 'private', 'protected']:
-                    access_containers[tag] = child
-            
-            # Insert members into appropriate containers
-            for access_modifier in ['public', 'protected', 'private']:
-                if access_modifier in members_by_access:
-                    # Get or create container
-                    if access_modifier not in access_containers:
-                        # Create new access section
-                        # TODO: Create proper XML element for access section
-                        # For now, use block directly
-                        container = block
-                    else:
-                        container = access_containers[access_modifier]
-                    
-                    # Insert members in order
-                    for member_name in members_by_access[access_modifier]:
-                        if member_name in member_decls:
-                            container.append(member_decls[member_name])
-        else:
-            # Backward compatibility: group by original container
-            members_by_container = {}
-            for member_name in new_order_filtered:
-                if member_name in member_containers:
-                    container = member_containers[member_name]
-                    if container not in members_by_container:
-                        members_by_container[container] = []
-                    members_by_container[container].append(member_name)
-            
-            # Handle nested types and static members for backward compatibility path
-            nested_types_by_container = {}
-            static_members_by_container = {}
+            if desired_access not in members_by_access:
+                members_by_access[desired_access] = []
+            members_by_access[desired_access].append(member_name)
         
-        for container in members_by_container.keys():
-            nested_types = []
-            static_members = []
-            
-            for elem in list(container):
-                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-                
-                # Check for nested types (including using statements)
-                if tag in ['typedef', 'using', 'struct', 'enum', 'class', 'union']:
-                    nested_types.append(elem)
-                    container.remove(elem)
-                # Check for static members
-                elif 'decl_stmt' in elem.tag:
-                    elem_str = ET.tostring(elem, encoding='unicode')
-                    if 'static' in elem_str or 'extern' in elem_str:
-                        # This is a static/extern member - move to top
-                        static_members.append(elem)
-                        container.remove(elem)
-            if nested_types:
-                nested_types_by_container[container] = nested_types
-            if static_members:
-                static_members_by_container[container] = static_members
+        # Find existing access containers
+        access_containers = {}
+        for child in block:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag in ['public', 'private', 'protected']:
+                access_containers[tag] = child
         
-        # Re-insert nested types and static members at the top of each container
-        for container in members_by_container.keys():
-            offset = 0
-            # Insert nested types first
-            if container in nested_types_by_container:
-                for i, type_elem in enumerate(nested_types_by_container[container]):
-                    container.insert(i, type_elem)
-                offset += len(nested_types_by_container[container])
-            # Insert static members after nested types
-            if container in static_members_by_container:
-                for i, static_elem in enumerate(static_members_by_container[container]):
-                    container.insert(offset + i, static_elem)
-                offset += len(static_members_by_container[container])
+        # Insert members into appropriate containers in order
+        for access_modifier in ['public', 'protected', 'private']:
+            if access_modifier in members_by_access:
+                container = access_containers.get(access_modifier, block)
+                for member_name in members_by_access[access_modifier]:
+                    if member_name in member_decls:
+                        container.append(member_decls[member_name])
         
-        # Re-insert data members in new order, after nested types and static members
-        for container, member_names in members_by_container.items():
-            # Calculate offset: nested types + static members
-            offset = len(nested_types_by_container.get(container, []))
-            offset += len(static_members_by_container.get(container, []))
-            
-            for i, member_name in enumerate(member_names):
-                if member_name in member_decls:
-                    container.insert(offset + i, member_decls[member_name])
-    
     def _has_nested_type_dependencies(self, containers: list, new_order: list) -> bool:
         """Check if there are nested type definitions that could cause forward reference errors."""
         # Find all nested type definitions (typedef, struct, enum, class)

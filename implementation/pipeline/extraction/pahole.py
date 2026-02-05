@@ -93,7 +93,7 @@ class PaholeExtractor(IStructExtractor):
             pid = os.getpid()
             log.debug(f"[PID {pid}] Processing {objfile.name}")
             cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode != 0:
                 log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
@@ -113,7 +113,7 @@ class PaholeExtractor(IStructExtractor):
             pid = os.getpid()
             log.debug(f"[PID {pid}] Processing {objfile.name}")
             cmd = self._pahole_cmd + ['-I', '-M', str(objfile)]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode != 0:
                 log.debug(f"[PID {pid}] Skipped {objfile.name}: pahole error")
