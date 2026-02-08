@@ -59,13 +59,11 @@ def run(args):
         objfiles = [path]
         log.debug(f"Single file mode: {path}")
     else:
-        # Use os.walk instead of rglob for better performance
-        import os
-        objfiles = []
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.endswith('.o'):
-                    objfiles.append(Path(root) / file)
+        # Use subprocess find for best performance on large directories
+        import subprocess
+        result = subprocess.run(['find', str(path), '-name', '*.o', '-type', 'f'], 
+                              capture_output=True, text=True, check=True)
+        objfiles = [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
         log.debug(f"Directory mode: found {len(objfiles)} .o files")
     
     # Apply filters
