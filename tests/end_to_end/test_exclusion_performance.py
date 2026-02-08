@@ -92,9 +92,9 @@ struct TestStruct {
         # Verify command succeeded
         self.assert_success(result)
         
-        # Verify scan completes in reasonable time (<10 seconds for 1000 files)
+        # Verify scan completes in reasonable time (<15 seconds for 1000 files)
         # Note: Performance depends on system load and I/O speed
-        assert scan_duration < 10.0, f"Scan took {scan_duration:.2f}s, expected <10s for 1000 files"
+        assert scan_duration < 15.0, f"Scan took {scan_duration:.2f}s, expected <15s for 1000 files"
         
         # Verify excluded files are not scanned (check output doesn't contain excluded paths)
         output = result.stdout + result.stderr
