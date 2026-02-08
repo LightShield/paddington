@@ -59,7 +59,13 @@ def run(args):
         objfiles = [path]
         log.debug(f"Single file mode: {path}")
     else:
-        objfiles = list(path.rglob("*.o"))
+        # Use os.walk instead of rglob for better performance
+        import os
+        objfiles = []
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if file.endswith('.o'):
+                    objfiles.append(Path(root) / file)
         log.debug(f"Directory mode: found {len(objfiles)} .o files")
     
     # Apply filters
