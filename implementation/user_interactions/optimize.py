@@ -56,13 +56,21 @@ def run(args):
     log.debug(f"Searching for .o files in: {path}")
     
     if path.is_file():
-        objfiles = [path]
-        log.debug(f"Single file mode: {path}")
+        # Check if it's a text file with list of .o files
+        if path.suffix == '.txt':
+            log.debug(f"Reading .o file list from: {path}")
+            with open(path, 'r') as f:
+                objfiles = [Path(line.strip()) for line in f if line.strip() and line.strip().endswith('.o')]
+            log.debug(f"Loaded {len(objfiles)} .o files from list")
+        else:
+            objfiles = [path]
+            log.debug(f"Single file mode: {path}")
     else:
         # Use subprocess find for best performance on large directories
         import subprocess
+        log.debug(f"Running find command (this may take several minutes)...")
         result = subprocess.run(['find', str(path), '-name', '*.o', '-type', 'f'], 
-                              capture_output=True, text=True, check=True)
+                              capture_output=True, text=True, check=True, timeout=600)
         objfiles = [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
         log.debug(f"Directory mode: found {len(objfiles)} .o files")
     
