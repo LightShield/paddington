@@ -246,19 +246,8 @@ def _filter_files(files: List[Path], include: Optional[List[str]], exclude: Opti
         files = [f for f in files if any(fnmatch.fnmatch(str(f), pattern) for pattern in include)]
     
     if exclude:
-        # Use path parts matching (same as source scanner)
-        filtered = []
-        for f in files:
-            path_parts = f.parts
-            should_exclude = False
-            for pattern in exclude:
-                key_segments = [p for p in pattern.split('/') if p and p != '*']
-                if all(seg in path_parts for seg in key_segments):
-                    should_exclude = True
-                    break
-            if not should_exclude:
-                filtered.append(f)
-        files = filtered
+        from implementation.utils.path_exclusion import should_exclude_path
+        files = [f for f in files if not should_exclude_path(f, exclude)]
     
     return files
 
@@ -268,20 +257,14 @@ def _filter_structs(structs, exclude: Optional[List[str]]):
     if not exclude:
         return structs
     
-    import fnmatch
+    from implementation.utils.path_exclusion import should_exclude_path
     filtered = []
     for struct in structs:
         if not struct.file_path:
             filtered.append(struct)
             continue
         
-        excluded = False
-        for pattern in exclude:
-            if fnmatch.fnmatch(struct.file_path, pattern) or struct.file_path.startswith(pattern.rstrip('*')):
-                excluded = True
-                break
-        
-        if not excluded:
+        if not should_exclude_path(Path(struct.file_path), exclude):
             filtered.append(struct)
     
     return filtered

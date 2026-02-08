@@ -267,22 +267,8 @@ class SourceScanner:
     
     def _should_exclude(self, file_path: Path) -> bool:
         """Check if file should be excluded based on patterns."""
-        try:
-            rel_path = file_path.relative_to(self.source_root)
-        except ValueError:
-            return False
-        
-        path_parts = rel_path.parts
-        
-        for pattern in self.exclude_patterns:
-            # Extract key segments from pattern (e.g., "platforms/*/regs/*" -> ["platforms", "regs"])
-            key_segments = [p for p in pattern.split('/') if p and p != '*']
-            
-            # Check if all key segments appear in the path parts
-            if all(seg in path_parts for seg in key_segments):
-                return True
-        
-        return False
+        from ..utils.path_exclusion import should_exclude_path
+        return should_exclude_path(file_path, self.exclude_patterns, self.source_root)
     
     def scan(self):
         """Scan all source files once and populate caches."""
@@ -302,13 +288,24 @@ class SourceScanner:
         
         log.info(f"Scanning source tree once: {self.source_root}")
         
-        # Collect all files first
-        extensions = ['*.cpp', '*.cc', '*.cxx', '*.h', '*.hpp', '*.C']
+        # Collect all files using os.walk to skip excluded directories
+        import os
+        from ..utils.path_exclusion import should_exclude_directory
+        
+        extensions = {'.cpp', '.cc', '.cxx', '.h', '.hpp', '.C'}
         all_files = []
-        for ext in extensions:
-            for f in self.source_root.rglob(ext):
-                if not self._should_exclude(f):
-                    all_files.append(f)
+        
+        for root, dirs, files in os.walk(self.source_root):
+            root_path = Path(root)
+            
+            # Filter out excluded directories before descending
+            dirs[:] = [d for d in dirs if not should_exclude_directory(root_path / d, self.exclude_patterns, self.source_root)]
+            
+            # Process files in current directory
+            for file in files:
+                file_path = root_path / file
+                if file_path.suffix in extensions and not self._should_exclude(file_path):
+                    all_files.append(file_path)
         
         file_count = len(all_files)
         log.info(f"Found {file_count} source files to scan (after exclusions)")
@@ -408,12 +405,23 @@ class SourceScanner:
                 data = json.load(f)
             
             # Verify cache is still valid (check file mtimes)
-            extensions = ['*.cpp', '*.cc', '*.cxx', '*.h', '*.hpp', '*.C']
+            import os
+            from ..utils.path_exclusion import should_exclude_directory
+            
+            extensions = {'.cpp', '.cc', '.cxx', '.h', '.hpp', '.C'}
             all_files = []
-            for ext in extensions:
-                for f in self.source_root.rglob(ext):
-                    if not self._should_exclude(f):
-                        all_files.append(f)
+            
+            for root, dirs, files in os.walk(self.source_root):
+                root_path = Path(root)
+                
+                # Filter out excluded directories before descending
+                dirs[:] = [d for d in dirs if not should_exclude_directory(root_path / d, self.exclude_patterns, self.source_root)]
+                
+                # Process files in current directory
+                for file in files:
+                    file_path = root_path / file
+                    if file_path.suffix in extensions and not self._should_exclude(file_path):
+                        all_files.append(file_path)
             
             cache_key = self._compute_cache_key(all_files)
             if data.get('cache_key') != cache_key:
@@ -440,12 +448,23 @@ class SourceScanner:
             self._ensure_cache_directories()
             
             # Collect all files for cache key
-            extensions = ['*.cpp', '*.cc', '*.cxx', '*.h', '*.hpp', '*.C']
+            import os
+            from ..utils.path_exclusion import should_exclude_directory
+            
+            extensions = {'.cpp', '.cc', '.cxx', '.h', '.hpp', '.C'}
             all_files = []
-            for ext in extensions:
-                for f in self.source_root.rglob(ext):
-                    if not self._should_exclude(f):
-                        all_files.append(f)
+            
+            for root, dirs, files in os.walk(self.source_root):
+                root_path = Path(root)
+                
+                # Filter out excluded directories before descending
+                dirs[:] = [d for d in dirs if not should_exclude_directory(root_path / d, self.exclude_patterns, self.source_root)]
+                
+                # Process files in current directory
+                for file in files:
+                    file_path = root_path / file
+                    if file_path.suffix in extensions and not self._should_exclude(file_path):
+                        all_files.append(file_path)
             
             cache_key = self._compute_cache_key(all_files)
             
