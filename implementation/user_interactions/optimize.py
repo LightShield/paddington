@@ -66,12 +66,9 @@ def run(args):
             objfiles = [path]
             log.debug(f"Single file mode: {path}")
     else:
-        # Use subprocess find for best performance on large directories
-        import subprocess
-        log.debug(f"Running find command (this may take several minutes)...")
-        result = subprocess.run(['find', str(path), '-name', '*.o', '-type', 'f'], 
-                              capture_output=True, text=True, check=True, timeout=600)
-        objfiles = [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+        # Use rglob for directory search
+        log.debug(f"Searching directory (this may take several minutes)...")
+        objfiles = list(path.rglob("*.o"))
         log.debug(f"Directory mode: found {len(objfiles)} .o files")
     
     # Apply filters
