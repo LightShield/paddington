@@ -91,6 +91,10 @@ def should_exclude_directory(dir_path: Path, exclude_patterns: List[str], root: 
 
 def _match_absolute_pattern(path_parts: tuple, pattern_parts: List[str]) -> bool:
     """Match pattern from the start of path (absolute pattern)."""
+    # Skip leading '/' in path_parts if present (for absolute paths)
+    if path_parts and path_parts[0] == '/':
+        path_parts = path_parts[1:]
+    
     if len(pattern_parts) > len(path_parts):
         return False
         

@@ -45,13 +45,19 @@ class TestShouldExcludePath:
         """Test '/tools/*' absolute pattern matching."""
         pattern = "/tools/*"
         
-        # Should match - absolute pattern matches from start
+        # Should match - absolute pattern matches from start (relative paths)
         assert should_exclude_path(Path("tools/build.py"), [pattern])
         assert should_exclude_path(Path("tools/nested/script.sh"), [pattern])
+        
+        # Should match - absolute pattern matches from start (absolute paths)
+        assert should_exclude_path(Path("/tools/build.py"), [pattern])
+        assert should_exclude_path(Path("/tools/nested/script.sh"), [pattern])
+        assert should_exclude_path(Path("/tools/snps/virtualizer/file.h"), [pattern])
         
         # Should not match - absolute pattern requires exact start match
         assert not should_exclude_path(Path("src/tools/build.py"), [pattern])
         assert not should_exclude_path(Path("other/tools/script.sh"), [pattern])
+        assert not should_exclude_path(Path("/src/tools/build.py"), [pattern])
         
     def test_multiple_patterns(self):
         """Test multiple exclusion patterns."""
