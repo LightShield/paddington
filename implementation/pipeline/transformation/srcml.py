@@ -228,7 +228,7 @@ class SrcMLTransformer(ISourceTransformer):
                     if tag == 'constructor':
                         found_constructor = True
                         init_list = self._find_initializer_list(elem)
-                        if init_list and self._has_constructor_dependencies(elem, new_order_names):
+                        if init_list and self._has_constructor_dependencies(elem, new_order):
                             log.info(f"SKIPPING {modification.struct_name} - constructor has dependencies")
                             has_constructor_with_deps = True
                             break
@@ -244,18 +244,18 @@ class SrcMLTransformer(ISourceTransformer):
                 
                 # Reorder inline constructors if present
                 if found_constructor:
-                    self._reorder_constructor_initializers(root, modification.struct_name, new_order_names)
+                    self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # Check for out-of-line constructors
             constructors = self._find_constructors(root, modification.struct_name)
             if constructors:
                 # Check dependencies
                 for constructor in constructors:
-                    if self._has_constructor_dependencies(constructor, new_order_names):
+                    if self._has_constructor_dependencies(constructor, new_order):
                         log.info(f"SKIPPING {modification.struct_name} - out-of-line constructor has dependencies")
                         return None
                 # Reorder out-of-line constructors
-                self._reorder_constructor_initializers(root, modification.struct_name, new_order_names)
+                self._reorder_constructor_initializers(root, modification.struct_name, new_order)
             
             # CRITICAL VERIFICATION: Ensure member order matches new_order exactly
             if has_member_reorder:
