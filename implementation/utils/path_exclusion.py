@@ -139,25 +139,42 @@ def _match_relative_pattern(path_parts: tuple, pattern_parts: List[str]) -> bool
 
 def _match_pattern_at_position(path_parts: tuple, pattern_parts: List[str], start_idx: int) -> bool:
     """Try to match pattern starting at specific position in path."""
-    if start_idx + len(pattern_parts) > len(path_parts):
-        # Not enough remaining parts to match pattern
-        remaining_wildcards = sum(1 for p in pattern_parts if p == '*')
-        remaining_literals = len(pattern_parts) - remaining_wildcards
-        remaining_path = len(path_parts) - start_idx
-        if remaining_literals > remaining_path:
-            return False
-    
     pattern_idx = 0
     path_idx = start_idx
     
-    while pattern_idx < len(pattern_parts) and path_idx < len(path_parts):
+    while pattern_idx < len(pattern_parts):
+        if path_idx >= len(path_parts):
+            # Ran out of path parts, check if remaining pattern is all wildcards
+            return all(p == '*' for p in pattern_parts[pattern_idx:])
+        
         if pattern_parts[pattern_idx] == '*':
-            pattern_idx += 1
-            path_idx += 1
+            # Wildcard matches one or more segments
+            # If this is the last pattern part, it matches the rest
+            if pattern_idx == len(pattern_parts) - 1:
+                return True
+            
+            # Look ahead to next literal in pattern
+            next_literal_idx = pattern_idx + 1
+            while next_literal_idx < len(pattern_parts) and pattern_parts[next_literal_idx] == '*':
+                next_literal_idx += 1
+            
+            if next_literal_idx >= len(pattern_parts):
+                # Rest of pattern is wildcards, matches everything
+                return True
+            
+            next_literal = pattern_parts[next_literal_idx]
+            
+            # Wildcard must match at least one segment, so start searching from path_idx+1
+            for i in range(path_idx + 1, len(path_parts)):
+                if path_parts[i] == next_literal:
+                    # Try matching from this position
+                    if _match_pattern_at_position(path_parts, pattern_parts[next_literal_idx:], i):
+                        return True
+            return False
         elif pattern_parts[pattern_idx] == path_parts[path_idx]:
             pattern_idx += 1
             path_idx += 1
         else:
             return False
             
-    return pattern_idx == len(pattern_parts)
+    return True  # Matched all pattern parts
