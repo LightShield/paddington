@@ -101,8 +101,10 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         
         struct_body = content[start_pos:pos]
         
-        # Check for static const members
-        if re.search(r'\bstatic\s+const\s+\w+|constexpr\s+\w+', struct_body):
+        # Check for static const members (data members only, not methods)
+        # Match: static const Type name = value; or static const Type name;
+        # Don't match: static Type method(...);
+        if re.search(r'\bstatic\s+const\s+\w+[^(]*?[;=]|constexpr\s+\w+[^(]*?[;=]', struct_body):
             static_const_structs.add(struct_name)
         
         # Check for nested types (typedef, using, nested struct/class/enum)
