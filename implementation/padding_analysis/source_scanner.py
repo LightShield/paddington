@@ -107,13 +107,15 @@ def _scan_single_file(file_path: Path) -> Tuple[Set[str], Set[str], Dict[str, Di
         if re.search(r'\bstatic\s+const\s+\w+[^(]*?[;=]|constexpr\s+\w+[^(]*?[;=]', struct_body):
             static_const_structs.add(struct_name)
         
-        # Check for nested types (typedef, using, nested struct/class/enum)
+        # Check for nested types (typedef, using, nested struct/class)
+        # Note: Enums are safe and don't affect member layout, so we don't flag them
         nested_types = []
         if re.search(r'\btypedef\s+', struct_body):
             nested_types.append('typedef')
         if re.search(r'\busing\s+\w+\s*=', struct_body):
             nested_types.append('using')
-        if re.search(r'\b(?:struct|class|enum)\s+\w+\s*[:{]', struct_body):
+        # Only flag nested struct/class, not enum (enums are safe)
+        if re.search(r'\b(?:struct|class)\s+\w+\s*[:{]', struct_body):
             nested_types.append('nested_struct')
         if nested_types:
             nested_types_map[struct_name] = nested_types

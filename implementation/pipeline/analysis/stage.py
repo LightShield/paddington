@@ -166,7 +166,9 @@ class AnalysisStage(Stage[List[StructInfo], List[OptimizationPlan]]):
                 continue
             
             # Check for nested types
-            if self._scanner and struct_name in self._scanner.structs_with_nested_types:
+            # For templates, check base name without template parameters
+            base_struct_name = struct_name.split('<')[0] if '<' in struct_name else struct_name
+            if self._scanner and base_struct_name in self._scanner.structs_with_nested_types:
                 plan = OptimizationPlan(
                     struct=struct,
                     original_order=tuple(updated_members),
